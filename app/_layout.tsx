@@ -21,14 +21,11 @@ export default function RootLayout() {
 
       {/* Main dashboard and other app tabs */}
       <Stack.Screen
-        name="(tabs)"
+        name="dashboard"
         options={{
           headerShown: false, // ✅ disable RN header — show your custom header inside screens
         }}
       />
-
-      {/* Optional: 404 fallback screen */}
-      <Stack.Screen name="+not-found" />
     </Stack>
   );
 }

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import {SafeAreaView,View,Text,ScrollView,StyleSheet,TouchableOpacity,ActivityIndicator,Image,TextInput,ImageBackground,} from 'react-native';
+import {useNavigationOptions} from 'expo-router'
+import {SafeAreaView,View,Text,ScrollView,StyleSheet,TouchableOpacity,ActivityIndicator,Image,TextInput,ImageBackground,Platform,StatusBar} from 'react-native';
 // New imports for progress bar and date calculation
 import * as Progress from 'react-native-progress';
 import { differenceInDays } from 'date-fns';
@@ -150,11 +151,6 @@ export default function DashboardScreen() {
         style={styles.scrollView}
         contentContainerStyle={[styles.container, { paddingTop: HEADER_HEIGHT }]}
       >
-        {/* Search Bar */}
-        <View style={styles.searchBar}>
-          <Icon name="search" size={16} color="#BDBDBD" style={styles.searchIcon} />
-          <TextInput placeholder="Search for a Donor" style={styles.searchInput} placeholderTextColor="#BDBDBD" />
-        </View>
 
         {userProfile && (
   <View style={styles.welcomeCard}>
@@ -366,6 +362,8 @@ export default function DashboardScreen() {
   );
 }
 
+
+
 const styles = StyleSheet.create({
    // --- NEW STYLES for Tracker Card ---
   trackerCard: {
@@ -394,7 +392,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: palette.darkText,
   },
-  safeArea: { flex: 1, backgroundColor: palette.pageBg },
+  safeArea: { flex: 1, backgroundColor: palette.pageBg, },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -408,6 +406,7 @@ paddingLeft: 20,
 // Increase the right padding
 paddingRight: 120,
 marginBottom: 20,
+marginTop:24,
 flexDirection: 'row',
 elevation: 4,
 shadowColor: 'rgba(0,0,0,0.1)',
@@ -529,7 +528,7 @@ overflow: 'hidden', // Add this to contain potential overflowing content
     top: 45,
   },
   mouth: {
-    width: 57,
+    width: 47,
     height: 25,
     // This creates the half-circle arc shape
     borderBottomLeftRadius: 50,
@@ -549,6 +548,8 @@ overflow: 'hidden', // Add this to contain potential overflowing content
     left: 0,
     right: 0,
     height: HEADER_HEIGHT,
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
+
     backgroundColor: '#EDF0F3',
     flexDirection: 'row',
     alignItems: 'center',
@@ -569,7 +570,7 @@ overflow: 'hidden', // Add this to contain potential overflowing content
   scrollView: { flex: 1 },
   container: { paddingHorizontal: 16, paddingBottom: 0 },
 
-  searchBar: { position: 'relative', marginBottom: 20 },
+  searchBar: { position: 'relative', marginBottom: 20, marginTop:20 },
   searchInput: {
     backgroundColor: palette.white,
     paddingVertical: 12,
@@ -652,7 +653,7 @@ overflow: 'hidden', // Add this to contain potential overflowing content
   itemSubtitle: { fontSize: 12, color: palette.lightText },
   itemAction: { fontWeight: '600', fontSize: 16 },
 
-  tabs: { flexDirection: 'row', marginBottom: 15 },
+  tabs: { flexDirection: 'row', marginBottom: 15,gap:8 },
   tab: { paddingVertical: 6, paddingHorizontal: 15, borderRadius: 20, borderWidth: 1, borderColor: '#E4DDEB' },
   activeTab: { backgroundColor: palette.statsRed, borderColor: palette.statsRed },
   tabText: { color: palette.darkText, fontSize: 13 },
@@ -668,7 +669,7 @@ overflow: 'hidden', // Add this to contain potential overflowing content
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
-  footerBtn: { flex: 1, padding: 15, borderRadius: 10, alignItems: 'center' },
+  footerBtn: { flex:1, padding: 10, borderRadius: 10, alignItems: 'center',marginHorizontal:8 },
   footerBtnText: { fontSize: 16, fontWeight: '600' },
   btnDonate: { backgroundColor: palette.statsRed },
   btnRequest: { backgroundColor: palette.white, borderWidth: 1, borderColor: palette.statsRed },
