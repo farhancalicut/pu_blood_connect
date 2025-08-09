@@ -1,9 +1,11 @@
+import MenuBar from './MenuBar';
 import React, { useEffect, useState } from 'react';
 import {useNavigationOptions} from 'expo-router'
 import {SafeAreaView,View,Text,ScrollView,StyleSheet,TouchableOpacity,ActivityIndicator,Image,TextInput,ImageBackground,Platform,StatusBar} from 'react-native';
 // New imports for progress bar and date calculation
 import * as Progress from 'react-native-progress';
 import { differenceInDays } from 'date-fns';
+import {BlurView} from 'expo-blur';
 
 import Icon from 'react-native-vector-icons/FontAwesome5';
 import RegularIcon from 'react-native-vector-icons/FontAwesome';
@@ -51,6 +53,7 @@ export default function DashboardScreen() {
   const [daysUntilEligible, setDaysUntilEligible] = useState(0);
   const [progress, setProgress] = useState(0);
   const [isEligible, setIsEligible] = useState(false);
+  const [menuVisible, setMenuVisible] = useState(false);
 
   // --- Data Fetching Effect ---
   useEffect(() => {
@@ -133,12 +136,19 @@ export default function DashboardScreen() {
     </View>
   );
 
+
+  
+  const openMenu = () => setMenuVisible(true);
+  const closeMenu = () => setMenuVisible(false);
+
+
+
   // --- Main Render ---
   return (
     <SafeAreaView style={styles.safeArea}>
       {/* Sticky Custom Header */}
       <View style={styles.header}>
-        <TouchableOpacity><Icon name="bars" size={22} color={palette.darkText} /></TouchableOpacity>
+        <TouchableOpacity onPress={openMenu}><Icon name="bars" size={22} color={palette.darkText} /></TouchableOpacity>
         <View style={styles.logo}>
           <Image source={{ uri: 'https://i.ibb.co/68v8z0p/heart-logo.png' }} style={styles.logoImg} />
           <Text style={styles.logoText}>PU Heart Connect</Text>
@@ -149,7 +159,7 @@ export default function DashboardScreen() {
       {/* Scrollable Content */}
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={[styles.container, { paddingTop: HEADER_HEIGHT }]}
+        contentContainerStyle={[styles.container]}
       >
 
         {userProfile && (
@@ -358,6 +368,25 @@ export default function DashboardScreen() {
           </Text>
         </TouchableOpacity>
       </View>
+
+        {/* Blur + Dim Overlay when menu is open */}
+      {menuVisible && (
+        <TouchableOpacity
+          activeOpacity={1}
+          style={StyleSheet.absoluteFill}
+          onPress={closeMenu} // close when tapping outside
+        >
+          <BlurView
+            intensity={50} // adjust blur
+            tint="dark" // "light" | "dark" | "default"
+            style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.3)' }]} // dim effect
+          />
+        </TouchableOpacity>
+      )}
+
+    {/* Slide-in Menu */}
+    <MenuBar visible={menuVisible} onClose={closeMenu} />
+
     </SafeAreaView>
   );
 }
@@ -543,13 +572,12 @@ overflow: 'hidden', // Add this to contain potential overflowing content
   },
 
   header: {
-    position: 'absolute',
+    position:"static",
     top: 0,
     left: 0,
     right: 0,
     height: HEADER_HEIGHT,
     paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
-
     backgroundColor: '#EDF0F3',
     flexDirection: 'row',
     alignItems: 'center',
@@ -557,6 +585,7 @@ overflow: 'hidden', // Add this to contain potential overflowing content
     paddingHorizontal: 16,
     zIndex: 10,
     elevation: 4,
+    
   },
   logo: { flexDirection: 'row', alignItems: 'center' },
   logoImg: { width: 26, height: 26, marginRight: 8 },
