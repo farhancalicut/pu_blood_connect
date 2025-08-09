@@ -1,23 +1,22 @@
 import React, { useEffect, useState } from 'react';
-import {useNavigationOptions} from 'expo-router'
-import {SafeAreaView,View,Text,ScrollView,StyleSheet,TouchableOpacity,ActivityIndicator,Image,TextInput,ImageBackground,Platform,StatusBar} from 'react-native';
+import { ActivityIndicator, Image, ImageBackground, Platform, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 // New imports for progress bar and date calculation
-import * as Progress from 'react-native-progress';
 import { differenceInDays } from 'date-fns';
+import * as Progress from 'react-native-progress';
 
-import Icon from 'react-native-vector-icons/FontAwesome5';
-import RegularIcon from 'react-native-vector-icons/FontAwesome';
 import { getAuth } from 'firebase/auth';
 import {
+  collection,
   doc,
   getDoc,
-  collection,
   getDocs,
-  query,
-  orderBy,
   limit,
+  orderBy,
+  query,
 } from 'firebase/firestore';
-import { firebaseApp, db } from '../firebase';
+import RegularIcon from 'react-native-vector-icons/FontAwesome';
+import Icon from 'react-native-vector-icons/FontAwesome5';
+import { db, firebaseApp } from '../firebase';
 
 // --- Type Definitions ---
 type UserProfile = { uid: string; name?: string; department?: string; totalDonates?: number; lastDonated?: any; bloodGroup?: string; [key: string]: any; };
@@ -156,9 +155,9 @@ export default function DashboardScreen() {
   <View style={styles.welcomeCard}>
     {/* --- Left Side Content --- */}
     <View style={styles.leftContent}>
-      <Text style={styles.welcomeTitle}>Hi {userProfile.name || 'User'}!</Text>
+      <Text style={styles.welcomeTitle}>Hi {userProfile.firstName || 'User'}!</Text>
       <Text style={styles.welcomeDetail}>
-        Department: {userProfile.department || 'N/A'}
+        {'Department:\n'}{userProfile.department || 'N/A'}
       </Text>
       <Text style={styles.welcomeDetail}>
         Total Donates: {userProfile.totalDonates || 0} Unites
@@ -407,6 +406,7 @@ paddingLeft: 20,
 paddingRight: 120,
 marginBottom: 20,
 marginTop:24,
+alignItems: 'center',
 flexDirection: 'row',
 elevation: 4,
 shadowColor: 'rgba(0,0,0,0.1)',
@@ -422,8 +422,6 @@ overflow: 'hidden', // Add this to contain potential overflowing content
     alignItems: 'center',
     paddingLeft: 12,
     paddingTop: 13,
-
-
   },
   welcomeTitle: {
     fontSize: 23,
@@ -432,7 +430,7 @@ overflow: 'hidden', // Add this to contain potential overflowing content
     marginBottom: 8,
   },
   welcomeDetail: {
-    fontSize: 13,
+    fontSize: 12,
     color: palette.lightText,
     lineHeight: 20,
   },
