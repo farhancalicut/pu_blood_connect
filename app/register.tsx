@@ -11,7 +11,9 @@ export default function RegisterScreen() {
   const router = useRouter();
   const [form, setForm] = useState({
     email: '',
-    fullName: '',
+    firstName: '',
+    lastName: '',
+    department:'',
     gender: '',
     age: '',
     bloodGroup: '',
@@ -25,10 +27,10 @@ export default function RegisterScreen() {
   };
 
   const handleRegister = async () => {
-    const { fullName, email, password, confirmPassword, gender, age, bloodGroup, phone } = form;
+    const { firstName,lastName,department, email, password, confirmPassword, gender, age, bloodGroup, phone } = form;
 
     // ✅ Updated Validation
-    if (!email || !fullName || !phone || !bloodGroup || !gender || !age) {
+    if (!email || !firstName || !lastName || !department || !phone || !bloodGroup || !gender || !age) {
       alert('Please fill all fields');
       return;
     }
@@ -51,7 +53,9 @@ export default function RegisterScreen() {
       // Save user details in Firestore
       await setDoc(doc(db, 'users', user.uid), {
         email,
-        fullName,
+        firstName: form.firstName,
+        lastName: form.lastName,
+        department: form.department,
         gender: form.gender,
         age: form.age,
         bloodGroup: form.bloodGroup,
@@ -88,7 +92,9 @@ export default function RegisterScreen() {
 
         {[
           ['email', 'email'],
-          ['fullName', 'Full Name'],
+          ['firstName', 'First Name'],
+          ['lastName', 'last Name'],
+          ['department', 'Department'],
           ['gender', 'Gender'],
           ['age', 'Age'],
           ['bloodGroup', 'Blood Group'],

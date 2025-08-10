@@ -27,7 +27,7 @@ export default function LoginScreen() {
         const userData = userDoc.data();
         console.log("User Data:", userData);
 
-        Alert.alert('Success', `Welcome ${userData.fullName}`);
+        Alert.alert('Success', `Welcome ${userData.firstName}`);
         router.replace('/dashboard');
       } else {
         Alert.alert('Error', 'User profile not found in database.');
