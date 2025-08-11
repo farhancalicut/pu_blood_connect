@@ -30,7 +30,7 @@ import {
 } from 'firebase/firestore';
 import RegularIcon from 'react-native-vector-icons/FontAwesome';
 import Icon from 'react-native-vector-icons/FontAwesome5';
-import { useFocusEffect } from 'expo-router'; // 2. Import useFocusEffect
+import { useFocusEffect, useRouter  } from 'expo-router'; // 2. Import useFocusEffect
 import { db, firebaseApp } from '../firebase';
 import { useMenu } from './context/MenuContext';
 
@@ -63,7 +63,7 @@ const TestimonialCard = ({ item }: { item: Testimonial }) => (
 );
 export default function DashboardScreen() {
   const { toggleMenu } = useMenu(); 
-
+  const router = useRouter(); // Initialize the router
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [topStudentDonors, setTopStudentDonors] = useState<UserProfile[]>([]);
   const [recentDonors, setRecentDonors] = useState<Donation[]>([]);
@@ -190,7 +190,7 @@ export default function DashboardScreen() {
           <Text style={styles.logoText}>PU Heart Connect</Text>
         </View>
         <TouchableOpacity>
-          <RegularIcon name="bell" size={22} color={palette.darkText} />
+          <RegularIcon name="bell" size={22} color={palette.darkText} onPress={() => router.push('/notifications')}/>
         </TouchableOpacity>
       </View>
 
@@ -299,8 +299,8 @@ export default function DashboardScreen() {
         <View style={{ height: 100 }} />
       </ScrollView>
       <View style={styles.footerFloating}>
-        <TouchableOpacity style={[styles.footerBtn, styles.btnDonate]}><Text style={[styles.footerBtnText, { color: palette.white }]}>Donate</Text></TouchableOpacity>
-        <TouchableOpacity style={[styles.footerBtn, styles.btnRequest]}><Text style={[styles.footerBtnText, { color: palette.statsRed }]}>Request</Text></TouchableOpacity>
+        <TouchableOpacity style={[styles.footerBtn, styles.btnDonate]} onPress={() => router.push('/donate')}><Text style={[styles.footerBtnText, { color: palette.white }]}>Donate</Text></TouchableOpacity>
+        <TouchableOpacity style={[styles.footerBtn, styles.btnRequest]} onPress={() => router.push('/request')}><Text style={[styles.footerBtnText, { color: palette.statsRed }]}>Request</Text></TouchableOpacity>
       </View>
     </SafeAreaView>
   );

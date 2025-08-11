@@ -18,7 +18,7 @@ const menuItems: MenuItem[] = [ // Apply the type
   { icon: 'heart-outline', name: 'My Donations' },
   { icon: 'search-outline', name: 'Find Donors' },
   { icon: 'calendar-outline', name: 'Events' },
-  { icon: 'notifications-outline', name: 'Notifications' },
+  { icon: 'notifications-outline', name: 'Notifications', href: '/notifications' },
 ];
 
 const secondaryMenuItems: MenuItem[] = [ // Apply the type
