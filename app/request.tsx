@@ -9,13 +9,11 @@ import { collection, addDoc, serverTimestamp, doc, getDoc } from 'firebase/fires
 import { db } from '../firebase'; // Make sure this path is correct
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Picker } from '@react-native-picker/picker';
-import { useSafeAreaInsets } from 'react-native-safe-area-context'; 
 
 const palette = { primaryRed: '#9B0000', darkText: '#333333', lightText: '#8A8A8A', white: '#ffffff', borderLight: '#EAEAEA', pageBg: '#FEF8F8' };
 
 const RequestScreen = () => {
     const router = useRouter();
-    const insets = useSafeAreaInsets();
     const [patientName, setPatientName] = useState('');
     const [mobileNumber, setMobileNumber] = useState('');
     const [requiredDate, setRequiredDate] = useState(new Date());
@@ -101,7 +99,6 @@ const RequestScreen = () => {
                                 <View pointerEvents="none">
                                     <TextInput style={styles.input} value={requiredDate.toLocaleDateString()} editable={false} />
                                 </View>
-                                <TextInput style={styles.input} value={requiredDate.toLocaleDateString()} editable={false} />
                             </TouchableOpacity>
                         </View>
                         <View style={styles.halfWidth}>

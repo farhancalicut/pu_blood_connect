@@ -1,11 +1,10 @@
-import React, { useState, useCallback , useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, SafeAreaView, ActivityIndicator, TouchableOpacity, Image, Alert } from 'react-native';
-import { useRouter, useFocusEffect, useNavigation } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { collection, getDocs, query, orderBy, doc, getDoc, deleteDoc } from 'firebase/firestore';
-import { ref, deleteObject } from 'firebase/storage'; 
-import { db, auth, storage } from '../firebase';
+import { useFocusEffect, useNavigation, useRouter } from 'expo-router';
+import { collection, deleteDoc, doc, getDoc, getDocs, orderBy, query } from 'firebase/firestore';
+import { deleteObject, ref } from 'firebase/storage';
+import React, { useCallback, useEffect, useState } from 'react';
+import { ActivityIndicator, Alert, FlatList, Image, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { auth, db, storage } from '../firebase';
 
 const palette = { primaryRed: '#9B0000', darkText: '#333333', lightText: '#8A8A8A', white: '#ffffff', borderLight: '#EAEAEA', pageBg: '#F7F7F7', blue: '#3478f6' };
 
@@ -140,9 +139,6 @@ const handleDelete = (event: Event) => {
 
 const styles = StyleSheet.create({
     safeArea: { flex: 1, backgroundColor: palette.white },
-    header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 15, paddingBottom: 15, borderBottomWidth: 1, borderBottomColor: palette.borderLight },
-    headerButton: { width: 28, alignItems: 'center' },
-    headerTitle: { fontSize: 18, fontWeight: 'bold' },
     listContainer: { padding: 15, backgroundColor: palette.pageBg },
     card: { backgroundColor: palette.white, borderRadius: 12, marginBottom: 20, elevation: 3, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 4 },
     poster: { width: '100%', height: 180, borderTopLeftRadius: 12, borderTopRightRadius: 12 },
