@@ -1,5 +1,3 @@
-// app/notifications.tsx
-
 import React, { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, FlatList, SafeAreaView, ActivityIndicator,TouchableOpacity } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -7,7 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { getAuth } from 'firebase/auth';
 import { collection, query, where, orderBy, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
 
 const palette = { primaryRed: '#9B0000', darkText: '#333333', lightText: '#8A8A8A', white: '#ffffff', borderLight: '#EAEAEA', pageBg: '#F7F7F7' };
 
@@ -32,8 +30,6 @@ const NotificationItem = ({ item }: { item: Notification }) => (
 );
 
 const NotificationsScreen = () => {
-    const router = useRouter();
-    const insets = useSafeAreaInsets();
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const auth = getAuth();
@@ -65,13 +61,7 @@ const NotificationsScreen = () => {
 
     return (
         <SafeAreaView style={styles.safeArea}>
-            <View style={[styles.header, { paddingTop: insets.top }]}>
-                <TouchableOpacity onPress={() => router.back()} style={styles.headerButton}>
-                    <Ionicons name="chevron-back" size={28} color={palette.darkText} />
-                </TouchableOpacity>
-                <Text style={styles.headerTitle}>Notifications</Text>
-                <View style={styles.headerButton} />
-            </View>
+            
             {isLoading ? (
                 <ActivityIndicator style={{ flex: 1 }} size="large" color={palette.primaryRed} />
             ) : (
@@ -91,24 +81,6 @@ const styles = StyleSheet.create({
     safeArea: {
         flex: 1,
         backgroundColor: palette.white,
-    },
-    header: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingHorizontal: 15,
-        paddingBottom: 15,
-        backgroundColor: palette.white,
-        borderBottomWidth: 1,
-        borderBottomColor: palette.borderLight,
-    },
-    headerButton: {
-        width: 28, // Ensures title stays centered
-    },
-    headerTitle: {
-        fontSize: 18,
-        fontWeight: 'bold',
-        color: palette.darkText,
     },
     listContainer: {
         padding: 15,

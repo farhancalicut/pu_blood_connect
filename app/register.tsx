@@ -1,129 +1,162 @@
-import { useRouter } from 'expo-router';
+import { useRouter ,useNavigation} from 'expo-router';
 import { FirebaseError } from 'firebase/app';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { doc, setDoc } from 'firebase/firestore';
-import React, { useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
+import React, { useState, useEffect } from 'react';
+import { Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, SafeAreaView, ActivityIndicator } from 'react-native';
 import { auth, db } from '../firebase';
-
 
 export default function RegisterScreen() {
   const router = useRouter();
+    const navigation = useNavigation(); 
+  const user = auth.currentUser; // Get the currently logged-in user
+  const isEditMode = !!user; // If user exists, we are in Edit Mode
+
   const [form, setForm] = useState({
-    email: '',
-    firstName: '',
-    lastName: '',
-    department:'',
-    gender: '',
-    age: '',
-    bloodGroup: '',
-    phone: '',
-    password: '',
-    confirmPassword: '',
+    email: '', firstName: '', lastName: '', department: '', gender: '',
+    age: '', bloodGroup: '', phone: '', password: '', confirmPassword: '',
   });
+  const [isLoading, setIsLoading] = useState(isEditMode); 
+
+  useEffect(() => {
+    navigation.setOptions({
+      title: isEditMode ? 'Edit Profile' : 'Register',
+      headerBackVisible: isEditMode, // This shows the back button only in edit mode
+    });
+  }, [isEditMode, navigation]);
+  useEffect(() => {
+    if (isEditMode && user) {
+      const fetchUserData = async () => {
+        const userDocRef = doc(db, 'users', user.uid);
+        const docSnap = await getDoc(userDocRef);
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          setForm({
+            ...form,
+            email: user.email || '',
+            firstName: data.firstName || '',
+            lastName: data.lastName || '',
+            department: data.department || '',
+            gender: data.gender || '',
+            age: data.age || '',
+            bloodGroup: data.bloodGroup || '',
+            phone: data.phone || '',
+          });
+        }
+        setIsLoading(false);
+      };
+      fetchUserData();
+    }
+  }, [isEditMode, user]);
+
 
   const handleChange = (field: string, value: string) => {
     setForm({ ...form, [field]: value });
   };
 
-  const handleRegister = async () => {
-    const { firstName,lastName,department, email, password, confirmPassword, gender, age, bloodGroup, phone } = form;
+  // Renamed to handleSubmit, handles both Register and Update
+  const handleSubmit = async () => {
+    const { email, password, confirmPassword, ...profileData } = form;
 
-    // ✅ Updated Validation
-    if (!email || !firstName || !lastName || !department || !phone || !bloodGroup || !gender || !age) {
-      alert('Please fill all fields');
-      return;
+    if (!profileData.firstName || !profileData.lastName || !profileData.department || !profileData.phone) {
+        Alert.alert('Missing Information', 'Please fill all required profile fields.');
+        return;
     }
 
-    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailPattern.test(email)) {
-      alert('Please enter a valid email address');
-      return;
-    }
-
-    if (password !== confirmPassword) {
-      alert('Passwords do not match');
-      return;
-    }
-
+    setIsLoading(true);
     try {
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      const user = userCredential.user;
+      if (isEditMode && user) {
+        // --- UPDATE LOGIC ---
+        const userDocRef = doc(db, 'users', user.uid);
+        await updateDoc(userDocRef, {
+            firstName: profileData.firstName,
+            lastName: profileData.lastName,
+            name: `${form.firstName} ${form.lastName}`,
+            department: profileData.department,
+            gender: profileData.gender,
+            age: profileData.age,
+            bloodGroup: profileData.bloodGroup,
+            phone: profileData.phone,
+        });
+        Alert.alert('Profile Updated!', 'Your details have been saved successfully.');
+        router.back(); // Go back to the profile screen
 
-      // Save user details in Firestore
-      await setDoc(doc(db, 'users', user.uid), {
-        email,
-        firstName: form.firstName,
-        lastName: form.lastName,
-        department: form.department,
-        gender: form.gender,
-        age: form.age,
-        bloodGroup: form.bloodGroup,
-        phone: form.phone,
-        uid: user.uid,
-        createdAt: new Date(),
-      });
+      } else {
+        // --- REGISTER LOGIC ---
+        if (!email || !password) {
+            Alert.alert('Missing Information', 'Please provide an email and password.');
+            setIsLoading(false);
+            return;
+        }
+        if (password !== confirmPassword) {
+            Alert.alert('Passwords do not match');
+            setIsLoading(false);
+            return;
+        }
+        
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        const newUser = userCredential.user;
+        await setDoc(doc(db, 'users', newUser.uid), {
+          ...profileData,
+          email,
+          uid: newUser.uid,
+          createdAt: new Date(),
+        });
 
-      Alert.alert('Registration successful!');
-      router.push('/login');
+        Alert.alert('Registration successful!');
+        router.push('/login');
+      }
     } catch (error) {
       const err = error as FirebaseError;
-      Alert.alert('Registration Failed', err.message);
+      Alert.alert('Operation Failed', err.message);
+    } finally {
+      setIsLoading(false);
     }
   };
+  
+  const formFields = [
+    { key: 'firstName', label: 'First Name' }, { key: 'lastName', label: 'Last Name' },
+    { key: 'department', label: 'Department' }, { key: 'gender', label: 'Gender' },
+    { key: 'age', label: 'Age' }, { key: 'bloodGroup', label: 'Blood Group' },
+    { key: 'phone', label: 'Phone Number' }
+  ];
 
+  if (isLoading && isEditMode) {
+      return <ActivityIndicator style={{ flex: 1, justifyContent: 'center' }} size="large" color="#9B0000" />;
+  }
 
   return (
-    <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.logo}>🩸 PU HEART CONNECT</Text>
-        <Text style={styles.icon}>🔔</Text>
-      </View>
+    <SafeAreaView style={styles.container}>
+    
 
-      {/* Form Card */}
       <ScrollView contentContainerStyle={styles.card} showsVerticalScrollIndicator={false}>
-        <View style={styles.tabContainer}>
-          <Text style={styles.tab} onPress={() => router.push('/login')}>
-            Login
-          </Text>
-          <Text style={[styles.tab, styles.activeTab]}>Register</Text>
-        </View>
-
-        {[
-          ['email', 'email'],
-          ['firstName', 'First Name'],
-          ['lastName', 'last Name'],
-          ['department', 'Department'],
-          ['gender', 'Gender'],
-          ['age', 'Age'],
-          ['bloodGroup', 'Blood Group'],
-          ['phone', 'Phone Number'],
-          ['password', 'Password'],
-          ['confirmPassword', 'Confirm Password'],
-        ].map(([key, label]) => (
-          <TextInput
-            key={key}
-            style={styles.input}
-            placeholder={label}
-            secureTextEntry={key.includes('password')}
-            value={(form as any)[key]}
-            onChangeText={(text) => handleChange(key, text)}
-          />
+        {!isEditMode && (
+          <View style={styles.tabContainer}>
+            <Text style={styles.tab} onPress={() => router.push('/login')}>Login</Text>
+            <Text style={[styles.tab, styles.activeTab]}>Register</Text>
+          </View>
+        )}
+        
+        <TextInput style={[styles.input, isEditMode && styles.disabledInput]} placeholder="Email" value={form.email} onChangeText={(text) => handleChange('email', text)} editable={!isEditMode} />
+        {formFields.map(({ key, label }) => (
+          <TextInput key={key} style={styles.input} placeholder={label} value={(form as any)[key]} onChangeText={(text) => handleChange(key, text)} />
         ))}
+        {!isEditMode && (
+          <>
+            <TextInput style={styles.input} placeholder="Password" secureTextEntry value={form.password} onChangeText={(text) => handleChange('password', text)} />
+            <TextInput style={styles.input} placeholder="Confirm Password" secureTextEntry value={form.confirmPassword} onChangeText={(text) => handleChange('confirmPassword', text)} />
+          </>
+        )}
 
-        <TouchableOpacity style={styles.registerButton} onPress={handleRegister}>
-          <Text style={styles.registerButtonText}>Register</Text>
+        <TouchableOpacity style={styles.registerButton} onPress={handleSubmit} disabled={isLoading}>
+          {isLoading ? <ActivityIndicator color="#fff" /> : <Text style={styles.registerButtonText}>{isEditMode ? 'Update Profile' : 'Register'}</Text>}
         </TouchableOpacity>
 
-        <Text style={styles.signInText}>
-          Or{' '}
-          <Text style={styles.signInLink} onPress={() => router.push('/login')}>
-            sign in
-          </Text>
-        </Text>
+        {!isEditMode && (
+          <Text style={styles.signInText}>Or <Text style={styles.signInLink} onPress={() => router.push('/login')}>sign in</Text></Text>
+        )}
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -133,20 +166,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#EDF0F3',
     padding: 20,
   },
-  header: {
-    flexDirection: 'row',
-    marginTop: 40,
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  logo: {
-    fontWeight: 'bold',
-    color: '#C00000',
-    fontSize: 18,
-  },
-  icon: {
-    fontSize: 18,
-  },
+
+  disabledInput: { backgroundColor: '#f5f5f5', color: '#999' },
   card: {
     backgroundColor: '#F8FAFC',
     padding: 25,

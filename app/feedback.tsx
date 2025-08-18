@@ -1,12 +1,10 @@
-// app/feedback.tsx
-
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, ActivityIndicator, KeyboardAvoidingView, Platform, SafeAreaView } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, ActivityIndicator, KeyboardAvoidingView, Platform, SafeAreaView ,StatusBar} from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { getAuth } from 'firebase/auth';
 import { collection, addDoc, serverTimestamp, doc, getDoc } from 'firebase/firestore';
-import { db } from '../firebase'; // Make sure this path is correct
+import { db } from '../firebase';
 
 const palette = {
     primaryRed: '#9B0000',
@@ -26,15 +24,16 @@ const FeedbackScreen = () => {
     const [userDepartment, setUserDepartment] = useState('');
 
     useEffect(() => {
-        // Fetch current user's name and department to attach to the feedback
         const auth = getAuth();
         const user = auth.currentUser;
         if (user) {
             const userDocRef = doc(db, 'users', user.uid);
             getDoc(userDocRef).then(docSnap => {
                 if (docSnap.exists()) {
-                    setUserName(docSnap.data().name || 'Anonymous');
-                    setUserDepartment(docSnap.data().department || 'Unknown Department');
+                    const data = docSnap.data();
+                    const fullName = data.name || `${data.firstName} ${data.lastName}`.trim();
+                    setUserName(fullName || 'Anonymous');
+                    setUserDepartment(data.department || 'Unknown Department');
                 }
             });
         }
@@ -57,7 +56,7 @@ const FeedbackScreen = () => {
             });
             
             Alert.alert('Thank You!', 'Your feedback has been submitted successfully.');
-            router.back(); // Go back to the dashboard
+            router.back(); 
 
         } catch (error) {
             console.error("Error submitting feedback: ", error);

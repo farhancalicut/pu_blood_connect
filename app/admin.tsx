@@ -1,0 +1,164 @@
+import React, { useState, } from 'react';
+import { View, Text, StyleSheet, SafeAreaView, ActivityIndicator, FlatList, TouchableOpacity, Alert } from 'react-native';
+import { useRouter, useFocusEffect } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { getAuth } from 'firebase/auth';
+import { doc, getDoc, collection, query, where, getDocs, updateDoc, increment, addDoc, serverTimestamp } from 'firebase/firestore'; // Import addDoc and serverTimestamp
+import { db } from '../firebase';
+
+
+const palette = { primaryRed: '#9B0000', darkText: '#333333', lightText: '#8A8A8A', white: '#ffffff', borderLight: '#EAEAEA', pageBg: '#F7F7F7', green: '#28a745', yellow: '#ffc107' };
+
+type Submission = {
+    id: string;
+    donorName: string;
+    donorId: string;
+    confirmedUnits: number;
+    confirmedDate: { toDate: () => Date };
+    certificateUrl: string;
+    bloodGroup: string;
+    hospital: string;
+};
+
+// --- Submission Card Component ---
+const SubmissionCard = ({ item, onApprove, onReject }: { item: Submission, onApprove: () => void, onReject: () => void }) => (
+    <View style={styles.card}>
+        <Text style={styles.cardTitle}>{item.donorName}</Text>
+        <Text style={styles.cardText}>Units Donated: {item.confirmedUnits}</Text>
+        <TouchableOpacity onPress={() => Alert.alert("Certificate", "Viewing the certificate image will be implemented next.")}>
+            <Text style={styles.viewCertificateLink}>View Certificate</Text>
+        </TouchableOpacity>
+        <View style={styles.buttonRow}>
+            <TouchableOpacity style={[styles.actionButton, styles.rejectButton]} onPress={onReject}>
+                <Text style={styles.actionButtonText}>Reject</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.actionButton, styles.approveButton]} onPress={onApprove}>
+                <Text style={styles.actionButtonText}>Approve</Text>
+            </TouchableOpacity>
+        </View>
+    </View>
+);
+
+export default function AdminScreen() {
+    const router = useRouter();
+    const insets = useSafeAreaInsets();
+    const [isLoading, setIsLoading] = useState(true);
+    const [isAdmin, setIsAdmin] = useState(false);
+    const [submissions, setSubmissions] = useState<Submission[]>([]);
+
+    const checkAdminStatusAndFetchData = React.useCallback(async () => {
+        const auth = getAuth();
+        const user = auth.currentUser;
+
+        if (!user) {
+            router.replace('/login');
+            return;
+        }
+
+        const userDocRef = doc(db, 'users', user.uid);
+        const docSnap = await getDoc(userDocRef);
+
+        if (docSnap.exists() && docSnap.data().role === 'admin') {
+            setIsAdmin(true);
+            const submissionsQuery = query(
+                collection(db, 'donationOffers'),
+                where('status', '==', 'credentials_submitted')
+            );
+            const querySnapshot = await getDocs(submissionsQuery);
+            const subs = querySnapshot.docs.map(d => ({ id: d.id, ...d.data() } as Submission));
+            setSubmissions(subs);
+        } else {
+            Alert.alert("Access Denied", "You do not have permission to view this page.");
+            router.replace('/dashboard');
+        }
+        setIsLoading(false);
+    }, [router]);
+
+    useFocusEffect(
+      React.useCallback(() => {
+        checkAdminStatusAndFetchData();
+      }, [checkAdminStatusAndFetchData])
+    );
+
+
+
+    const handleApprove = async (submission: Submission) => {
+        try {
+            const offerDocRef = doc(db, 'donationOffers', submission.id);
+            const userDocRef = doc(db, 'users', submission.donorId);
+            const donorDocSnap = await getDoc(userDocRef);
+            if (!donorDocSnap.exists()) {
+                throw new Error("Donor user profile not found!");
+            }
+            const donorDepartment = donorDocSnap.data().department || 'N/A';
+
+            await updateDoc(offerDocRef, { status: 'completed' });
+
+            await updateDoc(userDocRef, {
+                totalDonates: increment(submission.confirmedUnits),
+                lastDonated: submission.confirmedDate
+            });
+            await addDoc(collection(db, "donations"), {
+                donorName: submission.donorName,
+                donorId: submission.donorId,
+                department: donorDepartment, 
+                units: submission.confirmedUnits,
+                bloodGroup: submission.bloodGroup,
+                hospital: submission.hospital,
+                date: submission.confirmedDate,
+            });
+
+            Alert.alert('Success', `${submission.donorName}'s donation has been approved.`);
+            checkAdminStatusAndFetchData();
+        } catch (error) {
+            console.error("Error approving submission:", error);
+            Alert.alert('Error', 'Could not approve the submission.');
+        }
+    };
+
+    const handleReject = async (submission: Submission) => {
+        try {
+            const offerDocRef = doc(db, 'donationOffers', submission.id);
+            await updateDoc(offerDocRef, { status: 'rejected' });
+            Alert.alert('Success', `${submission.donorName}'s donation has been rejected.`);
+            checkAdminStatusAndFetchData(); 
+        } catch (error) {
+            console.error("Error rejecting submission:", error);
+            Alert.alert('Error', 'Could not reject the submission.');
+        }
+    };
+
+    if (isLoading) {
+        return <ActivityIndicator style={{ flex: 1 }} size="large" color={palette.primaryRed} />;
+    }
+
+    return (
+        <SafeAreaView style={styles.safeArea}>
+            
+            <FlatList
+                data={submissions}
+                keyExtractor={item => item.id}
+                renderItem={({ item }) => <SubmissionCard item={item} onApprove={() => handleApprove(item)} onReject={() => handleReject(item)} />}
+                contentContainerStyle={styles.listContainer}
+                ListHeaderComponent={<Text style={styles.listHeader}>Pending Approvals</Text>}
+                ListEmptyComponent={<Text style={styles.emptyText}>No credentials are waiting for approval.</Text>}
+            />
+        </SafeAreaView>
+    );
+}
+
+const styles = StyleSheet.create({
+    safeArea: { flex: 1, backgroundColor: palette.white },
+    listContainer: { padding: 15, backgroundColor: palette.pageBg },
+    listHeader: { fontSize: 20, fontWeight: 'bold', color: palette.darkText, marginBottom: 15 },
+    card: { backgroundColor: palette.white, borderRadius: 8, padding: 15, marginBottom: 15, borderWidth: 1, borderColor: palette.borderLight },
+    cardTitle: { fontSize: 16, fontWeight: 'bold', color: palette.darkText },
+    cardText: { fontSize: 14, color: palette.lightText, marginTop: 4 },
+    viewCertificateLink: { color: palette.primaryRed, marginVertical: 10, textDecorationLine: 'underline' },
+    buttonRow: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: 10, gap: 10 },
+    actionButton: { paddingVertical: 8, paddingHorizontal: 20, borderRadius: 6 },
+    approveButton: { backgroundColor: palette.green },
+    rejectButton: { backgroundColor: palette.yellow },
+    actionButtonText: { color: palette.white, fontWeight: 'bold' },
+    emptyText: { textAlign: 'center', marginTop: 50, color: palette.lightText, fontSize: 16 }
+});

@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
 import { auth } from '../firebase';
-// adjust if path is different
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { Alert } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -43,11 +42,6 @@ export default function LoginScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Header Bar */}
-      <View style={styles.header}>
-        <Text style={styles.logo}>🩸 PU BLOOD CONNECT</Text>
-        <Text style={styles.icon}>🔔</Text>
-      </View>
 
       {/* Card */}
       <View style={styles.card}>
@@ -97,20 +91,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#EDF0F3',
     padding: 20,
   },
-  header: {
-    flexDirection: 'row',
-    marginTop: 40,
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  logo: {
-    fontWeight: 'bold',
-    color: '#C00000',
-    fontSize: 18,
-  },
-  icon: {
-    fontSize: 18,
-  },
+  
   card: {
     backgroundColor: '#F8FAFC',
     padding: 25,

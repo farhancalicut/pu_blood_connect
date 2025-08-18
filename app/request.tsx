@@ -4,7 +4,6 @@ import {
   ActivityIndicator, KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, Switch
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
 import { getAuth } from 'firebase/auth';
 import { collection, addDoc, serverTimestamp, doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase'; // Make sure this path is correct
@@ -86,14 +85,7 @@ const RequestScreen = () => {
 
     return (
          <SafeAreaView style={styles.safeArea}>
-            {/* 4. Apply the top inset as padding to the header */}
-            <View style={[styles.header, { paddingTop: insets.top }]}>
-                <TouchableOpacity onPress={() => router.back()} style={styles.headerButton}>
-                    <Ionicons name="chevron-back" size={28} color={palette.darkText} />
-                </TouchableOpacity>
-                <Text style={styles.headerTitle}>Request</Text>
-                <View style={styles.headerButton} />
-            </View>
+        
             <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{flex: 1}}>
                 <ScrollView contentContainerStyle={styles.container}>
                     <Text style={styles.label}>Patient Name</Text>
@@ -172,12 +164,9 @@ const RequestScreen = () => {
     );
 };
 
-// Add the styles for this screen
 const styles = StyleSheet.create({
     safeArea: { flex: 1, backgroundColor: palette.white },
-    header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 15,paddingBottom: 15, borderBottomWidth: 1, borderBottomColor: palette.borderLight, backgroundColor: palette.white },
-    headerTitle: { fontSize: 18, fontWeight: 'bold', color: palette.darkText },
-    headerButton: { width: 28, },
+    
     container: { padding: 20,backgroundColor: palette.pageBg },
     label: { fontSize: 14, color: palette.lightText, marginBottom: 8, fontWeight: '500' },
     input: { backgroundColor: palette.white, borderWidth: 1, borderColor: palette.borderLight, borderRadius: 8, padding: 12, fontSize: 16, color: palette.darkText, marginBottom: 20 },

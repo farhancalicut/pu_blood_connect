@@ -1,34 +1,42 @@
 import React, { useState, useCallback, useEffect, FC, useRef } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, SafeAreaView,
-  ActivityIndicator, TextInput, Share, Modal, Image
+  ActivityIndicator, TextInput, Modal, Image,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { getAuth, User } from 'firebase/auth'; // Import User type
+import { getAuth, } from 'firebase/auth'; 
 import { collection, getDocs, query, where, orderBy, doc, getDoc, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ViewShot from 'react-native-view-shot';
 import * as Clipboard from 'expo-clipboard';
 import * as Sharing from 'expo-sharing';
 
 const palette = { primaryRed: '#9B0000', darkText: '#333333', lightText: '#8A8A8A', white: '#ffffff', borderLight: '#EAEAEA', pageBg: '#F7F7F7', criticalRed: '#D9324B', cardBg: '#FEFBFB' };
 
-type Request = { id: string; patientName: string; hospital: string; bloodGroup: string; units: number; isCritical: boolean; requiredDate: { toDate: () => Date }; mobileNumber: string; notes?: string;  requesterId: string; requesterName: string;};
-
+type Request = {
+    id: string;
+    patientName: string;
+    hospital: string;
+    bloodGroup: string;
+    units: number;
+    isCritical: boolean;
+    requiredDate: { toDate: () => Date };
+    mobileNumber: string;
+    notes?: string;
+    requesterId: string;
+    requesterName: string;
+};
 const BLOOD_GROUPS = ['All', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
 
-// --- Component Prop Types ---
 type DetailRowProps = { label: string; value: string; isCritical?: boolean; };
 type RequestDetailsModalProps = { visible: boolean; request: Request | null; onClose: () => void; };
-type RequestCardProps = { item: Request; onViewDetails: (item: Request) => void;onDonatePress: (item: Request) => void;  };
+type RequestCardProps = { item: Request; onViewDetails: (item: Request) => void; onDonatePress: (item: Request) => void; };
 type DonorProfile = {
     uid: string;
     name: string;
-    mobile: string; // Assuming you have a 'mobile' field in your users collection
+    mobile: string;
 };
-// --- RequestDetailsModal Component ---
 const RequestDetailsModal: FC<RequestDetailsModalProps> = ({ visible, request, onClose }) => {
     const viewShotRef = useRef<ViewShot>(null);
     if (!request) return null;
@@ -107,8 +115,6 @@ const RequestCard: FC<RequestCardProps> = ({ item, onViewDetails, onDonatePress 
 );
 
 const DonateScreen = () => {
-    const router = useRouter();
-    const insets = useSafeAreaInsets();
     const [allRequests, setAllRequests] = useState<Request[]>([]);
     const [filteredRequests, setFilteredRequests] = useState<Request[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -116,12 +122,9 @@ const DonateScreen = () => {
     const [selectedBloodGroup, setSelectedBloodGroup] = useState('All');
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [selectedRequest, setSelectedRequest] = useState<Request | null>(null);
-
     const openDetailsModal = (request: Request) => { setSelectedRequest(request); setIsModalVisible(true); };
     const closeDetailsModal = () => setIsModalVisible(false);
     const [donorProfile, setDonorProfile] = useState<DonorProfile | null>(null);
-
-    // --- FULLY IMPLEMENTED LOGIC ---
     const fetchRequests = useCallback(async () => {
         setIsLoading(true);
         try {
@@ -142,7 +145,6 @@ const DonateScreen = () => {
             setIsLoading(false);
         }
     }, []);
-// --- NEW: Fetch current user's profile on load ---
     useEffect(() => {
         const auth = getAuth();
         const user = auth.currentUser;
@@ -153,7 +155,7 @@ const DonateScreen = () => {
                     const data = docSnap.data();
                     setDonorProfile({
                         uid: user.uid,
-                        name: data.name || 'Anonymous Donor',
+                        name: data.name || `${data.firstName} ${data.lastName}`.trim(),
                         mobile: data.mobile || 'Not available' // Ensure you have a 'mobile' field on your user docs
                     });
                 }
@@ -177,8 +179,7 @@ const DonateScreen = () => {
             );
         }
         setFilteredRequests(result);
-    }, [searchQuery, selectedBloodGroup, allRequests]); // --- END OF IMPLEMENTED LOGIC ---
-// --- NEW: Function to handle the donation offer ---
+    }, [searchQuery, selectedBloodGroup, allRequests]);
     const handleDonatePress = async (request: Request) => {
         if (!donorProfile) {
             Alert.alert("Error", "Could not identify your user profile. Please try again.");
@@ -194,9 +195,8 @@ const DonateScreen = () => {
                     text: "OK, Share", 
                     onPress: async () => {
                         try {
-                            // Create a notification document in Firestore
-                            await addDoc(collection(db, "notifications"), {
-                                recipientId: request.requesterId, // The person who made the request
+                            const notificationPromise = addDoc(collection(db, "notifications"), {
+                                recipientId: request.requesterId,
                                 donorId: donorProfile.uid,
                                 donorName: donorProfile.name,
                                 donorContact: donorProfile.mobile,
@@ -207,9 +207,24 @@ const DonateScreen = () => {
                                 type: "DONATION_OFFER",
                                 createdAt: serverTimestamp()
                             });
-                            Alert.alert("Sent!", `${request.requesterName} has been notified.`);
+
+                            const offerPromise = addDoc(collection(db, "donationOffers"), {
+                                donorId: donorProfile.uid,
+                                donorName: donorProfile.name,
+                                requesterId: request.requesterId,
+                                requesterName: request.requesterName,
+                                requestId: request.id,
+                                hospital: request.hospital,
+                                bloodGroup: request.bloodGroup,
+                                status: "offered", // The initial status for the "Pending" tab
+                                createdAt: serverTimestamp()
+                            });
+
+                            await Promise.all([notificationPromise, offerPromise]);
+
+                            Alert.alert("Sent!", `${request.requesterName} has been notified. Check your History page for next steps.`);
                         } catch (error) {
-                            console.error("Error creating notification: ", error);
+                            console.error("Error creating notification/offer: ", error);
                             Alert.alert("Error", "Could not send notification. Please try again.");
                         }
                     } 
@@ -220,11 +235,6 @@ const DonateScreen = () => {
 
     return (
         <SafeAreaView style={styles.safeArea}>
-            <View style={[styles.header, { paddingTop: insets.top }]}>
-                <TouchableOpacity onPress={() => router.back()} style={styles.headerButton}><Ionicons name="chevron-back" size={28} color={palette.darkText} /></TouchableOpacity>
-                <Text style={styles.headerTitle}>Donate</Text>
-                <TouchableOpacity style={styles.headerButton}onPress={() => router.push('/notifications')}><Ionicons name="notifications-outline" size={24} color={palette.darkText} /></TouchableOpacity>
-            </View>
             <View style={styles.searchAndFilterContainer}>
                 <View style={styles.searchBar}><Ionicons name="search" size={20} color={palette.lightText} style={{marginLeft: 10}} /><TextInput placeholder="Search by hospital, patient..." style={styles.searchInput} value={searchQuery} onChangeText={setSearchQuery} /><Ionicons name="mic" size={20} color={palette.lightText} style={{marginRight: 10}} /></View>
                 <FlatList data={BLOOD_GROUPS} keyExtractor={item => item} horizontal showsHorizontalScrollIndicator={false} renderItem={({ item }) => (<TouchableOpacity style={[styles.bloodFilterButton, selectedBloodGroup === item && styles.selectedBloodFilter]} onPress={() => setSelectedBloodGroup(item)}><Text style={[styles.bloodFilterText, selectedBloodGroup === item && styles.selectedBloodFilterText]}>{item}</Text></TouchableOpacity>)} contentContainerStyle={{ paddingHorizontal: 15, paddingVertical: 10 }} />
@@ -247,9 +257,7 @@ const DonateScreen = () => {
 
 const styles = StyleSheet.create({
     safeArea: { flex: 1, backgroundColor: palette.white },
-    header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 15, paddingBottom: 15, backgroundColor: palette.white },
-    headerButton: { width: 28, alignItems: 'center' },
-    headerTitle: { fontSize: 18, fontWeight: 'bold', color: palette.darkText },
+   
     searchAndFilterContainer: { backgroundColor: palette.white, paddingBottom: 5, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2 },
     searchBar: { flexDirection: 'row', alignItems: 'center', backgroundColor: palette.pageBg, marginHorizontal: 15, borderRadius: 10, marginTop: 10 },
     searchInput: { flex: 1, padding: 12, fontSize: 16 },

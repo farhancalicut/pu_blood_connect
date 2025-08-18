@@ -1,51 +1,58 @@
-// app/dashboard.tsx
-
+import { Ionicons } from '@expo/vector-icons';
+import { differenceInDays } from 'date-fns';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { getAuth } from 'firebase/auth';
+import { collection, doc, getDoc, getDocs, limit, orderBy, query, where } from 'firebase/firestore';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Image,
-  FlatList,
   Dimensions,
+  FlatList,
+  Image,
   ImageBackground,
-  Platform,
-  SafeAreaView,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+  SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View,
 } from 'react-native';
-import React, { useEffect, useState, useRef, useCallback } from 'react'; // 1. Import useCallback
 import * as Progress from 'react-native-progress';
-import { differenceInDays } from 'date-fns';
-import { getAuth } from 'firebase/auth';
-import {
-  collection,
-  doc,
-  getDoc,
-  getDocs,
-  limit,
-  orderBy,
-  query,
-} from 'firebase/firestore';
-import RegularIcon from 'react-native-vector-icons/FontAwesome';
 import Icon from 'react-native-vector-icons/FontAwesome5';
-import { useFocusEffect, useRouter  } from 'expo-router'; // 2. Import useFocusEffect
 import { db, firebaseApp } from '../firebase';
-import { useMenu } from './context/MenuContext';
+
 
 // --- Type Definitions ---
 type UserProfile = { uid: string; lastname?: string; firstName?: string; department?: string; totalDonates?: number; lastDonated?: any; bloodGroup?: string; [key: string]: any; };
 type Donation = { id: string; donorName?: string; department?: string; bloodGroup?: string; [key:string]: any; };
 type DepartmentStat = { name: string; donorCount: number; totalUnits: number; };
 type Testimonial = { id: string; donorName: string; department: string; text: string; rating?: number; createdAt?: any; };
+type Event = { id: string; title: string; posterImageUrl: string; eventDate: { toDate: () => Date }; };
+type CarouselItem = { type: 'banner'; id: string; } | (Event & { type: 'event' });
 
-const palette = { primaryRed: '#FE465E', statsRed: '#D9324B', darkGreen: '#3A6054', pageBg: '#FFFBFB', cardBgLavender: '#F7F2FA', darkText: '#333333', lightText: '#8A8A8A', white: '#ffffff', borderLight: '#F0F0F0', trophyYellow: '#FFC107', trophyBg: '#FFF2CC', eligibleGreen: '#28a745', };
-const HEADER_HEIGHT = 70;
-const DONATION_ELIGIBILITY_DAYS = 60;
+const palette = { primaryRed: '#FE465E', statsRed: '#D9324B', darkGreen: '#3A6054', pageBg: '#FFFBFB', cardBgLavender: 'rgba(255, 251, 251, 1)', darkText: '#333333', lightText: '#8A8A8A', white: '#ffffff', borderLight: '#F0F0F0', trophyYellow: '#FFC107', trophyBg: '#FFF2CC', eligibleGreen: '#28a745', };
 const { width: screenWidth } = Dimensions.get('window');
-const CARD_WIDTH = screenWidth * 0.8; // Each card will take 80% of the screen width
-const CARD_MARGIN = (screenWidth - CARD_WIDTH) / 7; // Margin on the sides to center the card
+const DONATION_ELIGIBILITY_DAYS = 60;
+const CARD_WIDTH = screenWidth * 0.8; 
+const CARD_MARGIN = (screenWidth - CARD_WIDTH) / 50;
+const CARD_MARGIN_HORIZONTAL = 10;
+const FULL_CARD_WIDTH = CARD_WIDTH + (CARD_MARGIN_HORIZONTAL * 2);
+
+const BannerCard = () => {
+    const router = useRouter();
+    return (
+        <TouchableOpacity style={styles.carouselItemWrapper} onPress={() => router.push('/events')}>
+            <Image
+                source={require('../assets/images/save_lives_banner.jpg')}
+                style={styles.carouselImage}
+            />
+        </TouchableOpacity>
+    );
+};
+
+const EventCarouselCard = ({ item }: { item: Event }) => {
+    const router = useRouter();
+    return (
+        <TouchableOpacity style={styles.carouselItemWrapper} onPress={() => router.push('/events')}>
+            <Image source={{ uri: item.posterImageUrl }} style={styles.carouselImage} />
+        </TouchableOpacity>
+    );
+};
 
 const TestimonialCard = ({ item }: { item: Testimonial }) => (
     <View style={styles.testimonialCard}>
@@ -61,8 +68,27 @@ const TestimonialCard = ({ item }: { item: Testimonial }) => (
       <Text style={styles.testimonialText}>"{String(item.text)}"</Text>
     </View>
 );
+  const ListItem = ({ name, detail, action, iconName, iconBg, iconColor, isTrophy = false }: { name: string; detail?: string; action: React.ReactNode; iconName: string; iconBg: string; iconColor?: string; isTrophy?: boolean; }) => (
+    <View style={styles.listItem}>
+      <View style={[styles.itemIcon, { backgroundColor: iconBg }]}>
+        <Icon name={iconName} size={18} color={iconColor || palette.darkText} solid={isTrophy} />
+      </View>
+      <View style={styles.itemDetails}>
+        <Text style={styles.itemTitle}>{name}</Text>
+        {detail ? <Text style={styles.itemSubtitle}>{String(detail)}</Text> : null}
+      </View>
+      <Text style={[styles.itemAction, { color: palette.primaryRed }]}>{String(action)}</Text>
+    </View>
+  );
+
+  const DetailRow = ({ label, value }: { label: string, value: string }) => (
+    <View style={styles.detailRow}>
+        <Text style={styles.detailLabel}>{label}</Text>
+        <Text style={styles.detailValue}>{value}</Text>
+    </View>
+);
 export default function DashboardScreen() {
-  const { toggleMenu } = useMenu(); 
+  
   const router = useRouter(); // Initialize the router
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [topStudentDonors, setTopStudentDonors] = useState<UserProfile[]>([]);
@@ -78,16 +104,25 @@ export default function DashboardScreen() {
   const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
   const [activeIndex, setActiveIndex] = useState(0);
   const flatListRef = useRef<FlatList>(null);
-
-  // 3. Create a useCallback for fetching data to prevent re-creation
+  const [pastCampaignsCount, setPastCampaignsCount] = useState(0);
+  const [upcomingEvents, setUpcomingEvents] = useState<Event[]>([]);
+  const daysPassed = DONATION_ELIGIBILITY_DAYS - daysUntilEligible;
   const loadDashboardData = useCallback(() => {
-    setLoading(true);
     const auth = getAuth(firebaseApp);
     const user = auth.currentUser;
 
     const fetchUserData = async () => { if (!user) return; const docSnap = await getDoc(doc(db, 'users', user.uid)); if (docSnap.exists()) setUserProfile({ uid: user.uid, ...docSnap.data() }); };
     const fetchTopDonors = async () => { const q = query(collection(db, 'users'), orderBy('totalDonates', 'desc'), limit(5)); const snap = await getDocs(q); setTopStudentDonors(snap.docs.map(d => ({ uid: d.id, ...d.data() }))); };
-    const fetchRecent = async () => { const q = query(collection(db, 'donations'), orderBy('date', 'desc'), limit(3)); const snap = await getDocs(q); setRecentDonors(snap.docs.map(d => ({ id: d.id, ...d.data() }))); };
+    const fetchRecent = async () => {
+            
+            const q = query(collection(db, 'donations'), orderBy('date', 'desc'), limit(20));
+            const snap = await getDocs(q);
+            setRecentDonors(snap.docs.map(d => {
+                const data = d.data();
+                return { id: d.id, ...data, department: data.department || 'N/A' };
+            }));
+        };
+        
     const fetchAggregateStats = async () => {
       const usersQuery = query(collection(db, 'users'));
       const usersSnapshot = await getDocs(usersQuery);
@@ -95,6 +130,19 @@ export default function DashboardScreen() {
       const totalUnits = usersSnapshot.docs.reduce((sum, doc) => sum + (doc.data().totalDonates || 0), 0);
       setTotalRegistered(studentCount);
       setTotalUnitsDonated(totalUnits);
+
+      const eventsQuery = query(collection(db, 'events'));
+      const eventsSnapshot = await getDocs(eventsQuery);
+      const now = new Date();
+      let pastEventsCount = 0;
+      eventsSnapshot.forEach(doc => {
+          const event = doc.data();
+          if (event.eventDate && event.eventDate.toDate() < now) {
+              pastEventsCount++;
+          }
+      });
+      setPastCampaignsCount(pastEventsCount);
+
       const deptStats: { [key: string]: { donorCount: number; totalUnits: number } } = {};
       usersSnapshot.forEach(userDoc => {
         const userData = userDoc.data();
@@ -115,13 +163,27 @@ export default function DashboardScreen() {
         const snap = await getDocs(q);
         setTestimonials(snap.docs.map(d => ({ id: d.id, ...d.data() } as Testimonial)));
     };
+
+    const fetchUpcomingEvents = async () => {
+            const q = query(
+                collection(db, 'events'),
+                where('eventDate', '>=', new Date()),
+                orderBy('eventDate', 'asc'),
+                limit(5)
+            );
+            const snap = await getDocs(q);
+            const eventsData = snap.docs.map(d => ({ id: d.id, ...d.data() } as Event));
+            setUpcomingEvents(eventsData);
+        };
     
-    Promise.all([ fetchUserData(), fetchTopDonors(), fetchRecent(), fetchAggregateStats(), fetchTestimonials() ])
+     Promise.all([
+      fetchUserData(), fetchTopDonors(), fetchRecent(),
+      fetchAggregateStats(), fetchTestimonials(), fetchUpcomingEvents()
+    ])
       .catch(console.error)
       .finally(() => setLoading(false));
   }, []);
 
-  // 4. Use the hook to refresh data whenever the screen is focused
   useFocusEffect(
     useCallback(() => {
       loadDashboardData();
@@ -151,11 +213,20 @@ export default function DashboardScreen() {
     }
   }, [userProfile]);
 
-    // --- NEW: Carousel navigation functions ---
-  const handleScroll = (event: any) => { const scrollPosition = event.nativeEvent.contentOffset.x; const index = Math.round(scrollPosition / CARD_WIDTH); setActiveIndex(index); };
+ 
+  const handleScroll = (event: any) => {
+  const scrollPosition = event.nativeEvent.contentOffset.x;
+  const index = Math.round(scrollPosition / FULL_CARD_WIDTH);
+  setActiveIndex(index);
+};
   const scrollToNext = () => { if (activeIndex < testimonials.length - 1) flatListRef.current?.scrollToIndex({ index: activeIndex + 1 }); };
   const scrollToPrev = () => { if (activeIndex > 0) flatListRef.current?.scrollToIndex({ index: activeIndex - 1 }); };
 
+  const carouselData: CarouselItem[] = useMemo(() => {
+      const bannerItem: CarouselItem = { type: 'banner', id: 'banner' };
+      const eventsWithType = upcomingEvents.map(event => ({ ...event, type: 'event' as const }));
+      return [bannerItem, ...eventsWithType];
+  }, [upcomingEvents]);
 
   if (loading) {
     return (
@@ -166,101 +237,129 @@ export default function DashboardScreen() {
     );
   }
 
-  const ListItem = ({ name, detail, action, iconName, iconBg, iconColor, isTrophy = false }: { name: string; detail?: string; action: React.ReactNode; iconName: string; iconBg: string; iconColor?: string; isTrophy?: boolean; }) => (
-    <View style={styles.listItem}>
-      <View style={[styles.itemIcon, { backgroundColor: iconBg }]}>
-        <Icon name={iconName} size={18} color={iconColor || palette.darkText} solid={isTrophy} />
-      </View>
-      <View style={styles.itemDetails}>
-        <Text style={styles.itemTitle}>{name}</Text>
-        {detail ? <Text style={styles.itemSubtitle}>{String(detail)}</Text> : null}
-      </View>
-      <Text style={[styles.itemAction, { color: palette.primaryRed }]}>{String(action)}</Text>
-    </View>
-  );
+
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={toggleMenu}>
-          <Icon name="bars" size={22} color={palette.darkText} />
-        </TouchableOpacity>
-        <View style={styles.logo}>
-          <Image source={{ uri: 'https://i.ibb.co/68v8z0p/heart-logo.png' }} style={styles.logoImg} />
-          <Text style={styles.logoText}>PU Heart Connect</Text>
-        </View>
-        <TouchableOpacity>
-          <RegularIcon name="bell" size={22} color={palette.darkText} onPress={() => router.push('/notifications')}/>
-        </TouchableOpacity>
-      </View>
+      
 
       <ScrollView style={styles.scrollView} contentContainerStyle={[styles.container]}>
         {userProfile && (
             <View style={styles.welcomeCard}>
-                <View style={styles.leftContent}>
-                    <Text style={styles.welcomeTitle}>Hi {userProfile.firstName || 'User'}!</Text>
-                    <Text style={styles.welcomeDetail}>{'Department:\n'}{userProfile.department || 'N/A'}</Text>
-                    <Text style={styles.welcomeDetail}>Total Donates: {userProfile.totalDonates || 0} Unites</Text>
-                    <Text style={styles.welcomeDetail}>Last Donate:{' '}{userProfile.lastDonated ? new Date(userProfile.lastDonated.seconds * 1000).toLocaleDateString() : 'N/A'}</Text>
-                    {isEligible ? (<Text style={styles.eligibilityTextEligible}>You can donate now</Text>) : (<Text style={styles.eligibilityTextWaiting}>Wait for {daysUntilEligible} days</Text>)}
-                </View>
-                <View style={styles.rightContent}>
-                    <View style={styles.classicTag}><Text style={styles.classicTagText}>Classic</Text></View>
-                    <View style={styles.bloodGroupBox}><Text style={styles.bloodGroupLabel}>Blood</Text><Text style={styles.bloodGroupValue}>{userProfile.bloodGroup || 'N/A'}</Text></View>
-                </View>
-                <View style={styles.progressCircleContainer}>
-                    <Progress.Circle size={110} progress={progress} color={palette.statsRed} thickness={8} borderWidth={0} unfilledColor="rgba(255, 255, 255, 0.4)" />
-                    <View style={styles.faceContainer}>
-                        <View style={styles.eyesContainer}><View style={styles.eye} /><View style={styles.eye} /></View>
-                        <Text style={styles.faceText}>{isEligible ? 'You Are Eligible' : 'Not Eligible'}</Text>
-                        <View style={[styles.mouth, { transform: [{ rotate: isEligible ? '0deg' : '180deg' }] }]} />
+                        <View style={styles.welcomeTopRow}>
+                            <Text style={styles.welcomeTitle}>Hi {userProfile.firstName || 'User'}!</Text>
+                            <View style={styles.bloodTag}>
+                                <Text style={styles.bloodTagText}>Blood: {userProfile.bloodGroup || 'N/A'}</Text>
+                            </View>
+                        </View>
+
+                        <View style={styles.welcomeMainRow}>
+                            <View style={styles.welcomeLeftColumn}>
+                                <DetailRow label="Department:" value={userProfile.department || 'N/A'} />
+                                <DetailRow label="Total Donate:" value={`${userProfile.totalDonates || 0} Unites`} />
+                                <DetailRow label="Last Donate:" value={userProfile.lastDonated ? new Date(userProfile.lastDonated.seconds * 1000).toLocaleDateString() : 'N/A'} />
+                                
+                                {isEligible ? (
+                                    <Text style={styles.eligibilityTextEligible}>You Can Donate Now</Text>
+                                ) : (
+                                    <Text style={styles.eligibilityTextWaiting}>Wait for {daysUntilEligible} days</Text>
+                                )}
+                            </View>
+                            <View style={styles.welcomeRightColumn}>
+                                <View style={styles.progressCircleContainer}>
+                                    <Progress.Circle
+                                        size={140}
+                                        progress={progress}
+                                        color={palette.statsRed}
+                                        thickness={15}
+                                        borderWidth={0}
+                                        unfilledColor="rgba(58, 56, 57, 0.2)"
+                                    />
+                                    <View style={styles.faceContainer}>
+                                        <View style={styles.eyesContainer}><View style={styles.eye} /><View style={styles.eye} /></View>
+                                        <Text style={styles.faceText}>{isEligible ? 'You Are Eligible' : 'Not Eligible'}</Text>
+                                        <View style={[styles.mouth, { transform: [{ rotate: isEligible ? '0deg' : '180deg' }] }]} />
+                                    </View>
+                                </View>
+                                <View style={styles.dayProgressTag}>
+                                    <Text style={styles.dayProgressText}>
+                                        {isEligible ? `${DONATION_ELIGIBILITY_DAYS}/${DONATION_ELIGIBILITY_DAYS}` : `${daysPassed}/${DONATION_ELIGIBILITY_DAYS}`}
+                                    </Text>
+                                </View>
+                            </View>
+                        </View>
+                    </View>
+                )}
+
+          <FlatList
+          data={carouselData}
+          keyExtractor={(item) => item.id}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          pagingEnabled
+          renderItem={({ item }) => {
+            if (item.type === 'banner') {
+              return <BannerCard />;
+            }
+            return <EventCarouselCard item={item} />;
+          }}
+        />
+
+        <ImageBackground 
+         source={require('../assets/images/puhits.png')}
+      
+         imageStyle={{ borderRadius: 12 }} // Makes the image corners rounded
+       >
+         <View style={styles.statsOverlay}>
+                <Text style={styles.statsHeader}>PU HITS</Text>
+                <View style={styles.statsGrid}>
+                    <View style={styles.statItem}>
+                        <Text style={styles.statNumber}>{totalRegistered}+</Text>
+                        <Text style={styles.statLabel}>Students{'\n'}Registered</Text>
+                    </View>
+                    <View style={styles.statItem}>
+                        <Text style={styles.statNumber}>{totalUnitsDonated}+</Text>
+                        <Text style={styles.statLabel}>Units of Blood{'\n'}Donated</Text>
+                    </View>
+                    <View style={styles.statItem}>
+                        <Text style={styles.statNumber}>{pastCampaignsCount}+</Text>
+                        <Text style={styles.statLabel}>Campaigns{'\n'}Organized</Text>
                     </View>
                 </View>
-                
             </View>
             
-        )}
+            </ImageBackground>
 
-        <ImageBackground source={{uri: 'https://images.unsplash.com/photo-1615461066841-6116e61058f4?q=80&w=1200'}} style={styles.ctaBanner} imageStyle={{ borderRadius: 12 }}>
-            <View style={styles.overlay}><Text style={styles.ctaTitle}>Save Lives, Donate Blood</Text><Text style={styles.ctaSubtitle}>Join Our Genius Mission</Text></View>
-        </ImageBackground>
-
-        {/* Stats Section */}
-        <View style={styles.statsSection}>
-          <Text style={styles.statsHeader}>PU Hits</Text>
-          <View style={styles.statsGrid}>
-            <View style={styles.statItem}>
-              {/* DYNAMIC: Display total registered students */}
-              <Text style={styles.statNumber}>{totalRegistered}+</Text>
-              <Text style={styles.statLabel}>Students{'\n'}Registered</Text>
-            </View>
-            <View style={styles.statItem}>
-              {/* DYNAMIC: Display total units donated */}
-              <Text style={styles.statNumber}>{totalUnitsDonated}+</Text>
-              <Text style={styles.statLabel}>Units of Blood{'\n'}Donated</Text>
-            </View>
-            <View style={styles.statItem}>
-              {/* STATIC: Campaigns organized */}
-              <Text style={styles.statNumber}>99+</Text>
-              <Text style={styles.statLabel}>Campaigns{'\n'}Organized</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Recent Donors */}
         <View style={styles.listSection}>
-          <View style={styles.listHeader}><Text style={styles.listTitle}>Recent Donors</Text><TouchableOpacity><Text style={styles.viewAll}>View Full List</Text></TouchableOpacity></View>
-          {recentDonors.map(donor => (<ListItem key={donor.id} name={donor.donorName || 'Anonymous'} detail={donor.department || 'Unknown Department'} action={donor.bloodGroup} iconName="user" iconBg="#e9ecef" />))}
-        </View>
-  {/* --- NEW: TESTIMONIALS SECTION --- */}
+                    <View style={styles.listHeader}>
+                        <Text style={styles.listTitle}>Recent Donors</Text>
+                        <TouchableOpacity onPress={() => router.push('/recent-donors')}>
+                            <Text style={styles.viewAll}>View Full List</Text>
+                        </TouchableOpacity>
+                    </View>
+                    {recentDonors.slice(0, 5).map(donor => (
+                        <ListItem 
+                            key={donor.id} 
+                            name={donor.donorName || 'Anonymous'} 
+                            detail={donor.department || 'Unknown Department'} 
+                            action={donor.bloodGroup} 
+                            iconName="user" 
+                            iconBg="#e9ecef" 
+                        />
+                    ))}
+                </View>
         
-        {/* Top Donors */}
         <View style={styles.listSection}>
-          <Text style={styles.listTitle}>Top Donors</Text>
-          <View style={styles.tabs}>
-            <TouchableOpacity style={[styles.tab, activeTab === 'students' && styles.activeTab]} onPress={() => setActiveTab('students')}><Text style={[styles.tabText, activeTab === 'students' && styles.activeTabText]}>Students</Text></TouchableOpacity>
-            <TouchableOpacity style={[styles.tab, activeTab === 'department' && styles.activeTab]} onPress={() => setActiveTab('department')}><Text style={[styles.tabText, activeTab === 'department' && styles.activeTabText]}>Department</Text></TouchableOpacity>
-          </View>
+                    <View style={styles.listHeader}>
+                        <Text style={styles.listTitle}>Top Donors</Text>
+                        <TouchableOpacity onPress={() => router.push('/top-donors')}>
+                            <Text style={styles.viewAll}>View Full List</Text>
+                        </TouchableOpacity>
+                    </View>
+                    <View style={styles.tabs}>
+                        <TouchableOpacity style={[styles.tab, activeTab === 'students' && styles.activeTab]} onPress={() => setActiveTab('students')}><Text style={[styles.tabText, activeTab === 'students' && styles.activeTabText]}>Students</Text></TouchableOpacity>
+                        <TouchableOpacity style={[styles.tab, activeTab === 'department' && styles.activeTab]} onPress={() => setActiveTab('department')}><Text style={[styles.tabText, activeTab === 'department' && styles.activeTabText]}>Department</Text></TouchableOpacity>
+                    </View>
           {activeTab === 'students' ? (topStudentDonors.map(donor => (<ListItem key={donor.uid} name={donor.firstName || 'Anonymous'} detail={donor.department} action={`${donor.totalDonates} Units`} iconName="trophy" iconBg={palette.trophyBg} iconColor={palette.trophyYellow} isTrophy />))) : (topDepartments.map(dept => (<ListItem key={dept.name} name={dept.name} detail={`${dept.donorCount} Donors`} action={`${dept.totalUnits} Units`} iconName="trophy" iconBg={palette.trophyBg} iconColor={palette.trophyYellow} isTrophy />)))}
         </View>
         
@@ -271,8 +370,6 @@ export default function DashboardScreen() {
                 <TouchableOpacity onPress={scrollToPrev} style={styles.arrowButton} disabled={activeIndex === 0}>
                     <Icon name="chevron-left" size={20} color={activeIndex === 0 ? 'rgba(255,255,255,0.3)' : palette.white} />
                 </TouchableOpacity>
-
-                {/* --- NOW, COMMENT OUT ONLY THE FLATLIST --- */}
                 
                 <FlatList
                     ref={flatListRef}
@@ -283,11 +380,9 @@ export default function DashboardScreen() {
                     showsHorizontalScrollIndicator={false}
                     onScroll={handleScroll}
                     scrollEventThrottle={16}
-                    contentContainerStyle={{
-                      paddingHorizontal: CARD_MARGIN, // Add padding to center first and last items
-                    }}
-                    snapToInterval={CARD_WIDTH + 20} // The magic prop for snapping
-                    decelerationRate="fast" // Makes snapping feel better
+                    contentContainerStyle={{ paddingHorizontal: CARD_MARGIN }}
+                    snapToInterval={FULL_CARD_WIDTH} 
+                    decelerationRate="fast"
                 />
                
 
@@ -296,7 +391,23 @@ export default function DashboardScreen() {
                 </TouchableOpacity>
             </View>
         </View>
-        <View style={{ height: 100 }} />
+        <View style={styles.footerLinksContainer}>
+                    <TouchableOpacity style={styles.footerLinkWrapper} onPress={() => router.push('/privacy-policy')}>
+                        <Ionicons name="shield-checkmark-outline" size={14} color={palette.lightText} />
+                        <Text style={styles.footerLink}>Privacy Policy</Text>
+                    </TouchableOpacity>
+                    
+                    <TouchableOpacity style={styles.footerLinkWrapper} onPress={() => router.push('/terms-and-conditions')}>
+                        <Ionicons name="document-text-outline" size={14} color={palette.lightText} />
+                        <Text style={styles.footerLink}>Terms</Text>
+                    </TouchableOpacity>
+
+                    
+                    <TouchableOpacity style={styles.footerLinkWrapper} onPress={() => router.push('/contact-us')}>
+                        <Ionicons name="mail-outline" size={14} color={palette.lightText} />
+                        <Text style={styles.footerLink}>Contact Us</Text>
+                    </TouchableOpacity>
+                </View>
       </ScrollView>
       <View style={styles.footerFloating}>
         <TouchableOpacity style={[styles.footerBtn, styles.btnDonate]} onPress={() => router.push('/donate')}><Text style={[styles.footerBtnText, { color: palette.white }]}>Donate</Text></TouchableOpacity>
@@ -304,60 +415,154 @@ export default function DashboardScreen() {
       </View>
     </SafeAreaView>
   );
-}
-
-// All your styles remain exactly the same
+};
 const styles = StyleSheet.create({
-    trackerCard: { backgroundColor: palette.white, borderRadius: 12, padding: 20, marginBottom: 20, elevation: 4, shadowColor: 'rgba(0,0,0,0.1)', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', },
-    trackerTitle: { fontSize: 18, fontWeight: '600', color: palette.darkText, marginBottom: 4, },
-    trackerSubtitle: { fontSize: 14, color: palette.lightText, },
-    progressText: { fontSize: 20, fontWeight: '700', color: palette.darkText, },
-    safeArea: { flex: 1, backgroundColor: '#EDF0F3' },
+      safeArea: {
+    flex: 1,
+    backgroundColor: '#F0F2F5',
+  },
+
     loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', },
-    welcomeCard: { backgroundColor: '#F7F2FA',marginHorizontal: 15, borderRadius: 16, paddingVertical: 16, paddingLeft: 20, paddingRight: 120, marginBottom: 20, marginTop: 24, alignItems: 'center', flexDirection: 'row', elevation: 4, shadowColor: 'rgba(0,0,0,0.1)', overflow: 'hidden', },
-    leftContent: { flex: 1, justifyContent: 'center', },
-    rightContent: { justifyContent: 'flex-start', alignItems: 'center', paddingLeft: 12, paddingTop: 13, },
-    welcomeTitle: { fontSize: 23, fontWeight: 'bold', color: palette.darkText, marginBottom: 8, },
-    welcomeDetail: { fontSize: 12, color: palette.lightText, lineHeight: 20, },
-    eligibilityTextEligible: { color: palette.statsRed, fontSize: 14, fontWeight: 'bold', marginTop: 4, paddingVertical: 3, paddingHorizontal: 0, alignSelf: 'flex-start', overflow: 'hidden', },
-    eligibilityTextWaiting: { color: palette.lightText, fontSize: 14, fontWeight: '500', marginTop: 16, paddingVertical: 8, },
-    classicTag: { backgroundColor: palette.darkGreen, borderRadius: 16, paddingVertical: 1, paddingHorizontal: 5, marginBottom: 10, },
-    classicTagText: { color: palette.white, fontWeight: '500', fontSize: 11, },
-    bloodGroupBox: { backgroundColor: palette.statsRed, borderRadius: 8, padding: 8, alignItems: 'center', justifyContent: 'center', minWidth: 25, },
-    bloodGroupLabel: { color: 'rgba(255, 255, 255, 0.8)', fontSize: 6, fontWeight: '500', },
-    bloodGroupValue: { color: palette.white, fontSize: 22, fontWeight: 'bold', },
-    progressCircleContainer: { position: 'absolute', right: 15, top: '60%', transform: [{ translateY: -55 }], },
-    progressCircleText: { color: palette.statsRed, fontWeight: 'bold', fontSize: 13, textAlign: 'center', lineHeight: 18, },
-    faceContainer: { position: 'absolute', width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center', },
-    eyesContainer: { flexDirection: 'row', position: 'absolute', top: 27, },
-    eye: { width: 8, height: 8, borderRadius: 6, backgroundColor: palette.statsRed, marginHorizontal: 10, },
-    faceText: { color: palette.statsRed, fontWeight: 'bold', fontSize: 10, textAlign: 'center', lineHeight: 11, position: 'absolute', top: 45, },
-    mouth: { width: 47, height: 25, borderBottomLeftRadius: 50, borderBottomRightRadius: 50, borderTopWidth: 0, borderWidth: 4, borderColor: palette.statsRed, backgroundColor: 'transparent', position: 'absolute', bottom: 18, },
-    header: { position: 'relative', top: 0, left: 0, right: 0, height: HEADER_HEIGHT, paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0, backgroundColor: '#EDF0F3', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, zIndex: 10, elevation: 4, },
-    logo: { flexDirection: 'row', alignItems: 'center' },
-    logoImg: { width: 26, height: 26, marginRight: 8 },
-    logoText: { fontSize: 16, fontWeight: '700', color: palette.statsRed, textTransform: 'uppercase', },
+
+    welcomeCard: {
+    backgroundColor: '#FEF8F8',
+    borderRadius: 16,
+    padding: 16,
+    marginLeft: 16,
+    marginRight: 16,
+    marginBottom: 20,
+    marginTop: 20,
+    elevation: 4,
+    shadowColor: 'rgba(0,0,0,0.1)',
+  },
+  welcomeTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 0,
+  },
+  welcomeTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: palette.darkText,
+  },
+  bloodTag: {
+    backgroundColor: palette.statsRed,
+    borderRadius: 6,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    marginLeft: 12,
+  },
+  bloodTagText: {
+    color: palette.white,
+    fontWeight: 'bold',
+    fontSize: 13,
+  },
+  welcomeMainRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  welcomeLeftColumn: {
+    justifyContent: 'space-around', // Use space-around for better vertical spacing
+    flex: 1, // Allow left column to take available space
+    marginRight: 10, // Add space between columns
+  },
+  detailRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline', // Aligns text nicely
+    marginBottom: -25,
+    // marginTop: -20, // Add some vertical spacing
+  },
+  detailLabel: {
+    fontSize: 12,
+    color: palette.lightText,
+    width: 80, // Give the label a fixed width for alignment
+  },
+  detailValue: {
+    fontSize: 12,
+    color: palette.darkText,
+    fontWeight: '400',
+    flex: 1, // Allow value to take remaining space
+  },
+  eligibilityTextEligible: {
+    color: palette.statsRed,
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginTop: 8,
+  },
+  eligibilityTextWaiting: {
+      color: palette.statsRed,
+      fontSize: 14,
+      fontWeight: '500',
+      marginTop: 8,
+  },
+  welcomeRightColumn: {
+    alignItems: 'center',
+  },
+  progressCircleContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    top: '-8%',
+  },
+  dayProgressTag: {
+    position: 'absolute',
+    top: -25,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  dayProgressText: {
+    fontSize: 13,
+    fontWeight: 'bold',
+    color: '#555',
+  },
+  faceContainer: {
+    position: 'absolute',
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  eyesContainer: { flexDirection: 'row', position: 'absolute', top: 38, },
+  eye: { width: 8, height: 8, borderRadius: 4, backgroundColor: palette.statsRed, marginHorizontal: 12, },
+  faceText: { color: palette.statsRed, fontWeight: 'bold', fontSize: 12, textAlign: 'center', position: 'absolute', top: 55, },
+  mouth: { width: 50, height: 25, borderBottomLeftRadius: 25, borderBottomRightRadius: 25, borderWidth: 4, borderTopWidth: 0, borderColor: palette.statsRed, backgroundColor: 'transparent', position: 'absolute', bottom: 33, },
+
+// header: { position: 'relative', top: Platform.OS === 'android' ? StatusBar.currentHeight : 0,left: 0, right: 0, height: HEADER_HEIGHT,  backgroundColor: '#EDF0F3', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, zIndex: 10, elevation: 10, },
+    
+
+  // position: 'relative', top: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
+  // left: 0, 
+  // right: 0, 
+  // height: HEADER_HEIGHT, 
+          // backgroundColor: palette.white,
+        // borderBottomWidth: 1,
+        // borderBottomColor: palette.borderLight,
+          // shadowOffset: { width: 0, height: 11 }, // A positive height moves the shadow down
+// header: { flexDirection: 'row', top: Platform.OS === 'android' ? StatusBar.currentHeight : 0, alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 15, paddingBottom: 15, backgroundColor: palette.white },
+
+logoText: { fontSize: 16, fontWeight: '700', color: palette.statsRed, textTransform: 'uppercase', },
     scrollView: { flex: 1 },
-    container: {  paddingBottom: 0 },
-    searchBar: { position: 'relative', marginBottom: 20, marginTop: 20 },
-    searchInput: { backgroundColor: palette.white, paddingVertical: 12, paddingLeft: 45, paddingRight: 15, borderRadius: 8, fontSize: 14, borderWidth: 1, borderColor: palette.borderLight, elevation: 3, },
-    searchIcon: { position: 'absolute', top: 15, left: 18, zIndex: 1 },
-    userCard: { backgroundColor: palette.white, borderRadius: 12, padding: 15, marginBottom: 20, borderWidth: 1, borderColor: '#FFE8EB', elevation: 4, },
-    userCardTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', },
-    userInfo: { flex: 1 },
-    userName: { fontSize: 18, fontWeight: '600', color: palette.darkText },
-    userDetails: { fontSize: 12, color: palette.lightText, lineHeight: 20 },
-    userAvatarContainer: { alignItems: 'center' },
-    classicLabel: { fontSize: 11, fontWeight: '500', color: palette.lightText },
-    bloodTypeLarge: { fontSize: 28, fontWeight: '700', color: palette.statsRed, },
-    eligibleTag: { flexDirection: 'row', alignItems: 'center', backgroundColor: palette.white, borderWidth: 1, borderColor: '#E4DDEB', borderRadius: 12, padding: 4, marginTop: 10, elevation: 2, },
-    eligibleTagText: { fontSize: 11, fontWeight: '500', color: palette.darkText, },
-    ctaBanner: { marginHorizontal: 15, marginBottom: 25, borderRadius: 12, elevation: 5 },
-    overlay: { backgroundColor: 'rgba(217, 50, 75, 0.85)', borderRadius: 12, padding: 20, },
-    ctaTitle: { color: palette.white, fontSize: 20, fontWeight: '700' },
-    ctaSubtitle: { color: palette.white, fontSize: 14, fontWeight: '400' },
-    statsSection: { marginHorizontal: 15,backgroundColor: palette.statsRed, padding: 20, borderRadius: 12, marginBottom: 25, },
-    statsHeader: { color: palette.white, fontSize: 18, fontWeight: '600', textAlign: 'center', marginBottom: 15, },
+    container: {  paddingBottom: 80 ,},
+   carouselItemWrapper: {
+    width: screenWidth, // Each item takes the full screen width
+    paddingHorizontal: 15,
+    paddingVertical: 20,
+    paddingTop: 0,
+  },
+  carouselImage: {
+    width: '100%',
+    height: 180,
+    borderRadius: 12,
+    backgroundColor: '#e0e0e0', // A placeholder color while image loads
+  },
+  
+    statsOverlay: {
+       backgroundColor: 'rgba(177, 15, 15, 0.9)', // A semi-transparent version of your red
+       padding: 20,
+       
+   },
+    statsHeader: { color: palette.white, fontSize: 18, fontWeight: '800',textDecorationLine: 'underline', textAlign: 'center', marginBottom: 12, },
     statsGrid: { flexDirection: 'row', justifyContent: 'space-around' },
     statItem: { alignItems: 'center' },
     statNumber: { fontSize: 20, fontWeight: '700', color: palette.white },
@@ -366,9 +571,10 @@ const styles = StyleSheet.create({
     testimonialSection: {
         backgroundColor: palette.darkGreen,
         paddingVertical: 25,
-        marginTop: -15,
+        marginTop: 15,
         width: '100%',        // Full width
         alignSelf: 'stretch',
+        marginBottom: 20,
     },
     sectionTitle: {
         fontSize: 18,
@@ -390,7 +596,7 @@ const styles = StyleSheet.create({
         backgroundColor: palette.white,
         borderRadius: 15,
         padding: 20,
-        marginHorizontal: 8,
+        marginHorizontal: 10,
         elevation: 5,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 4 },
@@ -429,7 +635,7 @@ const styles = StyleSheet.create({
         color: palette.lightText,
         lineHeight: 22,
     },
-    listSection: { marginHorizontal: 15, backgroundColor: palette.cardBgLavender, padding: 20, borderRadius: 12, marginBottom: 25, },
+    listSection: { marginHorizontal: 15, backgroundColor: palette.cardBgLavender, padding: 20, borderRadius: 12, marginBottom: 2,marginTop:13, elevation: 2, shadowColor: '#390000ff', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 8, },
     listHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 15, },
     listTitle: { fontSize: 18, fontWeight: '600', color: palette.darkText },
     viewAll: { fontSize: 13, color: palette.primaryRed },
@@ -439,8 +645,8 @@ const styles = StyleSheet.create({
     itemTitle: { fontSize: 14, fontWeight: '600', color: palette.darkText },
     itemSubtitle: { fontSize: 12, color: palette.lightText },
     itemAction: { fontWeight: '600', fontSize: 16 },
-    tabs: { flexDirection: 'row', marginBottom: 15, gap: 8 },
-    tab: { paddingVertical: 6, paddingHorizontal: 15, borderRadius: 20, borderWidth: 1, borderColor: '#E4DDEB', },
+    tabs: { flexDirection: 'row', marginBottom:15,marginTop:0, gap: 5 },
+    tab: { paddingVertical: 3, paddingHorizontal: 10, borderRadius: 20, borderWidth: 1, borderColor: '#E4DDEB', },
     activeTab: { backgroundColor: palette.statsRed, borderColor: palette.statsRed },
     tabText: { color: palette.darkText, fontSize: 13 },
     activeTabText: { color: palette.white },
@@ -449,4 +655,26 @@ const styles = StyleSheet.create({
     footerBtnText: { fontSize: 16, fontWeight: '600' },
     btnDonate: { backgroundColor: palette.statsRed },
     btnRequest: { backgroundColor: palette.white, borderWidth: 1, borderColor: palette.statsRed, },
+    footerLinksContainer: {
+       flexDirection: 'row',
+        justifyContent: 'space-evenly', // Evenly space the links
+        alignItems: 'center',
+        paddingVertical: 20,
+        marginTop: -20,
+        marginBottom: 0,
+   },
+   footerLinkWrapper: {
+        flexDirection: 'row',
+        alignItems: 'center',
+   },
+   footerLink: {
+       fontSize: 12,
+       color: palette.lightText,
+       marginHorizontal: 5,
+       marginLeft: 5,
+   },
+   footerLinkSeparator: {
+       fontSize: 12,
+       color: palette.borderLight,
+   },
 });
