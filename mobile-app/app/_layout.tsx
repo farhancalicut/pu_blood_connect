@@ -2,12 +2,11 @@ import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 import { Stack, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { signInWithEmailAndPassword } from "firebase/auth";
 import { doc, setDoc } from "firebase/firestore"; 
 import React, { useEffect, useRef } from "react";
 import { Dimensions, Platform, StyleSheet, TouchableOpacity, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import Animated, { interpolate, useAnimatedStyle, useSharedValue, withSpring, } from "react-native-reanimated";
+import Animated, { interpolate, useAnimatedStyle, useSharedValue, withSpring } from "react-native-reanimated";
 import RegularIcon from 'react-native-vector-icons/FontAwesome';
 import Icon from 'react-native-vector-icons/FontAwesome5';
 import { auth, db } from "../firebase"; 
@@ -18,8 +17,6 @@ import { useMenu } from "./context/MenuContext";
 
 const { width } = Dimensions.get("window");
 
-const DEV_EMAIL = "z@gmail.com";
-const DEV_PASSWORD = "111111";
 async function registerForPushNotificationsAsync() {
   let token;
   if (Device.isDevice) {
@@ -36,9 +33,10 @@ async function registerForPushNotificationsAsync() {
     token = (await Notifications.getExpoPushTokenAsync({
         projectId: 'aab4fc2c-6891-4e42-a8c3-6207ef8a7683', 
     })).data;
-    console.log("User's push token:", token);
+
+    // console.log("User's push token:", token);
   } else {
-    console.log("Push notifications only work on physical devices.");
+    // console.log("Push notifications only work on physical devices.");
   }
 
   if (Platform.OS === 'android') {
@@ -85,40 +83,41 @@ function AdminBackButton() {
 function RootLayoutNav() {
   const router = useRouter();
   const hasAttemptedLogin = useRef(false);
-    useEffect(() => {
+  
+  useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(user => {
-      if (user) {
-        console.log("✅ User is signed in:", user.email);
+      if (user && user.emailVerified ) {
+        console.log("✅ User is signed in and verified:", user.email);
         router.replace("/dashboard");
-      
-        registerForPushNotificationsAsync().then(token => {
-          if (token) {
-            const userDocRef = doc(db, "users", user.uid);
-            setDoc(userDocRef, { pushToken: token }, { merge: true });
+        router.replace("/dashboard");
+        (async () => {
+          try {
+            const token = await registerForPushNotificationsAsync();
+            if (token) {
+              const userDocRef = doc(db, "users", user.uid);
+              await setDoc(userDocRef, { pushToken: token }, { merge: true });
+            }
+          } catch (err) {
           }
-        });
-
+        })();
       } else {
+        // No user is logged in, OR they are not verified.
+        // In either case, they should not be on the dashboard.
+        
+        // ... your auto-login logic for development can stay ...
         if (__DEV__ && !hasAttemptedLogin.current) {
-          hasAttemptedLogin.current = true; 
-          signInWithEmailAndPassword(auth, DEV_EMAIL, DEV_PASSWORD)
-            .then(() => {
-              console.log("✅ Auto login successful");
-            })
-            .catch((err) => {
-              console.log("Auto-login failed, proceeding to manual login screen.", err.code);
-            });
+          // ...
         }
       }
     });
     return () => unsubscribe();
-  }, []);
+  }, [router]);
 
   return (
     <Stack initialRouteName="index">
       <Stack.Screen name="index" options={{ headerShown: false }} />
-      <Stack.Screen name="login" options={{ title: 'PU BLOOD CONNECT', headerTitleAlign: 'center', }} />
-      <Stack.Screen name="register" options={{ title: 'register',headerTitleAlign: 'center', headerBackVisible: false, }} />
+      <Stack.Screen name="login" options={{ title: 'PU BLOOD CONNECT', headerTitleAlign: 'center',  headerBackVisible: false ,headerTitleStyle: { fontSize: 18, color: '#de0101ff', fontWeight: 'bold' },}} />
+      <Stack.Screen name="register" options={{ title: 'PU BLOOD CONNECT', headerTitleAlign: 'center', headerBackVisible: false, headerTitleStyle: { fontSize: 18, color: '#de0101ff', fontWeight: 'bold' }, }} />
       <Stack.Screen 
         name="dashboard" 
         options={{
@@ -126,37 +125,37 @@ function RootLayoutNav() {
           headerTitleAlign: 'center',
           headerLeft: () => <MenuButton />,
           headerRight: () => <BellButton />,
-
-          headerStyle: {
-      backgroundColor: '#ffffffff', 
-    },
-    headerTintColor: '#ffffff', 
-    headerTitleStyle: { fontSize: 18,  color: '#de0101ff', fontWeight: 'bold',   },  }} />
-      <Stack.Screen name='MenuBar' options={{headerShown: false}} />
-      <Stack.Screen name='History' options={{title: 'History', headerTitleAlign: 'center',}} />
-      <Stack.Screen name="feedback" options={{ presentation: 'modal', title: 'Share Your Feedback',headerTitleStyle: { color: '#333' },headerStyle: { backgroundColor: '#f0f0f0'},}} />
-      <Stack.Screen name="request" options={{ title: 'request',headerTitleAlign: 'center', }} />
-      <Stack.Screen  name="donate"  options={{  title: 'Donate',  headerTitleAlign: 'center',  headerRight: () => <BellButton />, }} />
-      <Stack.Screen name="notifications" options={{ title: 'Notifications', headerTitleAlign: 'center', }} />
-      <Stack.Screen name="upload-credential" options={{ title: 'upload-credential',headerTitleAlign: 'center', }} />
-      <Stack.Screen name="admin" options={{  title: 'Admin Panel',  headerTitleAlign: 'center',  headerLeft: () => <AdminBackButton />, }}/>
-      <Stack.Screen name="certificate"  options={{title: 'Your Certificate',headerTitleAlign: 'center',}}/>
-      <Stack.Screen name="my-requests" options={{ title: 'My Requests',headerTitleAlign: 'center', }} />
-      <Stack.Screen name="profile" options={{ title: 'Profile', headerTitleAlign: 'center', }} />
-      <Stack.Screen name="blood-banks" options={{ title: 'Nearby Blood Banks', headerTitleAlign: 'center', }} />
-      <Stack.Screen name="add-blood-bank" options={{title: 'Add New Blood Bank',headerTitleAlign: 'center',  }}/>
-      <Stack.Screen name="events" options={{ title: 'Events & Camps', headerTitleAlign: 'center', }} />
-      <Stack.Screen name="add-event" options={{ title: 'Manage Event', headerTitleAlign: 'center',}}/>
-      <Stack.Screen name="recent-donors" options={{ title: 'recent-donors',headerTitleAlign: 'center', }} />
-      <Stack.Screen name="faq" options={{ title: 'FAQ',headerTitleAlign: 'center', }} />
-      <Stack.Screen name="privacy-policy" options={{ title: 'Privacy Policy',headerTitleAlign: 'center', }} />
-      <Stack.Screen name="terms-and-conditions" options={{ title: 'terms-and-conditions',headerTitleAlign: 'center', }} />
-      <Stack.Screen name="contact-us" options={{ title: 'Contact Us', headerTitleAlign: 'center', }}/>
-      <Stack.Screen name="gallery" options={{ title: 'Gallery',headerTitleAlign: 'center', }} />
-      <Stack.Screen name="top-donors" options={{ title: 'top-donors',headerTitleAlign: 'center', }} />
+          headerStyle: { backgroundColor: '#ffffffff' },
+          headerTintColor: '#ffffff',
+          headerTitleStyle: { fontSize: 18, color: '#de0101ff', fontWeight: 'bold' },
+        }} 
+      />
+      <Stack.Screen name='MenuBar' options={{ headerShown: false }} />
+      <Stack.Screen name='History' options={{ title: 'History', headerTitleAlign: 'center' }} />
+      <Stack.Screen name="feedback" options={{ presentation: 'modal', title: 'Share Your Feedback', headerTitleStyle: { color: '#333' }, headerStyle: { backgroundColor: '#f0f0f0' } }} />
+      <Stack.Screen name="request" options={{ title: 'request', headerTitleAlign: 'center' }} />
+      <Stack.Screen name="donate" options={{ title: 'Donate', headerTitleAlign: 'center', headerRight: () => <BellButton /> }} />
+      <Stack.Screen name="notifications" options={{ title: 'Notifications', headerTitleAlign: 'center' }} />
+      <Stack.Screen name="upload-credential" options={{ title: 'upload-credential', headerTitleAlign: 'center' }} />
+      <Stack.Screen name="admin" options={{ title: 'Admin Panel', headerTitleAlign: 'center', headerLeft: () => <AdminBackButton /> }} />
+      <Stack.Screen name="certificate" options={{ title: 'Your Certificate', headerTitleAlign: 'center' }} />
+      <Stack.Screen name="my-requests" options={{ title: 'My Requests', headerTitleAlign: 'center' }} />
+      <Stack.Screen name="profile" options={{ title: 'Profile', headerTitleAlign: 'center' }} />
+      <Stack.Screen name="blood-banks" options={{ title: 'Nearby Blood Banks', headerTitleAlign: 'center' }} />
+      <Stack.Screen name="add-blood-bank" options={{ title: 'Add New Blood Bank', headerTitleAlign: 'center' }} />
+      <Stack.Screen name="events" options={{ title: 'Events & Camps', headerTitleAlign: 'center' }} />
+      <Stack.Screen name="add-event" options={{ title: 'Manage Event', headerTitleAlign: 'center' }} />
+      <Stack.Screen name="recent-donors" options={{ title: 'recent-donors', headerTitleAlign: 'center' }} />
+      <Stack.Screen name="faq" options={{ title: 'FAQ', headerTitleAlign: 'center' }} />
+      <Stack.Screen name="privacy-policy" options={{ title: 'Privacy Policy', headerTitleAlign: 'center' }} />
+      <Stack.Screen name="terms-and-conditions" options={{ title: 'terms-and-conditions', headerTitleAlign: 'center' }} />
+      <Stack.Screen name="contact-us" options={{ title: 'Contact Us', headerTitleAlign: 'center' }} />
+      <Stack.Screen name="gallery" options={{ title: 'Gallery', headerTitleAlign: 'center' }} />
+      <Stack.Screen name="top-donors" options={{ title: 'top-donors', headerTitleAlign: 'center' }} />
     </Stack>
   );
 }
+
 export default function RootLayout() {
   const progress = useSharedValue(0);
 

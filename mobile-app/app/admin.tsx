@@ -1,11 +1,10 @@
-import React, { useState, } from 'react';
+import React, { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, SafeAreaView, ActivityIndicator, FlatList, TouchableOpacity, Alert } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getAuth } from 'firebase/auth';
-import { doc, getDoc, collection, query, where, getDocs, updateDoc, increment, addDoc, serverTimestamp } from 'firebase/firestore'; // Import addDoc and serverTimestamp
+import { doc, getDoc, collection, query, where, getDocs, updateDoc, increment, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase';
-
 
 const palette = { primaryRed: '#9B0000', darkText: '#333333', lightText: '#8A8A8A', white: '#ffffff', borderLight: '#EAEAEA', pageBg: '#F7F7F7', green: '#28a745', yellow: '#ffc107' };
 
@@ -20,8 +19,7 @@ type Submission = {
     hospital: string;
 };
 
-// --- Submission Card Component ---
-const SubmissionCard = ({ item, onApprove, onReject }: { item: Submission, onApprove: () => void, onReject: () => void }) => (
+const SubmissionCard = React.memo(({ item, onApprove, onReject, processingId }: { item: Submission, onApprove: () => void, onReject: () => void, processingId: string | null }) => (
     <View style={styles.card}>
         <Text style={styles.cardTitle}>{item.donorName}</Text>
         <Text style={styles.cardText}>Units Donated: {item.confirmedUnits}</Text>
@@ -29,15 +27,25 @@ const SubmissionCard = ({ item, onApprove, onReject }: { item: Submission, onApp
             <Text style={styles.viewCertificateLink}>View Certificate</Text>
         </TouchableOpacity>
         <View style={styles.buttonRow}>
-            <TouchableOpacity style={[styles.actionButton, styles.rejectButton]} onPress={onReject}>
+            <TouchableOpacity
+                style={[styles.actionButton, styles.rejectButton, processingId === item.id && { opacity: 0.6 }]}
+                onPress={onReject}
+                disabled={processingId === item.id}
+                accessibilityLabel="Reject Submission"
+            >
                 <Text style={styles.actionButtonText}>Reject</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={[styles.actionButton, styles.approveButton]} onPress={onApprove}>
+            <TouchableOpacity
+                style={[styles.actionButton, styles.approveButton, processingId === item.id && { opacity: 0.6 }]}
+                onPress={onApprove}
+                disabled={processingId === item.id}
+                accessibilityLabel="Approve Submission"
+            >
                 <Text style={styles.actionButtonText}>Approve</Text>
             </TouchableOpacity>
         </View>
     </View>
-);
+));
 
 export default function AdminScreen() {
     const router = useRouter();
@@ -45,44 +53,47 @@ export default function AdminScreen() {
     const [isLoading, setIsLoading] = useState(true);
     const [isAdmin, setIsAdmin] = useState(false);
     const [submissions, setSubmissions] = useState<Submission[]>([]);
+    const [processingId, setProcessingId] = useState<string | null>(null);
 
-    const checkAdminStatusAndFetchData = React.useCallback(async () => {
-        const auth = getAuth();
-        const user = auth.currentUser;
-
-        if (!user) {
-            router.replace('/login');
-            return;
+    const checkAdminStatusAndFetchData = useCallback(async () => {
+        setIsLoading(true);
+        try {
+            const auth = getAuth();
+            const user = auth.currentUser;
+            if (!user) {
+                router.replace('/login');
+                return;
+            }
+            const userDocRef = doc(db, 'users', user.uid);
+            const docSnap = await getDoc(userDocRef);
+            if (docSnap.exists() && docSnap.data().role === 'admin') {
+                setIsAdmin(true);
+                const submissionsQuery = query(
+                    collection(db, 'donationOffers'),
+                    where('status', '==', 'credentials_submitted')
+                );
+                const querySnapshot = await getDocs(submissionsQuery);
+                const subs = querySnapshot.docs.map(d => ({ id: d.id, ...d.data() } as Submission));
+                setSubmissions(subs);
+            } else {
+                Alert.alert("Access Denied", "You do not have permission to view this page.");
+                router.replace('/dashboard');
+            }
+        } catch (error) {
+            Alert.alert('Error', 'Failed to fetch admin data.');
+        } finally {
+            setIsLoading(false);
         }
-
-        const userDocRef = doc(db, 'users', user.uid);
-        const docSnap = await getDoc(userDocRef);
-
-        if (docSnap.exists() && docSnap.data().role === 'admin') {
-            setIsAdmin(true);
-            const submissionsQuery = query(
-                collection(db, 'donationOffers'),
-                where('status', '==', 'credentials_submitted')
-            );
-            const querySnapshot = await getDocs(submissionsQuery);
-            const subs = querySnapshot.docs.map(d => ({ id: d.id, ...d.data() } as Submission));
-            setSubmissions(subs);
-        } else {
-            Alert.alert("Access Denied", "You do not have permission to view this page.");
-            router.replace('/dashboard');
-        }
-        setIsLoading(false);
     }, [router]);
 
     useFocusEffect(
-      React.useCallback(() => {
-        checkAdminStatusAndFetchData();
-      }, [checkAdminStatusAndFetchData])
+        useCallback(() => {
+            checkAdminStatusAndFetchData();
+        }, [checkAdminStatusAndFetchData])
     );
 
-
-
-    const handleApprove = async (submission: Submission) => {
+    const handleApprove = useCallback(async (submission: Submission) => {
+        setProcessingId(submission.id);
         try {
             const offerDocRef = doc(db, 'donationOffers', submission.id);
             const userDocRef = doc(db, 'users', submission.donorId);
@@ -101,32 +112,36 @@ export default function AdminScreen() {
             await addDoc(collection(db, "donations"), {
                 donorName: submission.donorName,
                 donorId: submission.donorId,
-                department: donorDepartment, 
+                department: donorDepartment,
                 units: submission.confirmedUnits,
                 bloodGroup: submission.bloodGroup,
                 hospital: submission.hospital,
                 date: submission.confirmedDate,
+                createdAt: serverTimestamp(),
             });
 
             Alert.alert('Success', `${submission.donorName}'s donation has been approved.`);
             checkAdminStatusAndFetchData();
         } catch (error) {
-            console.error("Error approving submission:", error);
             Alert.alert('Error', 'Could not approve the submission.');
+        } finally {
+            setProcessingId(null);
         }
-    };
+    }, [checkAdminStatusAndFetchData]);
 
-    const handleReject = async (submission: Submission) => {
+    const handleReject = useCallback(async (submission: Submission) => {
+        setProcessingId(submission.id);
         try {
             const offerDocRef = doc(db, 'donationOffers', submission.id);
             await updateDoc(offerDocRef, { status: 'rejected' });
             Alert.alert('Success', `${submission.donorName}'s donation has been rejected.`);
-            checkAdminStatusAndFetchData(); 
+            checkAdminStatusAndFetchData();
         } catch (error) {
-            console.error("Error rejecting submission:", error);
             Alert.alert('Error', 'Could not reject the submission.');
+        } finally {
+            setProcessingId(null);
         }
-    };
+    }, [checkAdminStatusAndFetchData]);
 
     if (isLoading) {
         return <ActivityIndicator style={{ flex: 1 }} size="large" color={palette.primaryRed} />;
@@ -134,14 +149,21 @@ export default function AdminScreen() {
 
     return (
         <SafeAreaView style={styles.safeArea}>
-            
             <FlatList
                 data={submissions}
                 keyExtractor={item => item.id}
-                renderItem={({ item }) => <SubmissionCard item={item} onApprove={() => handleApprove(item)} onReject={() => handleReject(item)} />}
+                renderItem={({ item }) =>
+                    <SubmissionCard
+                        item={item}
+                        onApprove={() => handleApprove(item)}
+                        onReject={() => handleReject(item)}
+                        processingId={processingId}
+                    />
+                }
                 contentContainerStyle={styles.listContainer}
                 ListHeaderComponent={<Text style={styles.listHeader}>Pending Approvals</Text>}
                 ListEmptyComponent={<Text style={styles.emptyText}>No credentials are waiting for approval.</Text>}
+                extraData={processingId}
             />
         </SafeAreaView>
     );

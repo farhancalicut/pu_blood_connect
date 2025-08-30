@@ -1,16 +1,25 @@
-import React, { useState, useCallback, useEffect, FC, useRef } from 'react';
-import {
-  View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, SafeAreaView,
-  ActivityIndicator, TextInput, Modal, Image,
-} from 'react-native';
-import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { getAuth, } from 'firebase/auth'; 
-import { collection, getDocs, query, where, orderBy, doc, getDoc, addDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from '../firebase';
-import ViewShot from 'react-native-view-shot';
 import * as Clipboard from 'expo-clipboard';
+import { useFocusEffect } from 'expo-router';
 import * as Sharing from 'expo-sharing';
+import { getAuth, } from 'firebase/auth';
+import { addDoc, collection, doc, getDoc, getDocs, orderBy, query, serverTimestamp, where } from 'firebase/firestore';
+import React, { FC, useCallback, useEffect, useRef, useState } from 'react';
+import {
+    ActivityIndicator,
+    Alert,
+    FlatList,
+    Image,
+    Modal,
+    SafeAreaView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
+} from 'react-native';
+import ViewShot from 'react-native-view-shot';
+import { db } from '../firebase';
 
 const palette = { primaryRed: '#9B0000', darkText: '#333333', lightText: '#8A8A8A', white: '#ffffff', borderLight: '#EAEAEA', pageBg: '#F7F7F7', criticalRed: '#D9324B', cardBg: '#FEFBFB' };
 
@@ -188,7 +197,7 @@ const DonateScreen = () => {
 
         Alert.alert(
             "Thank You for Your Offer!",
-            `We will notify ${request.requesterName} about your willingness to donate.`,
+            `We will notify ${request.requesterName || 'the requester'} about your willingness to donate.`,
             [
                 { text: "Cancel", style: "cancel" },
                 { 

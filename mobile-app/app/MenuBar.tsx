@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, Pressable, StyleSheet, SafeAreaView, Image, Alert, Share  } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useMenu } from './context/MenuContext';
-import { useRouter, Href } from 'expo-router';
-import { getAuth,  } from 'firebase/auth';
+import { Href, useRouter } from 'expo-router';
+import { getAuth, } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
+import React, { useEffect, useState } from 'react';
+import { Alert, Image, Pressable, SafeAreaView, Share, StyleSheet, Text, View } from 'react-native';
 import { db } from '../firebase';
+import { useMenu } from './context/MenuContext';
 
 type MenuItem = {
   icon: React.ComponentProps<typeof Ionicons>['name'];
@@ -20,8 +20,9 @@ const menuItems: MenuItem[] = [
   { icon: 'location-outline', name: 'Nearby Blood Banks', href: '/blood-banks' },
   { icon: 'calendar-outline', name: 'Events & Camps', href: '/events' },
   { icon: 'notifications-outline', name: 'Notifications', href: '/notifications' },
-  
 ];
+
+// Increase touch area for profile icon by adding hitSlop prop to Pressable
 
 const secondaryMenuItems: MenuItem[] = [
     { icon: 'images-outline', name: 'Gallery', href: '/gallery' },
@@ -35,22 +36,34 @@ const secondaryMenuItems: MenuItem[] = [
 export default function MenuBar() {
   const { toggleMenu } = useMenu();
   const router = useRouter();
-  const [userName, setUserName] = useState('');
+  const [userName, setUserName] = useState<string | null>(null);
   const [profilePicUrl, setProfilePicUrl] = useState('');
 
   useEffect(() => {
     const auth = getAuth();
     const user = auth.currentUser;
     if (user) {
-        const userDocRef = doc(db, 'users', user.uid);
-        getDoc(userDocRef).then(docSnap => {
-            if (docSnap.exists()) {
-                const data = docSnap.data();
-                const fullName = data.name || `${data.firstName} ${data.lastName}`.trim();
-                setUserName(fullName || 'User');
-                setProfilePicUrl(data.profilePicUrl || '');
-            }
-        });
+      const userDocRef = doc(db, 'users', user.uid);
+      getDoc(userDocRef).then(docSnap => {
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          let fullName = '';
+          if (data.name && data.name.trim()) {
+            fullName = data.name.trim();
+          } else if (data.firstName || data.lastName) {
+            fullName = `${data.firstName || ''} ${data.lastName || ''}`.trim();
+          }
+          if (!fullName) {
+            fullName = user.email || 'User';
+          }
+          setUserName(fullName);
+          setProfilePicUrl(data.profilePicUrl || '');
+        } else {
+          setUserName(user.email || 'User');
+        }
+      }).catch(() => setUserName(user.email || 'User'));
+    } else {
+      setUserName('User');
     }
   }, []);
 
@@ -79,27 +92,38 @@ export default function MenuBar() {
   return (
     <SafeAreaView style={styles.container}>
       {/* --- PROFILE SECTION --- */}
-      <Pressable 
-        style={styles.profileSection} 
-        onPress={() => handlePress({ name: 'Profile', href: '/profile', icon: 'person-outline' })}
-      >
-        <View style={styles.profileCircle}>
-            {profilePicUrl ? (
-                <Image source={{ uri: profilePicUrl }} style={styles.profileImage} />
-            ) : (
-                <Ionicons name="person" size={24} color="#971A1A" />
-            )}
-        </View>
+      <View style={styles.profileSection}>
+        <Pressable
+          style={styles.profileCircle}
+          onPress={() => handlePress({ name: 'Profile', href: '/profile', icon: 'person-outline' })}
+        >
+          {profilePicUrl ? (
+            <Image source={{ uri: profilePicUrl }} style={styles.profileImage} />
+          ) : (
+            <Ionicons name="person" size={24} color="#971A1A" />
+          )}
+        </Pressable>
         <View style={styles.profileTextContainer}>
-            <Text style={styles.profileName}>{userName}</Text>
+          <Pressable onPress={() => handlePress({ name: 'Profile', href: '/profile', icon: 'person-outline' })}>
+            <Text style={styles.profileName}>
+              {userName === null ? "Loading..." : userName}
+            </Text>
+          </Pressable>
+          <Pressable onPress={() => handlePress({ name: 'Profile', href: '/profile', icon: 'person-outline' })}>
             <Text style={styles.profileLink}>View Profile</Text>
+          </Pressable>
         </View>
-      </Pressable>
+      </View>
 
       {/* --- Menu Items --- */}
       <View style={styles.menuItemsContainer}>
         {menuItems.map((item, index) => (
-          <Pressable key={index} style={styles.menuItem} onPress={() => handlePress(item)}>
+          <Pressable
+            key={index}
+            style={styles.menuItem}
+            onPress={() => handlePress(item)}
+            hitSlop={item.name === 'Dashboard' ? 100 : undefined} // Increase touch area for Dashboard
+          >
             <Ionicons name={item.icon} size={22} color="white" />
             <Text style={styles.menuItemText}>{item.name}</Text>
           </Pressable>
@@ -144,7 +168,7 @@ const styles = StyleSheet.create({
   },
   profileName: {
       color: 'white',
-      fontSize: 18,
+      fontSize: 15,
       fontWeight: 'bold',
   },
   profileLink: {

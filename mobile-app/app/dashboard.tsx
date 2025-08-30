@@ -248,14 +248,17 @@ export default function DashboardScreen() {
             <View style={styles.welcomeCard}>
                         <View style={styles.welcomeTopRow}>
                             <Text style={styles.welcomeTitle}>Hi {userProfile.firstName || 'User'}!</Text>
-                            <View style={styles.bloodTag}>
-                                <Text style={styles.bloodTagText}>Blood: {userProfile.bloodGroup || 'N/A'}</Text>
+                            <View style={styles.bloodTag/* { position: 'absolute', left: '50%', transform: [{ translateX: -15 }], top: 7 }]*/}>
+                              <Text style={styles.bloodTagText}>
+                                <Text style={{ fontSize: 12 }}>Blood:</Text>
+                                <Text style={{ fontSize: 12, fontWeight: 'bold' }}>{userProfile.bloodGroup || 'N/A'}</Text>
+                              </Text>
                             </View>
                         </View>
 
                         <View style={styles.welcomeMainRow}>
                             <View style={styles.welcomeLeftColumn}>
-                                <DetailRow label="Department:" value={userProfile.department || 'N/A'} />
+                                <DetailRow label="Dept:" value={userProfile.department || 'N/A'} />
                                 <DetailRow label="Total Donate:" value={`${userProfile.totalDonates || 0} Unites`} />
                                 <DetailRow label="Last Donate:" value={userProfile.lastDonated ? new Date(userProfile.lastDonated.seconds * 1000).toLocaleDateString() : 'N/A'} />
                                 
@@ -268,10 +271,10 @@ export default function DashboardScreen() {
                             <View style={styles.welcomeRightColumn}>
                                 <View style={styles.progressCircleContainer}>
                                     <Progress.Circle
-                                        size={140}
+                                        size={130}
                                         progress={progress}
                                         color={palette.statsRed}
-                                        thickness={15}
+                                        thickness={13}
                                         borderWidth={0}
                                         unfilledColor="rgba(58, 56, 57, 0.2)"
                                     />
@@ -417,14 +420,14 @@ export default function DashboardScreen() {
   );
 };
 const styles = StyleSheet.create({
-      safeArea: {
+  safeArea: {
     flex: 1,
     backgroundColor: '#F0F2F5',
   },
 
-    loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', },
 
-    welcomeCard: {
+  welcomeCard: {
     backgroundColor: '#FEF8F8',
     borderRadius: 16,
     padding: 16,
@@ -432,30 +435,33 @@ const styles = StyleSheet.create({
     marginRight: 16,
     marginBottom: 20,
     marginTop: 20,
+    paddingBottom: 23,
     elevation: 4,
     shadowColor: 'rgba(0,0,0,0.1)',
   },
   welcomeTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 0,
+    marginBottom: -5,
   },
   welcomeTitle: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: 'bold',
     color: palette.darkText,
+    paddingBottom: -1,
+    paddingTop: 3,
   },
   bloodTag: {
     backgroundColor: palette.statsRed,
     borderRadius: 6,
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    marginLeft: 12,
+    paddingVertical: 2,
+    paddingHorizontal: 5,
+    marginLeft: 10,
+    top: 3,
   },
   bloodTagText: {
     color: palette.white,
     fontWeight: 'bold',
-    fontSize: 13,
   },
   welcomeMainRow: {
     flexDirection: 'row',
@@ -464,69 +470,73 @@ const styles = StyleSheet.create({
   welcomeLeftColumn: {
     justifyContent: 'space-around', // Use space-around for better vertical spacing
     flex: 1, // Allow left column to take available space
-    marginRight: 10, // Add space between columns
+    marginRight: 0, // Add space between columns
   },
   detailRow: {
     flexDirection: 'row',
     alignItems: 'baseline', // Aligns text nicely
     marginBottom: -25,
     // marginTop: -20, // Add some vertical spacing
-  },
-  detailLabel: {
+    },
+    detailLabel: {
     fontSize: 12,
     color: palette.lightText,
-    width: 80, // Give the label a fixed width for alignment
-  },
-  detailValue: {
+    marginRight: 6, // Add spacing between label and value
+    // Remove fixed width for better auto-adjustment
+    },
+    detailValue: {
     fontSize: 12,
     color: palette.darkText,
     fontWeight: '400',
-    flex: 1, // Allow value to take remaining space
-  },
-  eligibilityTextEligible: {
+    flexShrink: 1, // Allow shrinking if needed
+    flexGrow: 1,   // Allow growing to fill space
+    // Remove fixed width/flex: 1 for better auto adjustment
+    },
+    eligibilityTextEligible: {
     color: palette.statsRed,
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: 'bold',
-    marginTop: 8,
-  },
-  eligibilityTextWaiting: {
+    marginTop: 0,
+    marginBottom: -10,
+    },
+    eligibilityTextWaiting: {
       color: palette.statsRed,
       fontSize: 14,
       fontWeight: '500',
       marginTop: 8,
-  },
-  welcomeRightColumn: {
+    },
+    welcomeRightColumn: {
     alignItems: 'center',
-  },
-  progressCircleContainer: {
+    },
+    progressCircleContainer: {
     justifyContent: 'center',
     alignItems: 'center',
-    top: '-8%',
-  },
-  dayProgressTag: {
+    top: '-0%',
+    },
+    dayProgressTag: {
     position: 'absolute',
-    top: -25,
+    top: -15,
     backgroundColor: '#E0E0E0',
     borderRadius: 4,
     paddingHorizontal: 6,
     paddingVertical: 2,
-  },
-  dayProgressText: {
+    },
+    dayProgressText: {
     fontSize: 13,
     fontWeight: 'bold',
     color: '#555',
-  },
-  faceContainer: {
+    },
+    faceContainer: {
     position: 'absolute',
     width: '100%',
-    height: '100%',
+    height: '110%',
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  eyesContainer: { flexDirection: 'row', position: 'absolute', top: 38, },
-  eye: { width: 8, height: 8, borderRadius: 4, backgroundColor: palette.statsRed, marginHorizontal: 12, },
-  faceText: { color: palette.statsRed, fontWeight: 'bold', fontSize: 12, textAlign: 'center', position: 'absolute', top: 55, },
-  mouth: { width: 50, height: 25, borderBottomLeftRadius: 25, borderBottomRightRadius: 25, borderWidth: 4, borderTopWidth: 0, borderColor: palette.statsRed, backgroundColor: 'transparent', position: 'absolute', bottom: 33, },
+    },
+    eyesContainer: { flexDirection: 'row', position: 'absolute', top: 38, },
+    eye: { width: 8, height: 8, borderRadius: 4, backgroundColor: palette.statsRed, marginHorizontal: 12, },
+    faceText: { color: palette.statsRed, fontWeight: 'bold', fontSize: 12, textAlign: 'center', position: 'absolute', top: 55, },
+    mouth: { width: 50, height: 25, borderBottomLeftRadius: 25, borderBottomRightRadius: 25, borderWidth: 4, borderTopWidth: 0, borderColor: palette.statsRed, backgroundColor: 'transparent', position: 'absolute', bottom: 33, },
 
 // header: { position: 'relative', top: Platform.OS === 'android' ? StatusBar.currentHeight : 0,left: 0, right: 0, height: HEADER_HEIGHT,  backgroundColor: '#EDF0F3', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, zIndex: 10, elevation: 10, },
     

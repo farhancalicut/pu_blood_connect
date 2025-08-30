@@ -7,7 +7,6 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../firebase';
 import * as ImagePicker from 'expo-image-picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const palette = { primaryRed: '#9B0000', darkText: '#333333', lightText: '#8A8A8A', white: '#ffffff', borderLight: '#EAEAEA', pageBg: '#FEF8F8' };
 
@@ -16,44 +15,51 @@ export default function AddEventScreen() {
     const params = useLocalSearchParams<{ eventId?: string }>(); 
     const isEditMode = !!params.eventId;
 
-    const [isLoading, setIsLoading] = useState(true);
+    const [checkingAdmin, setCheckingAdmin] = useState(true);
+    const [submitting, setSubmitting] = useState(false);
     const [form, setForm] = useState({ title: '', location: '', description: '', eventDate: new Date() });
     const [imageUri, setImageUri] = useState<string | null>(null);
     const [showDatePicker, setShowDatePicker] = useState(false);
 
+    // Admin check and load event data if editing
     useEffect(() => {
-        const checkAdminStatus = async () => {
-            const user = getAuth().currentUser;
-            if (!user) { router.replace('/login'); return; }
-            const userDocRef = doc(db, 'users', user.uid);
-            const docSnap = await getDoc(userDocRef);
-            if (!docSnap.exists() || docSnap.data().role !== 'admin') {
-                Alert.alert("Access Denied", "You do not have permission to view this page.");
-                router.replace('/dashboard');
-            }
-            setIsLoading(false);
-        };
-        
-        checkAdminStatus();
-    
-    const loadEventData = async () => {
-            if (isEditMode && params.eventId) {
-                const docRef = doc(db, 'events', params.eventId);
-                const docSnap = await getDoc(docRef);
-                if (docSnap.exists()) {
-                    const data = docSnap.data();
-                    setForm({
-                        title: data.title,
-                        location: data.location,
-                        description: data.description,
-                        eventDate: data.eventDate.toDate(),
-                    });
-                    setImageUri(data.posterImageUrl); // Show existing poster
+        let isMounted = true;
+        const checkAdminAndLoad = async () => {
+            try {
+                const user = getAuth().currentUser;
+                if (!user) { router.replace('/login'); return; }
+                const userDocRef = doc(db, 'users', user.uid);
+                const docSnap = await getDoc(userDocRef);
+                if (!docSnap.exists() || docSnap.data().role !== 'admin') {
+                    Alert.alert("Access Denied", "You do not have permission to view this page.");
+                    router.replace('/dashboard');
+                    return;
                 }
+                if (isEditMode && params.eventId) {
+                    const eventRef = doc(db, 'events', params.eventId);
+                    const eventSnap = await getDoc(eventRef);
+                    if (eventSnap.exists()) {
+                        const data = eventSnap.data();
+                        if (isMounted) {
+                            setForm({
+                                title: data.title,
+                                location: data.location,
+                                description: data.description,
+                                eventDate: data.eventDate?.toDate ? data.eventDate.toDate() : new Date(),
+                            });
+                            setImageUri(data.posterImageUrl || null);
+                        }
+                    }
+                }
+            } catch (e) {
+                Alert.alert("Error", "Failed to verify admin or load event.");
+                router.replace('/dashboard');
+            } finally {
+                if (isMounted) setCheckingAdmin(false);
             }
-            setIsLoading(false);
         };
-        loadEventData();
+        checkAdminAndLoad();
+        return () => { isMounted = false; };
     }, []);
 
     const handleChange = (field: string, value: any) => {
@@ -67,24 +73,25 @@ export default function AddEventScreen() {
             return;
         }
         let result = await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ['images'],
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
             allowsEditing: true,
             aspect: [16, 9],
             quality: 1,
         });
-        if (!result.canceled) {
+        if (!result.canceled && result.assets && result.assets.length > 0) {
             setImageUri(result.assets[0].uri);
         }
     };
+
     const handleSubmit = async () => {
-        const { title, location, eventDate } = form;
-        if (!title || !location  ) {
+        const { title, location, eventDate, description } = form;
+        if (!title || !location || !eventDate || !description || !imageUri) {
             Alert.alert('Missing Information', 'Please fill all fields and select a poster image.');
             return;
         }
-        setIsLoading(true);
+        setSubmitting(true);
         try {
-            let posterImageUrl = imageUri; 
+            let posterImageUrl = imageUri;
             if (imageUri && imageUri.startsWith('file://')) {
                 const response = await fetch(imageUri);
                 const blob = await response.blob();
@@ -92,69 +99,101 @@ export default function AddEventScreen() {
                 await uploadBytes(storageRef, blob);
                 posterImageUrl = await getDownloadURL(storageRef);
             }
-
             if (isEditMode && params.eventId) {
-                // Update existing event
                 const eventDocRef = doc(db, 'events', params.eventId);
-                const docSnap = await getDoc(eventDocRef);
-                if (!docSnap.exists()) {
-                    Alert.alert("Error", "This event no longer exists and cannot be updated. It may have been deleted.");
-                    setIsLoading(false);
-                    router.replace('/events'); // Go back to the list
-                    return;
-                }
                 await updateDoc(eventDocRef, { ...form, posterImageUrl });
                 Alert.alert('Success', 'Event has been updated.');
             } else {
-                // Add new event
                 await addDoc(collection(db, 'events'), { ...form, posterImageUrl, createdAt: serverTimestamp() });
                 Alert.alert('Success', 'New event has been added.');
             }
             router.back();
         } catch (error) {
-            console.error("Error adding event: ", error);
-            Alert.alert('Error', 'Could not add the event.');
+            Alert.alert('Error', 'Could not add/update the event.');
         } finally {
-            setIsLoading(false);
+            setSubmitting(false);
         }
     };
 
-    if (isLoading) {
+    if (checkingAdmin) {
         return <ActivityIndicator style={{ flex: 1 }} size="large" color={palette.primaryRed} />;
     }
 
     return (
         <SafeAreaView style={styles.safeArea}>
-            
             <ScrollView contentContainerStyle={styles.container}>
                 <Text style={styles.label}>Event Title</Text>
-                <TextInput style={styles.input} value={form.title} onChangeText={(val) => handleChange('title', val)} placeholder="e.g., Annual Blood Drive" />
+                <TextInput
+                    style={styles.input}
+                    value={form.title}
+                    onChangeText={(val) => handleChange('title', val)}
+                    placeholder="e.g., Annual Blood Drive"
+                    accessibilityLabel="Event Title"
+                />
                 <Text style={styles.label}>Location</Text>
-                <TextInput style={styles.input} value={form.location} onChangeText={(val) => handleChange('location', val)} placeholder="e.g., PU Campus" />
+                <TextInput
+                    style={styles.input}
+                    value={form.location}
+                    onChangeText={(val) => handleChange('location', val)}
+                    placeholder="e.g., PU Campus"
+                    accessibilityLabel="Location"
+                />
                 <Text style={styles.label}>Date of Event</Text>
                 <TouchableOpacity onPress={() => setShowDatePicker(true)}>
                     <View pointerEvents="none">
-                        <TextInput style={styles.input} value={form.eventDate.toLocaleDateString()} editable={false} />
+                        <TextInput
+                            style={styles.input}
+                            value={form.eventDate.toLocaleDateString()}
+                            editable={false}
+                            accessibilityLabel="Date of Event"
+                        />
                     </View>
                 </TouchableOpacity>
-                {showDatePicker && <DateTimePicker value={form.eventDate} mode="date" display="default" onChange={(e, selectedDate) => { setShowDatePicker(false); handleChange('eventDate', selectedDate || form.eventDate); }} />}
-                
+                {showDatePicker && (
+                    <DateTimePicker
+                        value={form.eventDate}
+                        mode="date"
+                        display="default"
+                        onChange={(e, selectedDate) => {
+                            setShowDatePicker(false);
+                            if (selectedDate) handleChange('eventDate', selectedDate);
+                        }}
+                    />
+                )}
                 <Text style={styles.label}>Description</Text>
-                <TextInput style={[styles.input, {height: 100}]} value={form.description} onChangeText={(val) => handleChange('description', val)} multiline placeholder="More details about the event..." />
-
+                <TextInput
+                    style={[styles.input, { height: 100 }]}
+                    value={form.description}
+                    onChangeText={(val) => handleChange('description', val)}
+                    multiline
+                    placeholder="More details about the event..."
+                    accessibilityLabel="Description"
+                />
                 <Text style={styles.label}>Upload Poster</Text>
                 <TouchableOpacity style={styles.imagePicker} onPress={pickImage}>
-                    {imageUri ? <Image source={{ uri: imageUri }} style={styles.imagePreview} /> : <Text style={styles.imagePickerText}>Select an image</Text>}
+                    {imageUri ? (
+                        <Image source={{ uri: imageUri }} style={styles.imagePreview} />
+                    ) : (
+                        <Text style={styles.imagePickerText}>Select an image</Text>
+                    )}
                 </TouchableOpacity>
-                 <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
-                    <Text style={styles.submitButtonText}>{isEditMode ? 'Update Event' : 'Add Event'}</Text>
+                <TouchableOpacity
+                    style={[styles.submitButton, submitting && { opacity: 0.7 }]}
+                    onPress={handleSubmit}
+                    disabled={submitting}
+                    accessibilityLabel={isEditMode ? 'Update Event' : 'Add Event'}
+                >
+                    {submitting ? (
+                        <ActivityIndicator color={palette.white} />
+                    ) : (
+                        <Text style={styles.submitButtonText}>{isEditMode ? 'Update Event' : 'Add Event'}</Text>
+                    )}
                 </TouchableOpacity>
             </ScrollView>
         </SafeAreaView>
     );
 }
 
-// Add styles here
 const styles = StyleSheet.create({
     safeArea: { flex: 1, backgroundColor: palette.white },
     container: { padding: 20, backgroundColor: palette.pageBg },

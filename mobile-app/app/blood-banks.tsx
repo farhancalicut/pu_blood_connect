@@ -1,6 +1,6 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, memo } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, SafeAreaView, Linking, Platform, ActivityIndicator } from 'react-native';
-import { useRouter, useFocusEffect, useNavigation  } from 'expo-router';
+import { useRouter, useFocusEffect, useNavigation } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { collection, getDocs, query, orderBy, doc, getDoc } from 'firebase/firestore';
 import { db, auth } from '../firebase';
@@ -17,32 +17,9 @@ type BloodBank = {
         longitude: number;
     };
 };
-const bloodBanksData: BloodBank[] = [
-    {
-        id: '1',
-        name: 'JIPMER Blood Bank',
-        address: 'Dhanvantari Nagar, Gorimedu, Puducherry, 605006',
-        phone: '0413 229 6000',
-        coordinates: { latitude: 11.9562, longitude: 79.7951 },
-    },
-    {
-        id: '2',
-        name: 'Indira Gandhi Govt. General Hospital Blood Bank',
-        address: 'Victor Simonel St, Puducherry, 605001',
-        phone: '0413 233 3364',
-        coordinates: { latitude: 11.9363, longitude: 79.8318 },
-    },
-    {
-        id: '3',
-        name: 'Aathma Blood Bank',
-        address: 'No 26, Natesan Nagar East, Puducherry, 605005',
-        phone: '0413 220 5600',
-        coordinates: { latitude: 11.9429, longitude: 79.8037 },
-    },
-];
 
-const BloodBankCard = ({ item }: { item: BloodBank }) => {
-    const openMaps = () => {
+const BloodBankCard = memo(({ item }: { item: BloodBank }) => {
+    const openMaps = useCallback(() => {
         const { latitude, longitude } = item.coordinates;
         const scheme = Platform.select({ ios: 'maps:0,0?q=', android: 'geo:0,0?q=' });
         const latLng = `${latitude},${longitude}`;
@@ -57,35 +34,35 @@ const BloodBankCard = ({ item }: { item: BloodBank }) => {
         } else {
             Alert.alert("Error", "Could not open maps for this device.");
         }
-    };
+    }, [item]);
 
-    const callPhone = () => {
+    const callPhone = useCallback(() => {
         Linking.openURL(`tel:${item.phone}`);
-    };
+    }, [item.phone]);
 
     return (
         <View style={styles.card}>
             <Text style={styles.cardTitle}>{item.name}</Text>
             <Text style={styles.cardAddress}>{item.address}</Text>
             <View style={styles.cardFooter}>
-                <TouchableOpacity onPress={callPhone}>
+                <TouchableOpacity onPress={callPhone} accessibilityLabel="Call Blood Bank">
                     <Text style={styles.phoneText}><Ionicons name="call" size={14} /> {item.phone}</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.directionsButton} onPress={openMaps}>
+                <TouchableOpacity style={styles.directionsButton} onPress={openMaps} accessibilityLabel="Get Directions">
                     <Text style={styles.directionsButtonText}>Get Directions</Text>
                 </TouchableOpacity>
             </View>
         </View>
     );
-};
+});
 
 function HeaderAddButton() {
-  const router = useRouter();
-  return (
-    <TouchableOpacity onPress={() => router.push('/add-blood-bank')} style={{ marginRight: 15 }}>
-      <Ionicons name="add-circle" size={28} color={palette.primaryRed} />
-    </TouchableOpacity>
-  );
+    const router = useRouter();
+    return (
+        <TouchableOpacity onPress={() => router.push('/add-blood-bank')} style={{ marginRight: 15 }} accessibilityLabel="Add Blood Bank">
+            <Ionicons name="add-circle" size={28} color={palette.primaryRed} />
+        </TouchableOpacity>
+    );
 }
 
 export default function BloodBanksScreen() {
@@ -96,54 +73,49 @@ export default function BloodBanksScreen() {
 
     const fetchData = useCallback(async () => {
         setIsLoading(true);
-        // Check user role
-        const user = auth.currentUser;
-        if (user) {
-            const userDoc = await getDoc(doc(db, 'users', user.uid));
-            if (userDoc.exists() && userDoc.data().role === 'admin') {
-                setIsAdmin(true);
-            }
-        }
         try {
+            // Check user role
+            const user = auth.currentUser;
+            if (user) {
+                const userDoc = await getDoc(doc(db, 'users', user.uid));
+                setIsAdmin(userDoc.exists() && userDoc.data().role === 'admin');
+            } else {
+                setIsAdmin(false);
+            }
             const q = query(collection(db, 'bloodBanks'), orderBy('createdAt', 'desc'));
             const querySnapshot = await getDocs(q);
             const data = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as BloodBank));
             setBloodBanks(data);
         } catch (error) {
-            console.error("Error fetching blood banks:", error);
+            Alert.alert("Error", "Could not fetch blood banks.");
         } finally {
             setIsLoading(false);
         }
     }, []);
-    
+
     useFocusEffect(
         useCallback(() => {
             fetchData();
         }, [fetchData])
     );
- useEffect(() => {
-        if (isAdmin) {
-            navigation.setOptions({
-                headerRight: () => <HeaderAddButton />,
-            });
-        } else {
-            navigation.setOptions({
-                headerRight: () => null, 
-            });
-        }
+
+    useEffect(() => {
+        navigation.setOptions?.({
+            headerRight: isAdmin ? () => <HeaderAddButton /> : undefined,
+        });
     }, [isAdmin, navigation]);
 
     return (
-         <SafeAreaView style={styles.safeArea}>
-           
+        <SafeAreaView style={styles.safeArea}>
             {isLoading ? (
-                <ActivityIndicator style={{flex: 1}} size="large" color={palette.primaryRed} />
+                <ActivityIndicator style={{ flex: 1 }} size="large" color={palette.primaryRed} />
             ) : (
                 <FlatList
                     data={bloodBanks}
                     renderItem={({ item }) => <BloodBankCard item={item} />}
                     keyExtractor={item => item.id}
                     contentContainerStyle={styles.listContainer}
+                    ListEmptyComponent={<Text style={{ textAlign: 'center', color: palette.lightText, marginTop: 40 }}>No blood banks found.</Text>}
                 />
             )}
         </SafeAreaView>
