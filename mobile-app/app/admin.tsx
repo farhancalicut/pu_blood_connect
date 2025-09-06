@@ -1,10 +1,16 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ActivityIndicator, FlatList, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, SafeAreaView, ActivityIndicator, FlatList, TouchableOpacity, Alert, Dimensions } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getAuth } from 'firebase/auth';
 import { doc, getDoc, collection, query, where, getDocs, updateDoc, increment, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase';
+
+// --- RESPONSIVE SETUP ---
+const { width: screenWidth } = Dimensions.get('window');
+const guidelineBaseWidth = 375; // Standard screen width to scale from
+
+// This function scales sizes based on the screen width
+const scale = (size: number) => (screenWidth / guidelineBaseWidth) * size;
 
 const palette = { primaryRed: '#9B0000', darkText: '#333333', lightText: '#8A8A8A', white: '#ffffff', borderLight: '#EAEAEA', pageBg: '#F7F7F7', green: '#28a745', yellow: '#ffc107' };
 
@@ -48,8 +54,8 @@ const SubmissionCard = React.memo(({ item, onApprove, onReject, processingId }: 
 ));
 
 export default function AdminScreen() {
+    // --- YOUR LOGIC (UNCHANGED) ---
     const router = useRouter();
-    const insets = useSafeAreaInsets();
     const [isLoading, setIsLoading] = useState(true);
     const [isAdmin, setIsAdmin] = useState(false);
     const [submissions, setSubmissions] = useState<Submission[]>([]);
@@ -146,7 +152,8 @@ export default function AdminScreen() {
     if (isLoading) {
         return <ActivityIndicator style={{ flex: 1 }} size="large" color={palette.primaryRed} />;
     }
-
+    
+    // --- YOUR JSX (UNCHANGED) ---
     return (
         <SafeAreaView style={styles.safeArea}>
             <FlatList
@@ -169,18 +176,62 @@ export default function AdminScreen() {
     );
 }
 
+// --- RESPONSIVE STYLESHEET ---
 const styles = StyleSheet.create({
     safeArea: { flex: 1, backgroundColor: palette.white },
-    listContainer: { padding: 15, backgroundColor: palette.pageBg },
-    listHeader: { fontSize: 20, fontWeight: 'bold', color: palette.darkText, marginBottom: 15 },
-    card: { backgroundColor: palette.white, borderRadius: 8, padding: 15, marginBottom: 15, borderWidth: 1, borderColor: palette.borderLight },
-    cardTitle: { fontSize: 16, fontWeight: 'bold', color: palette.darkText },
-    cardText: { fontSize: 14, color: palette.lightText, marginTop: 4 },
-    viewCertificateLink: { color: palette.primaryRed, marginVertical: 10, textDecorationLine: 'underline' },
-    buttonRow: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: 10, gap: 10 },
-    actionButton: { paddingVertical: 8, paddingHorizontal: 20, borderRadius: 6 },
+    listContainer: { padding: scale(15), backgroundColor: palette.pageBg },
+    listHeader: { 
+        fontSize: scale(20), 
+        fontWeight: 'bold', 
+        color: palette.darkText, 
+        marginBottom: scale(15) 
+    },
+    card: { 
+        backgroundColor: palette.white, 
+        borderRadius: scale(8), 
+        padding: scale(15), 
+        marginBottom: scale(15), 
+        borderWidth: 1, 
+        borderColor: palette.borderLight 
+    },
+    cardTitle: { 
+        fontSize: scale(16), 
+        fontWeight: 'bold', 
+        color: palette.darkText 
+    },
+    cardText: { 
+        fontSize: scale(14), 
+        color: palette.lightText, 
+        marginTop: scale(4) 
+    },
+    viewCertificateLink: { 
+        color: palette.primaryRed, 
+        marginVertical: scale(10), 
+        textDecorationLine: 'underline',
+        fontSize: scale(14)
+    },
+    buttonRow: { 
+        flexDirection: 'row', 
+        justifyContent: 'flex-end', 
+        marginTop: scale(10), 
+        gap: scale(10) 
+    },
+    actionButton: { 
+        paddingVertical: scale(8), 
+        paddingHorizontal: scale(20), 
+        borderRadius: scale(6) 
+    },
     approveButton: { backgroundColor: palette.green },
     rejectButton: { backgroundColor: palette.yellow },
-    actionButtonText: { color: palette.white, fontWeight: 'bold' },
-    emptyText: { textAlign: 'center', marginTop: 50, color: palette.lightText, fontSize: 16 }
+    actionButtonText: { 
+        color: palette.white, 
+        fontWeight: 'bold',
+        fontSize: scale(14)
+    },
+    emptyText: { 
+        textAlign: 'center', 
+        marginTop: scale(50), 
+        color: palette.lightText, 
+        fontSize: scale(16) 
+    }
 });

@@ -1,11 +1,15 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Href, useRouter } from 'expo-router';
-import { getAuth, } from 'firebase/auth';
+import { getAuth, onAuthStateChanged } from 'firebase/auth'; 
 import { doc, getDoc } from 'firebase/firestore';
 import React, { useEffect, useState } from 'react';
-import { Alert, Image, Pressable, SafeAreaView, Share, StyleSheet, Text, View } from 'react-native';
+import { Alert, Image, Pressable, SafeAreaView, Share, StyleSheet, Text, View, Dimensions } from 'react-native';
 import { db } from '../firebase';
 import { useMenu } from './context/MenuContext';
+
+const { width: screenWidth } = Dimensions.get('window');
+const guidelineBaseWidth = 375;
+const scale = (size: number) => (screenWidth / guidelineBaseWidth) * size;
 
 type MenuItem = {
   icon: React.ComponentProps<typeof Ionicons>['name'];
@@ -21,8 +25,6 @@ const menuItems: MenuItem[] = [
   { icon: 'calendar-outline', name: 'Events & Camps', href: '/events' },
   { icon: 'notifications-outline', name: 'Notifications', href: '/notifications' },
 ];
-
-// Increase touch area for profile icon by adding hitSlop prop to Pressable
 
 const secondaryMenuItems: MenuItem[] = [
     { icon: 'images-outline', name: 'Gallery', href: '/gallery' },
@@ -41,30 +43,35 @@ export default function MenuBar() {
 
   useEffect(() => {
     const auth = getAuth();
-    const user = auth.currentUser;
-    if (user) {
-      const userDocRef = doc(db, 'users', user.uid);
-      getDoc(userDocRef).then(docSnap => {
-        if (docSnap.exists()) {
-          const data = docSnap.data();
-          let fullName = '';
-          if (data.name && data.name.trim()) {
-            fullName = data.name.trim();
-          } else if (data.firstName || data.lastName) {
-            fullName = `${data.firstName || ''} ${data.lastName || ''}`.trim();
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        const userDocRef = doc(db, 'users', user.uid);
+        getDoc(userDocRef).then(docSnap => {
+          if (docSnap.exists()) {
+            const data = docSnap.data();
+            let fullName = '';
+            if (data.name && data.name.trim()) {
+              fullName = data.name.trim();
+            } else if (data.firstName || data.lastName) {
+              fullName = `${data.firstName || ''} ${data.lastName || ''}`.trim();
+            }
+            if (!fullName) {
+              fullName = user.email || 'User';
+            }
+            setUserName(fullName);
+            setProfilePicUrl(data.profilePicUrl || '');
+          } else {
+            setUserName(user.email || 'User');
           }
-          if (!fullName) {
-            fullName = user.email || 'User';
-          }
-          setUserName(fullName);
-          setProfilePicUrl(data.profilePicUrl || '');
-        } else {
-          setUserName(user.email || 'User');
-        }
-      }).catch(() => setUserName(user.email || 'User'));
-    } else {
-      setUserName('User');
-    }
+        }).catch(() => setUserName(user.email || 'User'));
+      } else {
+        setUserName('User');
+        setProfilePicUrl('');
+      }
+    });
+
+    // Clean up the listener when the component is unmounted
+    return () => unsubscribe();
   }, []);
 
   const handleReferralShare = async () => {
@@ -78,15 +85,18 @@ export default function MenuBar() {
   };
 
   const handlePress = (item: MenuItem) => {
-    toggleMenu();
-    
-    if (item.name === 'Refer a Friend') {
-        handleReferralShare();
-    }
-    else if (item.href) {
+    // Navigate FIRST
+    if (item.href) {
       router.push(item.href);
+    } 
+    else if (item.name === 'Refer a Friend') {
+      handleReferralShare();
     }
     
+    // THEN, close the menu after a tiny delay
+    setTimeout(() => {
+      toggleMenu();
+    }, 100);
   };
 
   return (
@@ -100,7 +110,7 @@ export default function MenuBar() {
           {profilePicUrl ? (
             <Image source={{ uri: profilePicUrl }} style={styles.profileImage} />
           ) : (
-            <Ionicons name="person" size={24} color="#971A1A" />
+            <Ionicons name="person" size={scale(24)} color="#971A1A" />
           )}
         </Pressable>
         <View style={styles.profileTextContainer}>
@@ -122,16 +132,16 @@ export default function MenuBar() {
             key={index}
             style={styles.menuItem}
             onPress={() => handlePress(item)}
-            hitSlop={item.name === 'Dashboard' ? 100 : undefined} // Increase touch area for Dashboard
+            hitSlop={item.name === 'Dashboard' ? 0 : undefined}
           >
-            <Ionicons name={item.icon} size={22} color="white" />
+            <Ionicons name={item.icon} size={scale(22)} color="white" />
             <Text style={styles.menuItemText}>{item.name}</Text>
           </Pressable>
         ))}
         <View style={styles.divider} />
         {secondaryMenuItems.map((item, index) => (
           <Pressable key={index} style={styles.menuItem} onPress={() => handlePress(item)}>
-            <Ionicons name={item.icon} size={22} color="white" />
+            <Ionicons name={item.icon} size={scale(22)} color="white" />
             <Text style={styles.menuItemText}>{item.name}</Text>
           </Pressable>
         ))}
@@ -140,20 +150,20 @@ export default function MenuBar() {
   );
 };
 
+// --- RESPONSIVE STYLESHEET ---
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#971A1A' },
   profileSection: {
-    flexDirection: 'row', // Align items side-by-side
+    flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 95,
-    paddingBottom: 25,
-
+    paddingHorizontal: scale(20),
+    paddingTop: scale(95),
+    paddingBottom: scale(25),
   },
   profileCircle: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+    width: scale(45),
+    height: scale(45),
+    borderRadius: scale(25),
     backgroundColor: 'rgba(255, 255, 255, 0.9)',
     justifyContent: 'center',
     alignItems: 'center',
@@ -164,23 +174,38 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   profileTextContainer: {
-      marginLeft: 15,
+    marginLeft: scale(15),
+    marginTop: scale(5),
   },
   profileName: {
-      color: 'white',
-      fontSize: 15,
-      fontWeight: 'bold',
+    color: 'white',
+    fontSize: scale(13),
+    fontWeight: 'bold',
   },
   profileLink: {
-      color: 'rgba(255, 255, 255, 0.7)',
-      fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.7)',
+    fontSize: scale(13),
   },
   menuItemsContainer: {
-    paddingLeft: 40,
+    paddingLeft: scale(40),
     flex: 1,
-    marginTop: 10,
+    marginTop: scale(10),
   },
-  menuItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 15 },
-  menuItemText: { color: 'white', fontSize: 16, marginLeft: 20, fontWeight: '500' },
-  divider: { height: 1, backgroundColor: 'rgba(255, 255, 255, 0.2)', marginVertical: 15, marginRight: 20 },
+  menuItem: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    paddingVertical: scale(13) 
+  },
+  menuItemText: { 
+    color: 'white', 
+    fontSize: scale(14), 
+    marginLeft: scale(15), 
+    fontWeight: '500' 
+  },
+  divider: { 
+    height: 1, 
+    backgroundColor: 'rgba(255, 255, 255, 0.2)', 
+    marginVertical: scale(15), 
+    marginRight: scale(20) 
+  },
 });

@@ -1,9 +1,16 @@
-import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect } from 'expo-router';
-import { collection, getDocs, limit, orderBy, query } from 'firebase/firestore';
 import React, { useCallback, useState } from 'react';
-import { ActivityIndicator, FlatList, SafeAreaView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, FlatList, SafeAreaView, StyleSheet, Text, View, Dimensions } from 'react-native';
+import { useFocusEffect } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import { collection, getDocs, limit, orderBy, query } from 'firebase/firestore';
 import { db } from '../firebase';
+
+// --- RESPONSIVE SETUP ---
+const { width: screenWidth } = Dimensions.get('window');
+const guidelineBaseWidth = 375; // Standard screen width to scale from
+
+// This function scales sizes based on the screen width
+const scale = (size: number) => (screenWidth / guidelineBaseWidth) * size;
 
 const palette = { primaryRed: '#9B0000', darkText: '#333333', lightText: '#8A8A8A', white: '#ffffff', borderLight: '#EAEAEA', pageBg: '#F7F7F7' };
 
@@ -12,7 +19,7 @@ type Donation = { id: string; donorName?: string; department?: string; bloodGrou
 const ListItem = ({ name, detail, action }: { name: string; detail?: string; action: React.ReactNode; }) => (
     <View style={styles.listItem}>
         <View style={styles.itemIcon}>
-            <Ionicons name="person" size={18} color={palette.primaryRed} />
+            <Ionicons name="person" size={scale(18)} color={palette.primaryRed} />
         </View>
         <View style={styles.itemDetails}>
             <Text style={styles.itemTitle}>{String(name)}</Text>
@@ -23,6 +30,7 @@ const ListItem = ({ name, detail, action }: { name: string; detail?: string; act
 );
 
 export default function RecentDonorsScreen() {
+    // --- YOUR LOGIC (UNCHANGED) ---
     const [recentDonors, setRecentDonors] = useState<Donation[]>([]);
     const [isLoading, setIsLoading] = useState(true);
 
@@ -41,14 +49,14 @@ export default function RecentDonorsScreen() {
     }, []);
 
     useFocusEffect(
-      useCallback(() => {
-        fetchRecentDonors();
-      }, [fetchRecentDonors])
+        useCallback(() => {
+            fetchRecentDonors();
+        }, [fetchRecentDonors])
     );
 
+    // --- YOUR JSX (UNCHANGED) ---
     return (
         <SafeAreaView style={styles.safeArea}>
-            
             {isLoading ? (
                 <ActivityIndicator style={{ flex: 1 }} size="large" color={palette.primaryRed} />
             ) : (
@@ -63,13 +71,44 @@ export default function RecentDonorsScreen() {
     );
 }
 
+// --- RESPONSIVE STYLESHEET ---
 const styles = StyleSheet.create({
     safeArea: { flex: 1, backgroundColor: palette.white },
-    listContainer: { padding: 15, backgroundColor: palette.pageBg },
-    listItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: palette.white, padding: 12, borderRadius: 10, marginBottom: 10, elevation: 1 },
-    itemIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#FEE2E2', justifyContent: 'center', alignItems: 'center', marginRight: 12 },
+    listContainer: { 
+        padding: scale(15), 
+        backgroundColor: palette.pageBg 
+    },
+    listItem: { 
+        flexDirection: 'row', 
+        alignItems: 'center', 
+        backgroundColor: palette.white, 
+        padding: scale(12), 
+        borderRadius: scale(10), 
+        marginBottom: scale(10), 
+        elevation: 1 
+    },
+    itemIcon: { 
+        width: scale(40), 
+        height: scale(40), 
+        borderRadius: scale(20), 
+        backgroundColor: '#FEE2E2', 
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        marginRight: scale(12) 
+    },
     itemDetails: { flex: 1 },
-    itemTitle: { fontSize: 14, fontWeight: '600', color: palette.darkText },
-    itemSubtitle: { fontSize: 12, color: palette.lightText },
-    itemAction: { fontWeight: '600', fontSize: 16, color: palette.primaryRed },
+    itemTitle: { 
+        fontSize: scale(14), 
+        fontWeight: '600', 
+        color: palette.darkText 
+    },
+    itemSubtitle: { 
+        fontSize: scale(12), 
+        color: palette.lightText 
+    },
+    itemAction: { 
+        fontWeight: '600', 
+        fontSize: scale(16), 
+        color: palette.primaryRed 
+    },
 });

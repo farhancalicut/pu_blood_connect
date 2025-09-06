@@ -1,16 +1,25 @@
 import { useRouter, useNavigation } from 'expo-router';
 import { FirebaseError } from 'firebase/app';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { createUserWithEmailAndPassword, sendEmailVerification, signOut } from 'firebase/auth';
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import React, { useState, useEffect, useRef } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, SafeAreaView, ActivityIndicator, Animated, TextStyle, KeyboardAvoidingView, Platform } from 'react-native';
+import { Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, SafeAreaView, ActivityIndicator, Animated, TextStyle, KeyboardAvoidingView, Platform, Dimensions } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { auth, db } from '../firebase';
-import { signOut,sendEmailVerification  } from 'firebase/auth';
 
+// --- RESPONSIVE SETUP ---
+const { width: screenWidth } = Dimensions.get('window');
+const guidelineBaseWidth = 375; // Standard screen width to scale from
+
+// This function scales sizes based on the screen width
+const scale = (size: number) => (screenWidth / guidelineBaseWidth) * size;
+
+// --- DATA LISTS (Unchanged) ---
+const DEPARTMENTS = [ 'Computer Science', 'Mathematics', 'Physics', 'Chemistry', 'Commerce', 'History', 'French' ];
 const GENDERS = ['Male', 'Female', 'Other'];
 const BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
 
+// --- HELPER COMPONENT (Moved Outside & Made Responsive) ---
 type FloatingLabelInputProps = {
   label: string;
   value: string;
@@ -43,29 +52,26 @@ const FloatingLabelInput = ({
 
     const labelStyle: Animated.WithAnimatedObject<TextStyle> = {
       position: "absolute",
-  left: 16,
-  top: animatedValue.interpolate({
-    inputRange: [0, 1],
-    outputRange: [22, -1.5], // goes above border
-  }),
-  fontSize: animatedValue.interpolate({
-    inputRange: [0, 1],
-    outputRange: [13, 12],
-  }),
-  color: animatedValue.interpolate({
-    inputRange: [0, 1],
-    outputRange: ["#888", "#575757ff"],
-  }),
-  backgroundColor: "#ffffffb6",
-  paddingHorizontal: 1,
-  paddingBottom: -2,
-  paddingTop: -2,
-  zIndex: 1,
-  alignSelf: "flex-start", 
-};
+      left: scale(16),
+      top: animatedValue.interpolate({
+        inputRange: [0, 1],
+        outputRange: [scale(22), scale(-1.5)],
+      }),
+      fontSize: animatedValue.interpolate({
+        inputRange: [0, 1],
+        outputRange: [scale(13), scale(12)],
+      }),
+      color: animatedValue.interpolate({
+        inputRange: [0, 1],
+        outputRange: ["#888", "#575757ff"],
+      }),
+      backgroundColor: "#F8FAFC", // Match card background
+      paddingHorizontal: scale(4),
+      zIndex: 1,
+    };
 
     return (
-      <View style={{ marginBottom: 20, paddingTop: 8 }}>
+      <View style={{ marginBottom: scale(20), paddingTop: scale(8) }}>
         <Animated.Text style={labelStyle}>{label}</Animated.Text>
         <TextInput
           value={value}
@@ -86,6 +92,7 @@ const FloatingLabelInput = ({
 
 
 export default function RegisterScreen() {
+  // --- YOUR LOGIC (UNCHANGED) ---
   const router = useRouter();
   const navigation = useNavigation();
   const user = auth.currentUser;
@@ -93,27 +100,15 @@ export default function RegisterScreen() {
 
   const [form, setForm] = useState({
     email: '', firstName: '', lastName: '', department: '', age: '',gender: '',
-     bloodGroup: '', phone: '', password: '', confirmPassword: '',
+    bloodGroup: '', phone: '', password: '', confirmPassword: '',isNssVolunteer: '',
   });
   const [isLoading, setIsLoading] = useState(isEditMode);
 
-  // Validation functions
-  const validateEmail = (email: string) =>
-    /^[a-zA-Z0-9]{13}@pondiuni\.ac\.in$/.test(email);
-
-  const validateGender = (gender: string) =>
-    GENDERS.includes(gender);
-
-  const validateAge = (age: string) => {
-    const num = Number(age);
-    return !isNaN(num) && num > 15;
-  };
-
-  const validateBloodGroup = (bg: string) =>
-    BLOOD_GROUPS.includes(bg);
-
-  const validatePassword = (password: string) =>
-    password.length >= 6;
+  const validateEmail = (email: string) => /^[a-zA-Z0-9]{13}@pondiuni\.ac\.in$/.test(email);
+  const validateGender = (gender: string) => GENDERS.includes(gender);
+  const validateAge = (age: string) => { const num = Number(age); return !isNaN(num) && num > 15; };
+  const validateBloodGroup = (bg: string) => BLOOD_GROUPS.includes(bg);
+  const validatePassword = (password: string) => password.length >= 6;
 
   useEffect(() => {
     navigation.setOptions?.({
@@ -215,17 +210,34 @@ export default function RegisterScreen() {
         const userCredential = await createUserWithEmailAndPassword(auth, email.trim(), password);
         const newUser = userCredential.user;
         await sendEmailVerification(newUser);
-        await setDoc(doc(db, 'users', newUser.uid), {
-          ...profileData,
-          age,
-          gender,
-          bloodGroup,
+
+        // 👇 1. CREATE THE USER DATA OBJECT
+        const newUserProfile = {
+          // Spread profileData, but also explicitly include all form fields
+          // to ensure everything is captured.
+          firstName: form.firstName,
+          lastName: form.lastName,
+          department: form.department,
+          age: form.age,
+          gender: form.gender,
+          bloodGroup: form.bloodGroup,
+          phone: form.phone,
+          isNssVolunteer: form.isNssVolunteer,
           email: email.trim(),
           uid: newUser.uid,
           createdAt: new Date(),
-        });
+        };
+
+        // 👇 2. CONDITIONALLY ADD THE nssStatus FIELD
+        if (form.isNssVolunteer === 'Yes') {
+          (newUserProfile as any).nssStatus = 'pending';
+        }
+
+        // 👇 3. SAVE THE COMPLETE OBJECT TO FIRESTORE
+        await setDoc(doc(db, 'users', newUser.uid), newUserProfile);
+        
         await signOut(auth);
-        Alert.alert('Registration Successful!','A verification link has been sent to your email. Please check your inbox to activate your account.');
+        Alert.alert('Registration Successful!', 'A verification link has been sent to your email. Please check your inbox to activate your account.');
         router.push('/login');
       }
     } catch (error: unknown) {
@@ -257,8 +269,7 @@ export default function RegisterScreen() {
   };
 
   
-
-  return (
+     return (
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
@@ -268,7 +279,7 @@ export default function RegisterScreen() {
         <ScrollView
           contentContainerStyle={styles.card}
           showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="always"
+          keyboardShouldPersistTaps="handled"
         >
           {!isEditMode && (
             <View style={styles.tabContainer}>
@@ -296,11 +307,19 @@ export default function RegisterScreen() {
   value={form.lastName}
   onChangeText={text => handleChange('lastName', text)}
 />
-<FloatingLabelInput
-  label="Department"
-  value={form.department}
-  onChangeText={text => handleChange('department', text)}
-/>
+<Text style={styles.label}>Department</Text>
+<View style={styles.pickerContainer}>
+  <Picker
+    selectedValue={form.department}
+    onValueChange={(itemValue) => handleChange('department', itemValue)}
+    style={styles.picker}
+  >
+    <Picker.Item label="Select Department..." value="" />
+    {DEPARTMENTS.map(dept => (
+      <Picker.Item key={dept} label={dept} value={dept} />
+    ))}
+  </Picker>
+</View>
 <FloatingLabelInput
   label="Age"
   value={form.age}
@@ -315,12 +334,11 @@ export default function RegisterScreen() {
 />
 {/* Now Picker fields */}
           <Text style={styles.label}>Gender</Text>
-          <View style={{ height: 50, marginBottom: 15, borderWidth: 1, borderColor: '#ddd', borderRadius: 10, backgroundColor: '#fff', justifyContent: 'center' }}>
+          <View style={styles.pickerContainer}>
             <Picker
               selectedValue={form.gender}
               onValueChange={value => handleChange('gender', value)}
-              style={{ width: '100%' }}
-              dropdownIconColor="#888"
+              style={styles.picker}
             >
               <Picker.Item label="Select Gender" value="" />
               {GENDERS.map(g => <Picker.Item key={g} label={g} value={g} />)}
@@ -328,18 +346,28 @@ export default function RegisterScreen() {
           </View>
           
           <Text style={styles.label}>Blood Group</Text>
-          <View style={{ height: 50, marginBottom: 15, borderWidth: 1, borderColor: '#ddd', borderRadius: 10, backgroundColor: '#fff', justifyContent: 'center' }}>
+          <View style={styles.pickerContainer}>
             <Picker
               selectedValue={form.bloodGroup}
               onValueChange={value => handleChange('bloodGroup', value)}
-              style={{ width: '100%' }}
-              dropdownIconColor="#888"
+              style={styles.picker}
             >
               <Picker.Item label="Select Blood Group" value="" />
               {BLOOD_GROUPS.map(bg => <Picker.Item key={bg} label={bg} value={bg} />)}
             </Picker>
           </View>
-
+<Text style={styles.label}>Are you an NSS Volunteer?</Text>
+          <View style={styles.pickerContainer}>
+            <Picker
+              selectedValue={form.isNssVolunteer}
+              onValueChange={value => handleChange('isNssVolunteer', value)}
+              style={styles.picker}
+            >
+              <Picker.Item label="Please select..." value="" />
+              <Picker.Item label="Yes" value="Yes" />
+              <Picker.Item label="No" value="No" />
+            </Picker>
+          </View>
           {!isEditMode && (
             <>
               <FloatingLabelInput
@@ -377,65 +405,81 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#EDF0F3',
-    padding: 20,
   },
-  disabledInput: { backgroundColor: '#f5f5f5', color: '#999' },
   card: {
     backgroundColor: '#F8FAFC',
-    padding: 25,
-    borderRadius: 20,
-    marginTop: 30,
+    padding: scale(25),
+    borderRadius: scale(20),
+    margin: scale(20), // Use margin instead of padding on container
     shadowColor: '#000',
     shadowOpacity: 0.1,
-    shadowOffset: { width: 0, height: 3 },
-    shadowRadius: 10,
+    shadowOffset: { width: 0, height: scale(3) },
+    shadowRadius: scale(10),
     elevation: 6,
   },
+  disabledInput: { backgroundColor: '#f5f5f5', color: '#999' },
   tabContainer: {
     flexDirection: 'row',
-    marginBottom: 20,
+    marginBottom: scale(20),
   },
   tab: {
     flex: 1,
     textAlign: 'center',
-    padding: 10,
+    padding: scale(10),
     fontWeight: '600',
     color: '#888',
+    fontSize: scale(14),
   },
   activeTab: {
     backgroundColor: '#fff',
-    borderRadius: 10,
+    borderRadius: scale(10),
     color: '#000',
   },
   label: {
-    fontSize: 14,
-    color: '#888',
-    marginBottom: 8,
+    fontSize: scale(14),
+    color: '#666',
+    marginBottom: scale(4),
+    marginLeft: scale(4),
     fontWeight: '500',
-    marginTop: 5,
+  },
+  pickerContainer: {
+    height: scale(50),
+    backgroundColor: '#ffffff',
+    borderRadius: scale(10),
+    borderWidth: 1,
+    borderColor: '#ddd',
+    marginBottom: scale(15),
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  picker: {
+    width: '100%',
   },
   input: {
     backgroundColor: '#fff',
-    padding: 12,
-    borderRadius: 10,
-    marginBottom: 15,
+    padding: scale(12),
+    height: scale(50),
+    borderRadius: scale(10),
     borderWidth: 1,
     borderColor: '#ddd',
+    fontSize: scale(14),
   },
   registerButton: {
     backgroundColor: '#E0E5EC',
-    paddingVertical: 12,
-    borderRadius: 10,
+    paddingVertical: scale(12),
+    borderRadius: scale(10),
     alignItems: 'center',
-    marginTop: 10,
+    marginTop: scale(10),
   },
   registerButtonText: {
     fontWeight: 'bold',
+    fontSize: scale(16),
   },
   signInText: {
     textAlign: 'center',
-    marginTop: 15,
+    marginTop: scale(15),
     color: '#666',
+    fontSize: scale(14),
   },
   signInLink: {
     color: '#0066cc',

@@ -1,18 +1,26 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TextInput, TouchableOpacity, Alert,
-  ActivityIndicator, KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, Switch
+  ActivityIndicator, KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, Switch, Dimensions
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { getAuth } from 'firebase/auth';
 import { collection, addDoc, serverTimestamp, doc, getDoc } from 'firebase/firestore';
-import { db } from '../firebase'; // Make sure this path is correct
+import { db } from '../firebase';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Picker } from '@react-native-picker/picker';
 
+// --- RESPONSIVE SETUP ---
+const { width: screenWidth } = Dimensions.get('window');
+const guidelineBaseWidth = 375; // Standard screen width to scale from
+
+// This function scales sizes based on the screen width
+const scale = (size: number) => (screenWidth / guidelineBaseWidth) * size;
+
 const palette = { primaryRed: '#9B0000', darkText: '#333333', lightText: '#8A8A8A', white: '#ffffff', borderLight: '#EAEAEA', pageBg: '#FEF8F8' };
 
-const RequestScreen = () => {
+export default function RequestScreen() {
+    // --- YOUR LOGIC (UNCHANGED) ---
     const router = useRouter();
     const [patientName, setPatientName] = useState('');
     const [mobileNumber, setMobileNumber] = useState('');
@@ -35,7 +43,7 @@ const RequestScreen = () => {
                 if (docSnap.exists()) {
                     setRequesterInfo({
                         uid: user.uid,
-                        name: docSnap.data().name || 'Anonymous',
+                        name: docSnap.data().name || [docSnap.data().firstName, docSnap.data().lastName].filter(Boolean).join(' ') || 'Anonymous',
                         department: docSnap.data().department || 'Unknown'
                     });
                 }
@@ -55,14 +63,14 @@ const RequestScreen = () => {
                 mobileNumber,
                 requiredDate,
                 bloodGroup,
-                units: Number(units), // Store units as a number
+                units: Number(units),
                 hospital,
                 isCritical,
                 notes,
                 requesterId: requesterInfo.uid,
                 requesterName: requesterInfo.name,
                 requesterDepartment: requesterInfo.department,
-                status: 'pending', // Initial status
+                status: 'pending',
                 createdAt: serverTimestamp(),
             });
             Alert.alert('Success', 'Your blood request has been sent.');
@@ -81,9 +89,9 @@ const RequestScreen = () => {
         setRequiredDate(currentDate);
     };
 
+    // --- YOUR JSX (UNCHANGED) ---
     return (
-         <SafeAreaView style={styles.safeArea}>
-        
+        <SafeAreaView style={styles.safeArea}>
             <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{flex: 1}}>
                 <ScrollView contentContainerStyle={styles.container}>
                     <Text style={styles.label}>Patient Name</Text>
@@ -106,14 +114,10 @@ const RequestScreen = () => {
                             <View style={styles.pickerContainer}>
                                 <Picker selectedValue={bloodGroup} onValueChange={(itemValue) => setBloodGroup(itemValue)} style={styles.picker}>
                                     <Picker.Item label="Select..." value="" />
-                                    <Picker.Item label="A+" value="A+" />
-                                    <Picker.Item label="A-" value="A-" />
-                                    <Picker.Item label="B+" value="B+" />
-                                    <Picker.Item label="B-" value="B-" />
-                                    <Picker.Item label="AB+" value="AB+" />
-                                    <Picker.Item label="AB-" value="AB-" />
-                                    <Picker.Item label="O+" value="O+" />
-                                    <Picker.Item label="O-" value="O-" />
+                                    <Picker.Item label="A+" value="A+" /><Picker.Item label="A-" value="A-" />
+                                    <Picker.Item label="B+" value="B+" /><Picker.Item label="B-" value="B-" />
+                                    <Picker.Item label="AB+" value="AB+" /><Picker.Item label="AB-" value="AB-" />
+                                    <Picker.Item label="O+" value="O+" /><Picker.Item label="O-" value="O-" />
                                 </Picker>
                             </View>
                         </View>
@@ -161,24 +165,81 @@ const RequestScreen = () => {
     );
 };
 
+// --- RESPONSIVE STYLESHEET ---
 const styles = StyleSheet.create({
     safeArea: { flex: 1, backgroundColor: palette.white },
-    
-    container: { padding: 20,backgroundColor: palette.pageBg },
-    label: { fontSize: 14, color: palette.lightText, marginBottom: 8, fontWeight: '500' },
-    input: { backgroundColor: palette.white, borderWidth: 1, borderColor: palette.borderLight, borderRadius: 8, padding: 12, fontSize: 16, color: palette.darkText, marginBottom: 20 },
-    multilineInput: { height: 100, textAlignVertical: 'top' },
-    row: { flexDirection: 'row', justifyContent: 'space-between' },
-    halfWidth: { width: '48%' },
-    switchRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
-    pickerContainer: { borderWidth: 1, borderColor: palette.borderLight, borderRadius: 8, backgroundColor: palette.white, justifyContent: 'center' },
-    picker: { height: 50 },
-    buttonRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 20 },
-    button: { flex: 1, padding: 15, borderRadius: 8, alignItems: 'center' },
-    cancelButton: { borderWidth: 1, borderColor: palette.primaryRed, marginRight: 10 },
-    submitButton: { backgroundColor: palette.primaryRed, marginLeft: 10 },
-    buttonText: { color: palette.white, fontSize: 16, fontWeight: 'bold' },
-    cancelButtonText: { color: palette.primaryRed },
+    container: { padding: scale(20), backgroundColor: palette.pageBg },
+    label: { 
+        fontSize: scale(14), 
+        color: palette.lightText, 
+        marginBottom: scale(8), 
+        fontWeight: '500' 
+    },
+    input: { 
+        backgroundColor: palette.white, 
+        borderWidth: 1, 
+        borderColor: palette.borderLight, 
+        borderRadius: scale(8), 
+        padding: scale(12), 
+        fontSize: scale(16), 
+        color: palette.darkText, 
+        marginBottom: scale(20),
+        height: scale(50),
+    },
+    multilineInput: { 
+        height: scale(100), 
+        textAlignVertical: 'top' 
+    },
+    row: { 
+        flexDirection: 'row', 
+        justifyContent: 'space-between' 
+    },
+    halfWidth: { 
+        width: '48%' // Percentage is already responsive
+    },
+    switchRow: { 
+        flexDirection: 'row', 
+        justifyContent: 'space-between', 
+        alignItems: 'center', 
+        marginBottom: scale(20) 
+    },
+    pickerContainer: { 
+        borderWidth: 1, 
+        borderColor: palette.borderLight, 
+        borderRadius: scale(8), 
+        backgroundColor: palette.white, 
+        justifyContent: 'center',
+        height: scale(50),
+    },
+    picker: { 
+        height: scale(50) 
+    },
+    buttonRow: { 
+        flexDirection: 'row', 
+        justifyContent: 'space-between', 
+        marginTop: scale(20) 
+    },
+    button: { 
+        flex: 1, 
+        padding: scale(15), 
+        borderRadius: scale(8), 
+        alignItems: 'center' 
+    },
+    cancelButton: { 
+        borderWidth: 1, 
+        borderColor: palette.primaryRed, 
+        marginRight: scale(10) 
+    },
+    submitButton: { 
+        backgroundColor: palette.primaryRed, 
+        marginLeft: scale(10) 
+    },
+    buttonText: { 
+        color: palette.white, 
+        fontSize: scale(16), 
+        fontWeight: 'bold' 
+    },
+    cancelButtonText: { 
+        color: palette.primaryRed 
+    },
 });
-
-export default RequestScreen;

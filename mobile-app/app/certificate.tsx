@@ -1,13 +1,26 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { doc, getDoc } from 'firebase/firestore';
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { ActivityIndicator, Alert, ImageBackground, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ActivityIndicator, Alert, ImageBackground, SafeAreaView, StyleSheet, Text, TouchableOpacity, View, Dimensions } from 'react-native';
 import ViewShot from 'react-native-view-shot';
 import { db } from '../firebase';
 import * as MediaLibrary from 'expo-media-library';
 
+// --- RESPONSIVE SETUP ---
+const { width: screenWidth } = Dimensions.get('window');
+const guidelineBaseWidth = 375; // Standard screen width to scale from
+
+// This function scales sizes based on the screen width
+const scale = (size: number) => (screenWidth / guidelineBaseWidth) * size;
+
 const palette = { primaryRed: '#9B0000', darkText: '#333333', white: '#ffffff', certNameColor: '#000000ff', borderLight: '#EAEAEA' };
+
+// --- Responsive Certificate Dimensions ---
+// Calculate dimensions based on the original aspect ratio (350 / 250 = 1.4)
+const CERTIFICATE_ASPECT_RATIO = 1.4;
+const certificateWidth = screenWidth * 0.9; // Certificate will take up 90% of the screen width
+const certificateHeight = certificateWidth / CERTIFICATE_ASPECT_RATIO;
+
 
 type DonationOffer = {
     id: string;
@@ -16,8 +29,8 @@ type DonationOffer = {
 };
 
 export default function CertificateScreen() {
+    // --- YOUR LOGIC (UNCHANGED) ---
     const router = useRouter();
-    const insets = useSafeAreaInsets();
     const { offerId } = useLocalSearchParams<{ offerId: string }>();
     const viewShotRef = useRef<ViewShot>(null);
 
@@ -77,6 +90,7 @@ export default function CertificateScreen() {
         return <View style={styles.container}><Text>Donation record not found.</Text></View>;
     }
 
+    // --- YOUR JSX (UNCHANGED) ---
     return (
         <SafeAreaView style={styles.safeArea}>
             <View style={styles.container}>
@@ -103,39 +117,46 @@ export default function CertificateScreen() {
     );
 }
 
+// --- RESPONSIVE STYLESHEET ---
 const styles = StyleSheet.create({
     safeArea: { flex: 1, backgroundColor: palette.white },
-    container: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20, backgroundColor: '#f0f0f0' },
+    container: { 
+        flex: 1, 
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        padding: scale(20), 
+        backgroundColor: '#f0f0f0' 
+    },
     certificateImage: {
-        width: 350,
-        height: 250,
+        width: certificateWidth, // Responsive width
+        height: certificateHeight, // Responsive height based on aspect ratio
         justifyContent: 'center',
         alignItems: 'center',
     },
     donorName: {
         position: 'absolute',
-        top: '42%',
-        fontSize: 18,
+        top: '42%', // Percentage positioning is already responsive
+        fontSize: scale(18), // Scaled font size
         color: palette.certNameColor,
     },
     donationDate: {
         position: 'absolute',
-        top: '79%',
-        left: '17%',
-        fontSize: 12,
+        top: '79%', // Percentage positioning is already responsive
+        left: '17%', // Percentage positioning is already responsive
+        fontSize: scale(12), // Scaled font size
         color: palette.darkText,
     },
     downloadButton: {
-        marginTop: 30,
+        marginTop: scale(30),
         backgroundColor: palette.primaryRed,
-        paddingVertical: 12,
-        paddingHorizontal: 30,
-        borderRadius: 8,
+        paddingVertical: scale(12),
+        paddingHorizontal: scale(30),
+        borderRadius: scale(8),
         alignItems: 'center',
     },
     downloadButtonText: {
         color: palette.white,
         fontWeight: 'bold',
-        fontSize: 16,
+        fontSize: scale(16),
     },
 });

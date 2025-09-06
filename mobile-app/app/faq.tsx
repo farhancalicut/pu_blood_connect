@@ -1,7 +1,14 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView ,Platform,StatusBar} from 'react-native';
+import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView, Platform, StatusBar, Dimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Collapsible from 'react-native-collapsible';
+
+// --- RESPONSIVE SETUP ---
+const { width: screenWidth } = Dimensions.get('window');
+const guidelineBaseWidth = 375; // Standard screen width to scale from
+
+// This function scales sizes based on the screen width
+const scale = (size: number) => (screenWidth / guidelineBaseWidth) * size;
 
 const palette = { primaryRed: '#9B0000', darkText: '#333333', lightText: '#8A8A8A', white: '#ffffff', borderLight: '#EAEAEA', pageBg: '#F7F7F7' };
 
@@ -57,7 +64,7 @@ const FaqItem = ({ item }: { item: { q: string, a: string } }) => {
             <TouchableOpacity onPress={() => setIsCollapsed(!isCollapsed)}>
                 <View style={styles.questionContainer}>
                     <Text style={styles.questionText}>{item.q}</Text>
-                    <Ionicons name={isCollapsed ? 'chevron-down-outline' : 'chevron-up-outline'} size={20} color={palette.lightText} />
+                    <Ionicons name={isCollapsed ? 'chevron-down-outline' : 'chevron-up-outline'} size={scale(20)} color={palette.lightText} />
                 </View>
             </TouchableOpacity>
             <Collapsible collapsed={isCollapsed}>
@@ -70,11 +77,9 @@ const FaqItem = ({ item }: { item: { q: string, a: string } }) => {
 };
 
 export default function FaqScreen() {
-
-
+    // --- YOUR JSX (UNCHANGED) ---
     return (
         <SafeAreaView style={styles.safeArea}>
-            
             <ScrollView contentContainerStyle={styles.container}>
                 {FAQ_DATA.map((section, index) => (
                     <View key={index} style={styles.section}>
@@ -89,14 +94,57 @@ export default function FaqScreen() {
     );
 }
 
+// --- RESPONSIVE STYLESHEET ---
 const styles = StyleSheet.create({
-    safeArea: { flex: 1, backgroundColor: palette.white ,paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0 },
-    container: { padding: 15, backgroundColor: palette.pageBg },
-    section: { marginBottom: 20 },
-    sectionTitle: { fontSize: 20, fontWeight: 'bold', color: palette.darkText, marginBottom: 10, paddingHorizontal: 5 },
-    faqItemContainer: { backgroundColor: palette.white, borderRadius: 10, marginBottom: 10, borderWidth: 1, borderColor: palette.borderLight },
-    questionContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 15 },
-    questionText: { flex: 1, fontSize: 16, fontWeight: '500', color: palette.darkText, marginRight: 10 },
-    answerContainer: { paddingHorizontal: 15, paddingBottom: 15, borderTopWidth: 1, borderTopColor: palette.borderLight },
-    answerText: { fontSize: 14, color: palette.lightText, lineHeight: 22, paddingTop: 10 },
+    safeArea: { 
+        flex: 1, 
+        backgroundColor: palette.white, 
+        paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0 
+    },
+    container: { 
+        padding: scale(15), 
+        backgroundColor: palette.pageBg 
+    },
+    section: { 
+        marginBottom: scale(20) 
+    },
+    sectionTitle: { 
+        fontSize: scale(20), 
+        fontWeight: 'bold', 
+        color: palette.darkText, 
+        marginBottom: scale(10), 
+        paddingHorizontal: scale(5) 
+    },
+    faqItemContainer: { 
+        backgroundColor: palette.white, 
+        borderRadius: scale(10), 
+        marginBottom: scale(10), 
+        borderWidth: 1, 
+        borderColor: palette.borderLight 
+    },
+    questionContainer: { 
+        flexDirection: 'row', 
+        justifyContent: 'space-between', 
+        alignItems: 'center', 
+        padding: scale(15) 
+    },
+    questionText: { 
+        flex: 1, 
+        fontSize: scale(16), 
+        fontWeight: '500', 
+        color: palette.darkText, 
+        marginRight: scale(10) 
+    },
+    answerContainer: { 
+        paddingHorizontal: scale(15), 
+        paddingBottom: scale(15), 
+        borderTopWidth: 1, 
+        borderTopColor: palette.borderLight 
+    },
+    answerText: { 
+        fontSize: scale(14), 
+        color: palette.lightText, 
+        lineHeight: scale(22), 
+        paddingTop: scale(10) 
+    },
 });

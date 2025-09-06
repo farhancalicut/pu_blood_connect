@@ -17,6 +17,10 @@ import Icon from 'react-native-vector-icons/FontAwesome5';
 import { db, firebaseApp } from '../firebase';
 
 
+const { width: screenWidth } = Dimensions.get('window');
+const guidelineBaseWidth = 375;
+const scale = (size: number) => (screenWidth / guidelineBaseWidth) * size;
+
 // --- Type Definitions ---
 type UserProfile = { uid: string; lastname?: string; firstName?: string; department?: string; totalDonates?: number; lastDonated?: any; bloodGroup?: string; [key: string]: any; };
 type Donation = { id: string; donorName?: string; department?: string; bloodGroup?: string; [key:string]: any; };
@@ -26,11 +30,12 @@ type Event = { id: string; title: string; posterImageUrl: string; eventDate: { t
 type CarouselItem = { type: 'banner'; id: string; } | (Event & { type: 'event' });
 
 const palette = { primaryRed: '#FE465E', statsRed: '#D9324B', darkGreen: '#3A6054', pageBg: '#FFFBFB', cardBgLavender: 'rgba(255, 251, 251, 1)', darkText: '#333333', lightText: '#8A8A8A', white: '#ffffff', borderLight: '#F0F0F0', trophyYellow: '#FFC107', trophyBg: '#FFF2CC', eligibleGreen: '#28a745', };
-const { width: screenWidth } = Dimensions.get('window');
+
+// --- Responsive Constants ---
 const DONATION_ELIGIBILITY_DAYS = 60;
-const CARD_WIDTH = screenWidth * 0.8; 
-const CARD_MARGIN = (screenWidth - CARD_WIDTH) / 50;
-const CARD_MARGIN_HORIZONTAL = 10;
+const CARD_WIDTH = screenWidth * 0.76; 
+const CARD_MARGIN = screenWidth * 0;
+const CARD_MARGIN_HORIZONTAL = screenWidth * 0.05;
 const FULL_CARD_WIDTH = CARD_WIDTH + (CARD_MARGIN_HORIZONTAL * 2);
 
 const BannerCard = () => {
@@ -58,7 +63,7 @@ const TestimonialCard = ({ item }: { item: Testimonial }) => (
     <View style={styles.testimonialCard}>
       <View style={styles.cardHeader}>
         <View style={styles.cardAvatar}>
-            <Icon name="user-alt" size={16} color={palette.darkText} />
+            <Icon name="user-alt" size={scale(16)} color={palette.darkText} />
         </View>
         <View style={styles.cardHeaderText}>
             <Text style={styles.donorName}>{String(item.donorName)}</Text>
@@ -71,7 +76,7 @@ const TestimonialCard = ({ item }: { item: Testimonial }) => (
   const ListItem = ({ name, detail, action, iconName, iconBg, iconColor, isTrophy = false }: { name: string; detail?: string; action: React.ReactNode; iconName: string; iconBg: string; iconColor?: string; isTrophy?: boolean; }) => (
     <View style={styles.listItem}>
       <View style={[styles.itemIcon, { backgroundColor: iconBg }]}>
-        <Icon name={iconName} size={18} color={iconColor || palette.darkText} solid={isTrophy} />
+        <Icon name={iconName} size={scale(18)} color={iconColor || palette.darkText} solid={isTrophy} />
       </View>
       <View style={styles.itemDetails}>
         <Text style={styles.itemTitle}>{name}</Text>
@@ -79,9 +84,8 @@ const TestimonialCard = ({ item }: { item: Testimonial }) => (
       </View>
       <Text style={[styles.itemAction, { color: palette.primaryRed }]}>{String(action)}</Text>
     </View>
-  );
-
-  const DetailRow = ({ label, value }: { label: string, value: string }) => (
+);
+const DetailRow = ({ label, value }: { label: string, value: string }) => (
     <View style={styles.detailRow}>
         <Text style={styles.detailLabel}>{label}</Text>
         <Text style={styles.detailValue}>{value}</Text>
@@ -241,10 +245,8 @@ export default function DashboardScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      
-
-      <ScrollView style={styles.scrollView} contentContainerStyle={[styles.container]}>
-        {userProfile && (
+            <ScrollView style={styles.scrollView} contentContainerStyle={styles.container}>
+                {userProfile && (
             <View style={styles.welcomeCard}>
                         <View style={styles.welcomeTopRow}>
                             <Text style={styles.welcomeTitle}>Hi {userProfile.firstName || 'User'}!</Text>
@@ -311,7 +313,7 @@ export default function DashboardScreen() {
         <ImageBackground 
          source={require('../assets/images/puhits.png')}
       
-         imageStyle={{ borderRadius: 12 }} // Makes the image corners rounded
+        
        >
          <View style={styles.statsOverlay}>
                 <Text style={styles.statsHeader}>PU HITS</Text>
@@ -420,271 +422,89 @@ export default function DashboardScreen() {
   );
 };
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#F0F2F5',
-  },
-
-  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', },
+  safeArea: { flex: 1, backgroundColor: '#F0F2F5' },
+  scrollView: { flex: 1 },
+  container: { paddingBottom: scale(80) },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
 
   welcomeCard: {
     backgroundColor: '#FEF8F8',
-    borderRadius: 16,
-    padding: 16,
-    marginLeft: 16,
-    marginRight: 16,
-    marginBottom: 20,
-    marginTop: 20,
-    paddingBottom: 23,
+    borderRadius: scale(16),
+    padding: scale(12),
+    marginHorizontal: scale(16),
+    marginBottom: scale(15),
+    marginTop: scale(20),
+    paddingBottom: scale(18),
     elevation: 4,
     shadowColor: 'rgba(0,0,0,0.1)',
   },
-  welcomeTopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: -5,
-  },
-  welcomeTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: palette.darkText,
-    paddingBottom: -1,
-    paddingTop: 3,
-  },
-  bloodTag: {
-    backgroundColor: palette.statsRed,
-    borderRadius: 6,
-    paddingVertical: 2,
-    paddingHorizontal: 5,
-    marginLeft: 10,
-    top: 3,
-  },
-  bloodTagText: {
-    color: palette.white,
-    fontWeight: 'bold',
-  },
-  welcomeMainRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  welcomeLeftColumn: {
-    justifyContent: 'space-around', // Use space-around for better vertical spacing
-    flex: 1, // Allow left column to take available space
-    marginRight: 0, // Add space between columns
-  },
-  detailRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline', // Aligns text nicely
-    marginBottom: -25,
-    // marginTop: -20, // Add some vertical spacing
-    },
-    detailLabel: {
-    fontSize: 12,
-    color: palette.lightText,
-    marginRight: 6, // Add spacing between label and value
-    // Remove fixed width for better auto-adjustment
-    },
-    detailValue: {
-    fontSize: 12,
-    color: palette.darkText,
-    fontWeight: '400',
-    flexShrink: 1, // Allow shrinking if needed
-    flexGrow: 1,   // Allow growing to fill space
-    // Remove fixed width/flex: 1 for better auto adjustment
-    },
-    eligibilityTextEligible: {
-    color: palette.statsRed,
-    fontSize: 15,
-    fontWeight: 'bold',
-    marginTop: 0,
-    marginBottom: -10,
-    },
-    eligibilityTextWaiting: {
-      color: palette.statsRed,
-      fontSize: 14,
-      fontWeight: '500',
-      marginTop: 8,
-    },
-    welcomeRightColumn: {
-    alignItems: 'center',
-    },
-    progressCircleContainer: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    top: '-0%',
-    },
-    dayProgressTag: {
-    position: 'absolute',
-    top: -15,
-    backgroundColor: '#E0E0E0',
-    borderRadius: 4,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    },
-    dayProgressText: {
-    fontSize: 13,
-    fontWeight: 'bold',
-    color: '#555',
-    },
-    faceContainer: {
-    position: 'absolute',
-    width: '100%',
-    height: '110%',
-    alignItems: 'center',
-    justifyContent: 'center',
-    },
-    eyesContainer: { flexDirection: 'row', position: 'absolute', top: 38, },
-    eye: { width: 8, height: 8, borderRadius: 4, backgroundColor: palette.statsRed, marginHorizontal: 12, },
-    faceText: { color: palette.statsRed, fontWeight: 'bold', fontSize: 12, textAlign: 'center', position: 'absolute', top: 55, },
-    mouth: { width: 50, height: 25, borderBottomLeftRadius: 25, borderBottomRightRadius: 25, borderWidth: 4, borderTopWidth: 0, borderColor: palette.statsRed, backgroundColor: 'transparent', position: 'absolute', bottom: 33, },
+  welcomeTopRow: { flexDirection: 'row', alignItems: 'center', marginBottom: scale(-2) },
+  welcomeTitle: { fontSize: scale(18), fontWeight: 'bold', color: palette.darkText, paddingTop: scale(3) },
+  bloodTag: { backgroundColor: palette.statsRed, borderRadius: scale(4), paddingVertical: scale(2), paddingHorizontal: scale(5), marginLeft: scale(10), top: scale(3) },
+  bloodTagText: { color: palette.white, fontWeight: 'bold', fontSize: scale(10) },
+  welcomeMainRow: { flexDirection: 'row', justifyContent: 'space-between' },
+  welcomeLeftColumn: { justifyContent: 'space-around', flex: 1, marginRight: scale(10) },
+  detailRow: { flexDirection: 'row', alignItems: 'baseline', marginBottom: scale(-15) },
+  detailLabel: { fontSize: scale(11), color: palette.lightText, marginRight: scale(6) },
+  detailValue: { fontSize: scale(12), color: palette.darkText, fontWeight: '400', flexShrink: 1 },
+  eligibilityTextEligible: { color: palette.statsRed, fontSize: scale(15), fontWeight: 'bold', marginTop: scale(5), marginBottom: scale(-8) },
+  eligibilityTextWaiting: { color: palette.statsRed, fontSize: scale(14), fontWeight: '500', marginTop: scale(8) },
+  welcomeRightColumn: { alignItems: 'center' },
+  progressCircleContainer: { justifyContent: 'center', alignItems: 'center' },
+  dayProgressTag: { position: 'absolute', top: scale(-15), backgroundColor: '#E0E0E0', borderRadius: scale(4), paddingHorizontal: scale(6), paddingVertical: scale(2) },
+  dayProgressText: { fontSize: scale(11), fontWeight: 'bold', color: '#555' },
+  faceContainer: { position: 'absolute', width: '100%', height: '110%', alignItems: 'center', justifyContent: 'center' },
+  eyesContainer: { flexDirection: 'row', position: 'absolute', top: scale(38) },
+  eye: { width: scale(8), height: scale(8), borderRadius: scale(4), backgroundColor: palette.statsRed, marginHorizontal: scale(12) },
+  faceText: { color: palette.statsRed, fontWeight: 'bold', fontSize: scale(10), textAlign: 'center', position: 'absolute', top: scale(55) },
+  mouth: { width: scale(50), height: scale(25), borderBottomLeftRadius: scale(25), borderBottomRightRadius: scale(25), borderWidth: scale(4), borderTopWidth: 0, borderColor: palette.statsRed, position: 'absolute', bottom: scale(33) },
 
-// header: { position: 'relative', top: Platform.OS === 'android' ? StatusBar.currentHeight : 0,left: 0, right: 0, height: HEADER_HEIGHT,  backgroundColor: '#EDF0F3', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, zIndex: 10, elevation: 10, },
-    
-
-  // position: 'relative', top: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
-  // left: 0, 
-  // right: 0, 
-  // height: HEADER_HEIGHT, 
-          // backgroundColor: palette.white,
-        // borderBottomWidth: 1,
-        // borderBottomColor: palette.borderLight,
-          // shadowOffset: { width: 0, height: 11 }, // A positive height moves the shadow down
-// header: { flexDirection: 'row', top: Platform.OS === 'android' ? StatusBar.currentHeight : 0, alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 15, paddingBottom: 15, backgroundColor: palette.white },
-
-logoText: { fontSize: 16, fontWeight: '700', color: palette.statsRed, textTransform: 'uppercase', },
-    scrollView: { flex: 1 },
-    container: {  paddingBottom: 80 ,},
-   carouselItemWrapper: {
-    width: screenWidth, // Each item takes the full screen width
-    paddingHorizontal: 15,
-    paddingVertical: 20,
-    paddingTop: 0,
-  },
-  carouselImage: {
-    width: '100%',
-    height: 180,
-    borderRadius: 12,
-    backgroundColor: '#e0e0e0', // A placeholder color while image loads
-  },
+  carouselItemWrapper: { width: screenWidth, paddingHorizontal: scale(15), paddingVertical: scale(10), paddingTop: 0 },
+  carouselImage: { width: '100%', height: scale(160), borderRadius: scale(12), backgroundColor: '#e0e0e0' },
   
-    statsOverlay: {
-       backgroundColor: 'rgba(177, 15, 15, 0.9)', // A semi-transparent version of your red
-       padding: 20,
-       
-   },
-    statsHeader: { color: palette.white, fontSize: 18, fontWeight: '800',textDecorationLine: 'underline', textAlign: 'center', marginBottom: 12, },
-    statsGrid: { flexDirection: 'row', justifyContent: 'space-around' },
-    statItem: { alignItems: 'center' },
-    statNumber: { fontSize: 20, fontWeight: '700', color: palette.white },
-    statLabel: { fontSize: 11, color: palette.white, textAlign: 'center' },
-     // --- NEW: Testimonial Section Styles ---
-    testimonialSection: {
-        backgroundColor: palette.darkGreen,
-        paddingVertical: 25,
-        marginTop: 15,
-        width: '100%',        // Full width
-        alignSelf: 'stretch',
-        marginBottom: 20,
-    },
-    sectionTitle: {
-        fontSize: 18,
-        fontWeight: 'bold',
-        color: palette.white,
-        textAlign: 'center',
-        marginBottom: 20,
-    },
-    carouselContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    arrowButton: {
-        paddingHorizontal: 10,
-    },
-   testimonialCard: {
-        width: CARD_WIDTH,
-        backgroundColor: palette.white,
-        borderRadius: 15,
-        padding: 20,
-        marginHorizontal: 10,
-        elevation: 5,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.1,
-        shadowRadius: 10,
-    },
-
-    cardHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: 15,
-    },
-    cardAvatar: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: palette.borderLight,
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginRight: 12,
-    },
-    cardHeaderText: {
-        flex: 1,
-    },
-    donorName: {
-        fontSize: 16,
-        fontWeight: 'bold',
-        color: palette.darkText,
-    },
-    donorDepartment: {
-        fontSize: 12,
-        color: palette.statsRed,
-    },
-    testimonialText: {
-        fontSize: 14,
-        color: palette.lightText,
-        lineHeight: 22,
-    },
-    listSection: { marginHorizontal: 15, backgroundColor: palette.cardBgLavender, padding: 20, borderRadius: 12, marginBottom: 2,marginTop:13, elevation: 2, shadowColor: '#390000ff', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 8, },
-    listHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 15, },
-    listTitle: { fontSize: 18, fontWeight: '600', color: palette.darkText },
-    viewAll: { fontSize: 13, color: palette.primaryRed },
-    listItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: palette.white, padding: 10, borderRadius: 10, marginBottom: 10, elevation: 1, },
-    itemIcon: { width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center', marginRight: 12, },
-    itemDetails: { flex: 1 },
-    itemTitle: { fontSize: 14, fontWeight: '600', color: palette.darkText },
-    itemSubtitle: { fontSize: 12, color: palette.lightText },
-    itemAction: { fontWeight: '600', fontSize: 16 },
-    tabs: { flexDirection: 'row', marginBottom:15,marginTop:0, gap: 5 },
-    tab: { paddingVertical: 3, paddingHorizontal: 10, borderRadius: 20, borderWidth: 1, borderColor: '#E4DDEB', },
-    activeTab: { backgroundColor: palette.statsRed, borderColor: palette.statsRed },
-    tabText: { color: palette.darkText, fontSize: 13 },
-    activeTabText: { color: palette.white },
-    footerFloating: { position: 'absolute', bottom: 0, left: 0, right: 0, paddingHorizontal: 15, paddingBottom: 20, flexDirection: 'row', justifyContent: 'space-between', },
-    footerBtn: { flex: 1, padding: 10, borderRadius: 10, alignItems: 'center', marginHorizontal: 8, },
-    footerBtnText: { fontSize: 16, fontWeight: '600' },
-    btnDonate: { backgroundColor: palette.statsRed },
-    btnRequest: { backgroundColor: palette.white, borderWidth: 1, borderColor: palette.statsRed, },
-    footerLinksContainer: {
-       flexDirection: 'row',
-        justifyContent: 'space-evenly', // Evenly space the links
-        alignItems: 'center',
-        paddingVertical: 20,
-        marginTop: -20,
-        marginBottom: 0,
-   },
-   footerLinkWrapper: {
-        flexDirection: 'row',
-        alignItems: 'center',
-   },
-   footerLink: {
-       fontSize: 12,
-       color: palette.lightText,
-       marginHorizontal: 5,
-       marginLeft: 5,
-   },
-   footerLinkSeparator: {
-       fontSize: 12,
-       color: palette.borderLight,
-   },
+  statsOverlay: { backgroundColor: 'rgba(177, 15, 15, 0.9)', padding: scale(20) },
+  statsHeader: { color: palette.white, fontSize: scale(18), fontWeight: '800', textDecorationLine: 'underline', textAlign: 'center', marginBottom: scale(12) },
+  statsGrid: { flexDirection: 'row', justifyContent: 'space-around' },
+  statItem: { alignItems: 'center' },
+  statNumber: { fontSize: scale(20), fontWeight: '700', color: palette.white },
+  statLabel: { fontSize: scale(11), color: palette.white, textAlign: 'center' },
+  
+  testimonialSection: { backgroundColor: palette.darkGreen, paddingVertical: scale(25), marginTop: scale(15), width: '100%', alignSelf: 'stretch', marginBottom: scale(20) },
+  sectionTitle: { fontSize: scale(18), fontWeight: 'bold', color: palette.white, textAlign: 'center', marginBottom: scale(20) },
+  carouselContainer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
+  arrowButton: { paddingHorizontal: scale(10) },
+  testimonialCard: { width: CARD_WIDTH, backgroundColor: palette.white, borderRadius: scale(15), padding: scale(20), marginHorizontal: CARD_MARGIN_HORIZONTAL, elevation: 5, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 10 },
+  cardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: scale(15) },
+  cardAvatar: { width: scale(40), height: scale(40), borderRadius: scale(20), backgroundColor: palette.borderLight, justifyContent: 'center', alignItems: 'center', marginRight: scale(12) },
+  cardHeaderText: { flex: 1 },
+  donorName: { fontSize: scale(15), fontWeight: 'bold', color: palette.darkText },
+  donorDepartment: { fontSize: scale(11), color: palette.statsRed },
+  testimonialText: { fontSize: scale(14), color: palette.lightText, lineHeight: scale(22) },
+  
+  listSection: { marginHorizontal: scale(15), backgroundColor: palette.cardBgLavender, padding: scale(20), borderRadius: scale(12), marginVertical: scale(7), elevation: 2, shadowColor: '#390000ff', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 8 },
+  listHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: scale(15) },
+  listTitle: { fontSize: scale(18), fontWeight: '600', color: palette.darkText },
+  viewAll: { fontSize: scale(13), color: palette.primaryRed },
+  listItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: palette.white, padding: scale(10), borderRadius: scale(10), marginBottom: scale(10), elevation: 1 },
+  itemIcon: { width: scale(40), height: scale(40), borderRadius: scale(20), justifyContent: 'center', alignItems: 'center', marginRight: scale(12) },
+  itemDetails: { flex: 1 },
+  itemTitle: { fontSize: scale(14), fontWeight: '600', color: palette.darkText },
+  itemSubtitle: { fontSize: scale(12), color: palette.lightText },
+  itemAction: { fontWeight: '600', fontSize: scale(16) },
+  
+  tabs: { flexDirection: 'row', marginBottom: scale(15), gap: scale(5) },
+  tab: { paddingVertical: scale(3), paddingHorizontal: scale(10), borderRadius: scale(20), borderWidth: 1, borderColor: '#E4DDEB' },
+  activeTab: { backgroundColor: palette.statsRed, borderColor: palette.statsRed },
+  tabText: { color: palette.darkText, fontSize: scale(13) },
+  activeTabText: { color: palette.white },
+  
+  footerFloating: { position: 'absolute', bottom: 0, left: 0, right: 0, paddingHorizontal: scale(15), paddingBottom: scale(20), flexDirection: 'row', justifyContent: 'space-between' },
+  footerBtn: { flex: 1, padding: scale(10), borderRadius: scale(10), alignItems: 'center', marginHorizontal: scale(8) },
+  footerBtnText: { fontSize: scale(16), fontWeight: '600' },
+  btnDonate: { backgroundColor: palette.statsRed },
+  btnRequest: { backgroundColor: palette.white, borderWidth: 1, borderColor: palette.statsRed },
+  
+  footerLinksContainer: { flexDirection: 'row', justifyContent: 'space-evenly', alignItems: 'center', paddingVertical: scale(20), marginTop: scale(-20), marginBottom: 0 },
+  footerLinkWrapper: { flexDirection: 'row', alignItems: 'center' },
+  footerLink: { fontSize: scale(12), color: palette.lightText, marginHorizontal: scale(5) },
 });

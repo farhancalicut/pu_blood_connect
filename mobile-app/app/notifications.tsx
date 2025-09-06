@@ -1,11 +1,17 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, SafeAreaView, ActivityIndicator,TouchableOpacity } from 'react-native';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { View, Text, StyleSheet, FlatList, SafeAreaView, ActivityIndicator, Dimensions } from 'react-native';
+import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { getAuth } from 'firebase/auth';
 import { collection, query, where, orderBy, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
 
+// --- RESPONSIVE SETUP ---
+const { width: screenWidth } = Dimensions.get('window');
+const guidelineBaseWidth = 375; // Standard screen width to scale from
+
+// This function scales sizes based on the screen width
+const scale = (size: number) => (screenWidth / guidelineBaseWidth) * size;
 
 const palette = { primaryRed: '#9B0000', darkText: '#333333', lightText: '#8A8A8A', white: '#ffffff', borderLight: '#EAEAEA', pageBg: '#F7F7F7' };
 
@@ -19,7 +25,7 @@ type Notification = {
 
 const NotificationItem = ({ item }: { item: Notification }) => (
     <View style={styles.itemContainer}>
-        <Ionicons name="water" size={24} color={palette.primaryRed} style={styles.icon} />
+        <Ionicons name="water" size={scale(24)} color={palette.primaryRed} style={styles.icon} />
         <View style={styles.textContainer}>
             <Text style={styles.itemText}>
                 <Text style={{fontWeight: 'bold'}}>{item.donorName}</Text> has offered to donate {item.bloodGroup} blood for your request at {item.hospital}.
@@ -29,7 +35,8 @@ const NotificationItem = ({ item }: { item: Notification }) => (
     </View>
 );
 
-const NotificationsScreen = () => {
+export default function NotificationsScreen() {
+    // --- YOUR LOGIC (UNCHANGED) ---
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const auth = getAuth();
@@ -59,9 +66,9 @@ const NotificationsScreen = () => {
 
     useFocusEffect(useCallback(() => { fetchNotifications(); }, [fetchNotifications]));
 
+    // --- YOUR JSX (UNCHANGED) ---
     return (
         <SafeAreaView style={styles.safeArea}>
-            
             {isLoading ? (
                 <ActivityIndicator style={{ flex: 1 }} size="large" color={palette.primaryRed} />
             ) : (
@@ -77,47 +84,46 @@ const NotificationsScreen = () => {
     );
 };
 
+// --- RESPONSIVE STYLESHEET ---
 const styles = StyleSheet.create({
     safeArea: {
         flex: 1,
         backgroundColor: palette.white,
     },
     listContainer: {
-        padding: 15,
+        padding: scale(15),
         backgroundColor: palette.pageBg,
     },
     itemContainer: {
         flexDirection: 'row',
         backgroundColor: palette.white,
-        padding: 15,
-        borderRadius: 10,
-        marginBottom: 10,
+        padding: scale(15),
+        borderRadius: scale(10),
+        marginBottom: scale(10),
         alignItems: 'center',
         borderWidth: 1,
         borderColor: palette.borderLight,
     },
     icon: {
-        marginRight: 15,
+        marginRight: scale(15),
     },
     textContainer: {
         flex: 1,
     },
     itemText: {
-        fontSize: 15,
+        fontSize: scale(15),
         color: palette.darkText,
-        lineHeight: 22,
+        lineHeight: scale(22),
     },
     timestamp: {
-        fontSize: 12,
+        fontSize: scale(12),
         color: palette.lightText,
-        marginTop: 4,
+        marginTop: scale(4),
     },
     emptyText: {
         textAlign: 'center',
-        marginTop: 50,
+        marginTop: scale(50),
         color: palette.lightText,
-        fontSize: 16,
+        fontSize: scale(16),
     },
 });
-
-export default NotificationsScreen;

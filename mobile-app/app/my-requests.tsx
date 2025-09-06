@@ -1,10 +1,17 @@
-import { Ionicons } from '@expo/vector-icons';
+import React,  { useCallback, useState, useEffect } from 'react';
+import { ActivityIndicator, Alert, FlatList, SafeAreaView, StyleSheet, Text, TouchableOpacity, View, Dimensions } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { getAuth } from 'firebase/auth';
+import { Ionicons } from '@expo/vector-icons';
 import { collection, deleteDoc, doc, getDocs, orderBy, query, where } from 'firebase/firestore';
-import React, { useCallback, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { getAuth } from 'firebase/auth';
 import { db } from '../firebase';
+
+// --- RESPONSIVE SETUP ---
+const { width: screenWidth } = Dimensions.get('window');
+const guidelineBaseWidth = 375; // Standard screen width to scale from
+
+// This function scales sizes based on the screen width
+const scale = (size: number) => (screenWidth / guidelineBaseWidth) * size;
 
 const palette = { primaryRed: '#9B0000', darkText: '#333333', lightText: '#8A8A8A', white: '#ffffff', borderLight: '#EAEAEA', pageBg: '#F7F7F7' };
 
@@ -17,8 +24,31 @@ type UserRequest = {
     createdAt: { toDate: () => Date };
 };
 
+// --- HELPER COMPONENT (Moved Outside) ---
+const MyRequestCard = ({ item, onDelete }: { item: UserRequest, onDelete: () => void }) => {
+    const router = useRouter(); // Moved router inside or pass as prop
+    return (
+        <View style={styles.card}>
+            <View style={{ flex: 1 }}>
+                <Text style={styles.cardTitle}>{item.patientName}</Text>
+                <Text style={styles.cardDetail}>Hospital: {item.hospital}</Text>
+                <Text style={styles.cardDetail}>Blood Group: {item.bloodGroup}</Text>
+                <Text style={styles.cardDetail}>Status: <Text style={item.status === 'pending' ? styles.statusPending : styles.statusCompleted}>{item.status}</Text></Text>
+            </View>
+            <View style={styles.buttonContainer}>
+                <TouchableOpacity style={styles.actionButton} onPress={() => router.push({ pathname: '/request', params: { requestId: item.id } })}>
+                    <Ionicons name="pencil" size={scale(20)} color={palette.darkText} />
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.actionButton} onPress={onDelete}>
+                    <Ionicons name="trash" size={scale(20)} color={palette.primaryRed} />
+                </TouchableOpacity>
+            </View>
+        </View>
+    );
+};
 
 export default function MyRequestsScreen() {
+    // --- YOUR LOGIC (UNCHANGED) ---
     const router = useRouter();
     const [requests, setRequests] = useState<UserRequest[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -48,31 +78,12 @@ export default function MyRequestsScreen() {
     }, [user]);
 
     useFocusEffect(
-      useCallback(() => {
-        fetchUserRequests();
-      }, [fetchUserRequests])
+        useCallback(() => {
+            fetchUserRequests();
+        }, [fetchUserRequests])
     );
 
-    const MyRequestCard = ({ item, onDelete }: { item: UserRequest, onDelete: () => void }) => (
-    <View style={styles.card}>
-        <View>
-            <Text style={styles.cardTitle}>{item.patientName}</Text>
-            <Text style={styles.cardDetail}>Hospital: {item.hospital}</Text>
-            <Text style={styles.cardDetail}>Blood Group: {item.bloodGroup}</Text>
-            <Text style={styles.cardDetail}>Status: <Text style={item.status === 'pending' ? styles.statusPending : styles.statusCompleted}>{item.status}</Text></Text>
-        </View>
-        <View style={styles.buttonContainer}>
-            <TouchableOpacity style={styles.actionButton} onPress={() => router.push({ pathname: '/request', params: { requestId: item.id } })}>
-                <Ionicons name="pencil" size={20} color={palette.darkText} />
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.actionButton} onPress={onDelete}>
-                <Ionicons name="trash" size={20} color={palette.primaryRed} />
-            </TouchableOpacity>
-        </View>
-    </View>
-);
-
-const handleDelete = (requestId: string) => {
+    const handleDelete = (requestId: string) => {
         Alert.alert(
             "Delete Request",
             "Are you sure you want to permanently delete this request?",
@@ -95,9 +106,10 @@ const handleDelete = (requestId: string) => {
             ]
         );
     };
+    
+    // --- YOUR JSX (UNCHANGED) ---
     return (
-         <SafeAreaView style={styles.safeArea}>
-            
+        <SafeAreaView style={styles.safeArea}>
             {isLoading ? (
                 <ActivityIndicator style={{ flex: 1 }} size="large" color={palette.primaryRed} />
             ) : (
@@ -113,15 +125,43 @@ const handleDelete = (requestId: string) => {
     );
 }
 
+// --- RESPONSIVE STYLESHEET ---
 const styles = StyleSheet.create({
     safeArea: { flex: 1, backgroundColor: palette.white },
-    listContainer: { padding: 15, backgroundColor: palette.pageBg },
-    card: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: palette.white, padding: 15, borderRadius: 10, marginBottom: 10, borderWidth: 1, borderColor: palette.borderLight },
-    cardTitle: { fontSize: 16, fontWeight: 'bold', color: palette.darkText, marginBottom: 5 },
-    cardDetail: { fontSize: 14, color: palette.lightText, marginTop: 2 },
+    listContainer: { padding: scale(15), backgroundColor: palette.pageBg },
+    card: { 
+        flexDirection: 'row', 
+        justifyContent: 'space-between', 
+        alignItems: 'center', 
+        backgroundColor: palette.white, 
+        padding: scale(15), 
+        borderRadius: scale(10), 
+        marginBottom: scale(10), 
+        borderWidth: 1, 
+        borderColor: palette.borderLight 
+    },
+    cardTitle: { 
+        fontSize: scale(16), 
+        fontWeight: 'bold', 
+        color: palette.darkText, 
+        marginBottom: scale(5) 
+    },
+    cardDetail: { 
+        fontSize: scale(14), 
+        color: palette.lightText, 
+        marginTop: scale(2) 
+    },
     statusPending: { color: '#ffa000', fontWeight: 'bold' },
     statusCompleted: { color: '#388e3c', fontWeight: 'bold' },
     buttonContainer: { flexDirection: 'row' },
-    actionButton: { padding: 8, marginLeft: 10 },
-    emptyText: { textAlign: 'center', marginTop: 50, color: palette.lightText, fontSize: 16 },
+    actionButton: { 
+        padding: scale(8), 
+        marginLeft: scale(10) 
+    },
+    emptyText: { 
+        textAlign: 'center', 
+        marginTop: scale(50), 
+        color: palette.lightText, 
+        fontSize: scale(16) 
+    },
 });

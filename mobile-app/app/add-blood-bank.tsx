@@ -1,18 +1,25 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, SafeAreaView, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, SafeAreaView, ScrollView, ActivityIndicator, Dimensions } from 'react-native';
 import { useRouter } from 'expo-router';
 import { getAuth } from 'firebase/auth';
 import { collection, addDoc, serverTimestamp, doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 
+// --- RESPONSIVE SETUP ---
+const { width: screenWidth } = Dimensions.get('window');
+const guidelineBaseWidth = 375; // Standard screen width to scale from
+
+// This function scales sizes based on the screen width
+const scale = (size: number) => (screenWidth / guidelineBaseWidth) * size;
+
 const palette = { primaryRed: '#9B0000', darkText: '#333333', lightText: '#8A8A8A', white: '#ffffff', borderLight: '#EAEAEA', pageBg: '#FEF8F8' };
 
 export default function AddBloodBankScreen() {
+    // --- YOUR LOGIC (UNCHANGED) ---
     const router = useRouter();
     const [isAdmin, setIsAdmin] = useState(false);
     const [checkingAdmin, setCheckingAdmin] = useState(true);
     const [submitting, setSubmitting] = useState(false);
-
     const [form, setForm] = useState({
         name: '', address: '', phone: '', latitude: '', longitude: ''
     });
@@ -93,6 +100,7 @@ export default function AddBloodBankScreen() {
         return null;
     }
 
+    // --- YOUR JSX (UNCHANGED) ---
     return (
         <SafeAreaView style={styles.safeArea}>
             <ScrollView contentContainerStyle={styles.container}>
@@ -163,13 +171,43 @@ export default function AddBloodBankScreen() {
     );
 }
 
+// --- RESPONSIVE STYLESHEET ---
 const styles = StyleSheet.create({
     safeArea: { flex: 1, backgroundColor: palette.white },
-    container: { padding: 20, backgroundColor: palette.pageBg },
-    label: { fontSize: 14, color: palette.lightText, marginBottom: 8, fontWeight: '500' },
-    input: { backgroundColor: palette.white, borderWidth: 1, borderColor: palette.borderLight, borderRadius: 8, padding: 12, fontSize: 16, color: palette.darkText, marginBottom: 20 },
-    row: { flexDirection: 'row', justifyContent: 'space-between' },
-    halfWidth: { width: '48%' },
-    submitButton: { backgroundColor: palette.primaryRed, padding: 15, borderRadius: 10, alignItems: 'center', marginTop: 10 },
-    submitButtonText: { color: palette.white, fontSize: 18, fontWeight: 'bold' },
+    container: { padding: scale(20), backgroundColor: palette.pageBg },
+    label: { 
+        fontSize: scale(14), 
+        color: palette.lightText, 
+        marginBottom: scale(8), 
+        fontWeight: '500' 
+    },
+    input: { 
+        backgroundColor: palette.white, 
+        borderWidth: 1, 
+        borderColor: palette.borderLight, 
+        borderRadius: scale(8), 
+        padding: scale(12), 
+        fontSize: scale(16), 
+        color: palette.darkText, 
+        marginBottom: scale(20) 
+    },
+    row: { 
+        flexDirection: 'row', 
+        justifyContent: 'space-between' 
+    },
+    halfWidth: { 
+        width: '48%' // Percentage is already responsive
+    },
+    submitButton: { 
+        backgroundColor: palette.primaryRed, 
+        padding: scale(15), 
+        borderRadius: scale(10), 
+        alignItems: 'center', 
+        marginTop: scale(10) 
+    },
+    submitButtonText: { 
+        color: palette.white, 
+        fontSize: scale(18), 
+        fontWeight: 'bold' 
+    },
 });

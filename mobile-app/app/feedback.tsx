@@ -1,10 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, ActivityIndicator, KeyboardAvoidingView, Platform, SafeAreaView ,StatusBar} from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, ActivityIndicator, KeyboardAvoidingView, Platform, SafeAreaView, Dimensions } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { getAuth } from 'firebase/auth';
 import { collection, addDoc, serverTimestamp, doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase';
+
+// --- RESPONSIVE SETUP ---
+const { width: screenWidth } = Dimensions.get('window');
+const guidelineBaseWidth = 375; // Standard screen width to scale from
+
+// This function scales sizes based on the screen width
+const scale = (size: number) => (screenWidth / guidelineBaseWidth) * size;
 
 const palette = {
     primaryRed: '#9B0000',
@@ -15,7 +22,8 @@ const palette = {
     trophyYellow: '#FFC107',
 };
 
-const FeedbackScreen = () => {
+export default function FeedbackScreen() {
+    // --- YOUR LOGIC (UNCHANGED) ---
     const router = useRouter();
     const [rating, setRating] = useState(0);
     const [comment, setComment] = useState('');
@@ -44,7 +52,6 @@ const FeedbackScreen = () => {
             Alert.alert('Rating Required', 'Please select a star rating before submitting.');
             return;
         }
-
         setIsLoading(true);
         try {
             await addDoc(collection(db, 'testimonials'), {
@@ -54,10 +61,8 @@ const FeedbackScreen = () => {
                 text: comment,
                 createdAt: serverTimestamp(),
             });
-            
             Alert.alert('Thank You!', 'Your feedback has been submitted successfully.');
             router.back(); 
-
         } catch (error) {
             console.error("Error submitting feedback: ", error);
             Alert.alert('Error', 'Could not submit your feedback. Please try again.');
@@ -66,6 +71,7 @@ const FeedbackScreen = () => {
         }
     };
 
+    // --- YOUR JSX (Ionicons size is now scaled) ---
     return (
         <SafeAreaView style={styles.safeArea}>
             <KeyboardAvoidingView 
@@ -74,20 +80,18 @@ const FeedbackScreen = () => {
             >
                 <Text style={styles.title}>How was your experience?</Text>
                 
-                {/* Star Rating */}
                 <View style={styles.starsContainer}>
                     {[1, 2, 3, 4, 5].map((star) => (
                         <TouchableOpacity key={star} onPress={() => setRating(star)}>
                             <Ionicons 
                                 name={star <= rating ? 'star' : 'star-outline'} 
-                                size={40} 
+                                size={scale(40)} 
                                 color={palette.trophyYellow} 
                             />
                         </TouchableOpacity>
                     ))}
                 </View>
 
-                {/* Comment Box */}
                 <TextInput
                     style={styles.textInput}
                     placeholder="Share more details about your experience..."
@@ -96,7 +100,6 @@ const FeedbackScreen = () => {
                     onChangeText={setComment}
                 />
 
-                {/* Submit Button */}
                 <TouchableOpacity style={styles.submitButton} onPress={handleSubmit} disabled={isLoading}>
                     {isLoading ? (
                         <ActivityIndicator color={palette.white} />
@@ -109,6 +112,7 @@ const FeedbackScreen = () => {
     );
 };
 
+// --- RESPONSIVE STYLESHEET ---
 const styles = StyleSheet.create({
     safeArea: {
         flex: 1,
@@ -116,45 +120,43 @@ const styles = StyleSheet.create({
     },
     container: {
         flex: 1,
-        padding: 20,
+        padding: scale(20),
         justifyContent: 'center',
     },
     title: {
-        fontSize: 22,
+        fontSize: scale(22),
         fontWeight: 'bold',
         textAlign: 'center',
         color: palette.darkText,
-        marginBottom: 20,
+        marginBottom: scale(20),
     },
     starsContainer: {
         flexDirection: 'row',
         justifyContent: 'center',
-        marginBottom: 30,
-        gap: 15,
+        marginBottom: scale(30),
+        gap: scale(15),
     },
     textInput: {
         backgroundColor: palette.white,
         borderWidth: 1,
         borderColor: palette.borderLight,
-        borderRadius: 10,
-        padding: 15,
-        height: 120,
+        borderRadius: scale(10),
+        padding: scale(15),
+        height: scale(120),
         textAlignVertical: 'top',
-        fontSize: 16,
+        fontSize: scale(16),
         color: palette.darkText,
-        marginBottom: 30,
+        marginBottom: scale(30),
     },
     submitButton: {
         backgroundColor: palette.primaryRed,
-        padding: 15,
-        borderRadius: 10,
+        padding: scale(15),
+        borderRadius: scale(10),
         alignItems: 'center',
     },
     submitButtonText: {
         color: palette.white,
-        fontSize: 18,
+        fontSize: scale(18),
         fontWeight: 'bold',
     },
 });
-
-export default FeedbackScreen;
