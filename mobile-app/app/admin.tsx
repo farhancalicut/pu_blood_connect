@@ -5,11 +5,9 @@ import { getAuth } from 'firebase/auth';
 import { doc, getDoc, collection, query, where, getDocs, updateDoc, increment, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase';
 
-// --- RESPONSIVE SETUP ---
 const { width: screenWidth } = Dimensions.get('window');
-const guidelineBaseWidth = 375; // Standard screen width to scale from
+const guidelineBaseWidth = 375; 
 
-// This function scales sizes based on the screen width
 const scale = (size: number) => (screenWidth / guidelineBaseWidth) * size;
 
 const palette = { primaryRed: '#9B0000', darkText: '#333333', lightText: '#8A8A8A', white: '#ffffff', borderLight: '#EAEAEA', pageBg: '#F7F7F7', green: '#28a745', yellow: '#ffc107' };
@@ -54,7 +52,6 @@ const SubmissionCard = React.memo(({ item, onApprove, onReject, processingId }: 
 ));
 
 export default function AdminScreen() {
-    // --- YOUR LOGIC (UNCHANGED) ---
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(true);
     const [isAdmin, setIsAdmin] = useState(false);
@@ -153,7 +150,6 @@ export default function AdminScreen() {
         return <ActivityIndicator style={{ flex: 1 }} size="large" color={palette.primaryRed} />;
     }
     
-    // --- YOUR JSX (UNCHANGED) ---
     return (
         <SafeAreaView style={styles.safeArea}>
             <FlatList
@@ -176,7 +172,6 @@ export default function AdminScreen() {
     );
 }
 
-// --- RESPONSIVE STYLESHEET ---
 const styles = StyleSheet.create({
     safeArea: { flex: 1, backgroundColor: palette.white },
     listContainer: { padding: scale(15), backgroundColor: palette.pageBg },

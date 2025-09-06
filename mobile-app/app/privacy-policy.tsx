@@ -1,11 +1,9 @@
 import React from 'react';
 import { Text, StyleSheet, SafeAreaView, ScrollView, Dimensions } from 'react-native';
 
-// --- RESPONSIVE SETUP ---
 const { width: screenWidth } = Dimensions.get('window');
-const guidelineBaseWidth = 375; // Standard screen width to scale from
+const guidelineBaseWidth = 375;
 
-// This function scales sizes based on the screen width
 const scale = (size: number) => (screenWidth / guidelineBaseWidth) * size;
 
 const palette = { darkText: '#333333', lightText: '#8A8A8A', white: '#ffffff' };
@@ -26,7 +24,6 @@ export default function PrivacyPolicyScreen() {
     );
 }
 
-// --- RESPONSIVE STYLESHEET ---
 const styles = StyleSheet.create({
     safeArea: { 
         flex: 1, 

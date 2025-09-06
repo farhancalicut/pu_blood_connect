@@ -8,17 +8,14 @@ import { db, /*storage*/ } from '../firebase';
 import * as ImagePicker from 'expo-image-picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
 
-// --- RESPONSIVE SETUP ---
 const { width: screenWidth } = Dimensions.get('window');
-const guidelineBaseWidth = 375; // Standard screen width to scale from
+const guidelineBaseWidth = 375;
 
-// This function scales sizes based on the screen width
 const scale = (size: number) => (screenWidth / guidelineBaseWidth) * size;
 
 const palette = { primaryRed: '#9B0000', darkText: '#333333', lightText: '#8A8A8A', white: '#ffffff', borderLight: '#EAEAEA', pageBg: '#FEF8F8' };
 
 export default function UploadCredentialScreen() {
-    // --- YOUR LOGIC (UNCHANGED) ---
     const router = useRouter();
     const { offerId } = useLocalSearchParams<{ offerId: string }>();
 
@@ -81,7 +78,6 @@ export default function UploadCredentialScreen() {
         }
     };
 
-    // --- YOUR JSX (Ionicons size is now scaled) ---
     return (
         <SafeAreaView style={styles.safeArea}>
             <ScrollView contentContainerStyle={styles.container}>
@@ -119,7 +115,6 @@ export default function UploadCredentialScreen() {
     );
 }
 
-// --- RESPONSIVE STYLESHEET ---
 const styles = StyleSheet.create({
     safeArea: { flex: 1, backgroundColor: palette.white },
     container: { 

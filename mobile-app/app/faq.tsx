@@ -3,11 +3,9 @@ import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView, Pla
 import { Ionicons } from '@expo/vector-icons';
 import Collapsible from 'react-native-collapsible';
 
-// --- RESPONSIVE SETUP ---
 const { width: screenWidth } = Dimensions.get('window');
-const guidelineBaseWidth = 375; // Standard screen width to scale from
+const guidelineBaseWidth = 375; 
 
-// This function scales sizes based on the screen width
 const scale = (size: number) => (screenWidth / guidelineBaseWidth) * size;
 
 const palette = { primaryRed: '#9B0000', darkText: '#333333', lightText: '#8A8A8A', white: '#ffffff', borderLight: '#EAEAEA', pageBg: '#F7F7F7' };
@@ -77,7 +75,7 @@ const FaqItem = ({ item }: { item: { q: string, a: string } }) => {
 };
 
 export default function FaqScreen() {
-    // --- YOUR JSX (UNCHANGED) ---
+   
     return (
         <SafeAreaView style={styles.safeArea}>
             <ScrollView contentContainerStyle={styles.container}>
@@ -94,7 +92,6 @@ export default function FaqScreen() {
     );
 }
 
-// --- RESPONSIVE STYLESHEET ---
 const styles = StyleSheet.create({
     safeArea: { 
         flex: 1, 

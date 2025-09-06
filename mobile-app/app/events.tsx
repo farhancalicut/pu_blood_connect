@@ -6,11 +6,9 @@ import { collection, deleteDoc, doc, getDoc, getDocs, orderBy, query } from 'fir
 import { deleteObject, ref } from 'firebase/storage';
 import { auth, db, /*storage*/ } from '../firebase';
 
-// --- RESPONSIVE SETUP ---
 const { width: screenWidth } = Dimensions.get('window');
-const guidelineBaseWidth = 375; // Standard screen width to scale from
+const guidelineBaseWidth = 375; 
 
-// This function scales sizes based on the screen width
 const scale = (size: number) => (screenWidth / guidelineBaseWidth) * size;
 
 const palette = { primaryRed: '#9B0000', darkText: '#333333', lightText: '#8A8A8A', white: '#ffffff', borderLight: '#EAEAEA', pageBg: '#F7F7F7', blue: '#3478f6' };
@@ -60,7 +58,6 @@ function HeaderAddButton() {
 }
 
 export default function EventsScreen() {
-    // --- YOUR LOGIC (UNCHANGED) ---
     const router = useRouter();
     const [events, setEvents] = useState<Event[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -115,7 +112,7 @@ export default function EventsScreen() {
                             // const imageRef = ref(storage, event.posterImageUrl);
                             // await deleteObject(imageRef);
                             Alert.alert("Success", "The event has been deleted.");
-                            fetchData(); // Refresh the list
+                            fetchData();
                         } catch (error) {
                             console.error("Error deleting event:", error);
                             Alert.alert("Error", "Could not delete the event.");
@@ -130,7 +127,6 @@ export default function EventsScreen() {
         router.push({ pathname: '/add-event', params: { eventId: event.id } });
     };
     
-    // --- YOUR JSX (UNCHANGED) ---
     return (
         <SafeAreaView style={styles.safeArea}>
             {isLoading ? ( <ActivityIndicator style={{ flex: 1, justifyContent: 'center' }} /> ) : (
@@ -146,7 +142,6 @@ export default function EventsScreen() {
     );
 }
 
-// --- RESPONSIVE STYLESHEET ---
 const styles = StyleSheet.create({
     safeArea: { flex: 1, backgroundColor: palette.white },
     listContainer: { padding: scale(15), backgroundColor: palette.pageBg },

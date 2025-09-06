@@ -7,13 +7,17 @@
     "icon": "./assets/images/logo.png",
     "scheme": "publoodconnect",
     "userInterfaceStyle": "automatic",
+
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.farhankoolimad.PU_Blood_Connect"
     },
+
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/logo.png"
-      }
+      },
+      "package": "com.farhankoolimad.PU_Blood_Connect"
     },
     "web": {
       "bundler": "metro",

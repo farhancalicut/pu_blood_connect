@@ -5,11 +5,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { collection, getDocs, limit, orderBy, query } from 'firebase/firestore';
 import { db } from '../firebase';
 
-// --- RESPONSIVE SETUP ---
 const { width: screenWidth } = Dimensions.get('window');
-const guidelineBaseWidth = 375; // Standard screen width to scale from
+const guidelineBaseWidth = 375; 
 
-// This function scales sizes based on the screen width
 const scale = (size: number) => (screenWidth / guidelineBaseWidth) * size;
 
 const palette = { primaryRed: '#9B0000', darkText: '#333333', lightText: '#8A8A8A', white: '#ffffff', borderLight: '#EAEAEA', pageBg: '#F7F7F7' };
@@ -30,7 +28,6 @@ const ListItem = ({ name, detail, action }: { name: string; detail?: string; act
 );
 
 export default function RecentDonorsScreen() {
-    // --- YOUR LOGIC (UNCHANGED) ---
     const [recentDonors, setRecentDonors] = useState<Donation[]>([]);
     const [isLoading, setIsLoading] = useState(true);
 
@@ -54,7 +51,6 @@ export default function RecentDonorsScreen() {
         }, [fetchRecentDonors])
     );
 
-    // --- YOUR JSX (UNCHANGED) ---
     return (
         <SafeAreaView style={styles.safeArea}>
             {isLoading ? (
@@ -71,7 +67,6 @@ export default function RecentDonorsScreen() {
     );
 }
 
-// --- RESPONSIVE STYLESHEET ---
 const styles = StyleSheet.create({
     safeArea: { flex: 1, backgroundColor: palette.white },
     listContainer: { 

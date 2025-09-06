@@ -9,11 +9,9 @@ import { getAuth } from "firebase/auth";
 import { collection, query, where, orderBy, getDocs } from "firebase/firestore";
 import { db } from "../firebase";
 
-// --- RESPONSIVE SETUP ---
 const { width: screenWidth } = Dimensions.get('window');
-const guidelineBaseWidth = 375; // Standard screen width to scale from
+const guidelineBaseWidth = 375; 
 
-// This function scales sizes based on the screen width
 const scale = (size: number) => (screenWidth / guidelineBaseWidth) * size;
 
 const palette = { primaryRed: '#9B0000', darkText: '#333333', lightText: '#8A8A8A', white: '#ffffff', borderLight: '#EAEAEA', pageBg: '#F7F7F7', green: '#28a745', yellow: '#ffc107' };
@@ -27,7 +25,6 @@ type DonationOffer = {
 };
 
 export default function HistoryScreen() {
-    // --- YOUR LOGIC (UNCHANGED) ---
     const router = useRouter();
     const [activeTab, setActiveTab] = useState("Donated");
     const [isLoading, setIsLoading] = useState(true);
@@ -112,7 +109,6 @@ export default function HistoryScreen() {
         );
     };
     
-    // --- YOUR JSX (UNCHANGED) ---
     return (
         <SafeAreaView style={styles.container}>
             <View style={styles.tabContainer}>
@@ -149,7 +145,6 @@ export default function HistoryScreen() {
     );
 }
 
-// --- RESPONSIVE STYLESHEET ---
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#faf6f6" },
   tabContainer: {
@@ -214,7 +209,7 @@ const styles = StyleSheet.create({
     fontSize: scale(12),
   },
   actionableText: {
-    color: '#3478f6', // A blue color to indicate it's tappable
+    color: '#3478f6', 
     fontWeight: 'bold',
   },
   emptyText: {

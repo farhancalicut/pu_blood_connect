@@ -70,7 +70,6 @@ export default function MenuBar() {
       }
     });
 
-    // Clean up the listener when the component is unmounted
     return () => unsubscribe();
   }, []);
 
@@ -85,15 +84,12 @@ export default function MenuBar() {
   };
 
   const handlePress = (item: MenuItem) => {
-    // Navigate FIRST
     if (item.href) {
       router.push(item.href);
     } 
     else if (item.name === 'Refer a Friend') {
       handleReferralShare();
     }
-    
-    // THEN, close the menu after a tiny delay
     setTimeout(() => {
       toggleMenu();
     }, 100);
@@ -101,7 +97,6 @@ export default function MenuBar() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* --- PROFILE SECTION --- */}
       <View style={styles.profileSection}>
         <Pressable
           style={styles.profileCircle}
@@ -125,7 +120,6 @@ export default function MenuBar() {
         </View>
       </View>
 
-      {/* --- Menu Items --- */}
       <View style={styles.menuItemsContainer}>
         {menuItems.map((item, index) => (
           <Pressable
@@ -150,7 +144,6 @@ export default function MenuBar() {
   );
 };
 
-// --- RESPONSIVE STYLESHEET ---
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#971A1A' },
   profileSection: {

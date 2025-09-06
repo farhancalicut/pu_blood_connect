@@ -5,11 +5,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { collection, getDocs, query, orderBy, limit } from 'firebase/firestore';
 import { db } from '../firebase';
 
-// --- RESPONSIVE SETUP ---
 const { width: screenWidth } = Dimensions.get('window');
-const guidelineBaseWidth = 375; // Standard screen width to scale from
+const guidelineBaseWidth = 375; 
 
-// This function scales sizes based on the screen width
 const scale = (size: number) => (screenWidth / guidelineBaseWidth) * size;
 
 const palette = { primaryRed: '#9B0000', darkText: '#333333', lightText: '#8A8A8A', white: '#ffffff', borderLight: '#EAEAEA', pageBg: '#F7F7F7', trophyYellow: '#FFC107', trophyBg: '#FFF2CC' };
@@ -31,7 +29,6 @@ const ListItem = ({ name, detail, action, isTrophy = false }: { name: string; de
 );
 
 export default function TopDonorsScreen() {
-    // --- YOUR LOGIC (UNCHANGED) ---
     const [topStudents, setTopStudents] = useState<User[]>([]);
     const [topDepartments, setTopDepartments] = useState<DepartmentStat[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -68,7 +65,6 @@ export default function TopDonorsScreen() {
 
     const dataToShow = activeTab === 'students' ? topStudents : topDepartments;
     
-    // --- YOUR JSX (UNCHANGED) ---
     return (
         <SafeAreaView style={styles.safeArea}>
             <View style={styles.tabContainer}>
@@ -94,7 +90,6 @@ export default function TopDonorsScreen() {
     );
 }
 
-// --- RESPONSIVE STYLESHEET ---
 const styles = StyleSheet.create({
     safeArea: { flex: 1, backgroundColor: palette.white },
     tabContainer: { 

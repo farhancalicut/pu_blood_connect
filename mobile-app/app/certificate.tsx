@@ -6,19 +6,15 @@ import ViewShot from 'react-native-view-shot';
 import { db } from '../firebase';
 import * as MediaLibrary from 'expo-media-library';
 
-// --- RESPONSIVE SETUP ---
 const { width: screenWidth } = Dimensions.get('window');
-const guidelineBaseWidth = 375; // Standard screen width to scale from
+const guidelineBaseWidth = 375;
 
-// This function scales sizes based on the screen width
 const scale = (size: number) => (screenWidth / guidelineBaseWidth) * size;
 
 const palette = { primaryRed: '#9B0000', darkText: '#333333', white: '#ffffff', certNameColor: '#000000ff', borderLight: '#EAEAEA' };
 
-// --- Responsive Certificate Dimensions ---
-// Calculate dimensions based on the original aspect ratio (350 / 250 = 1.4)
 const CERTIFICATE_ASPECT_RATIO = 1.4;
-const certificateWidth = screenWidth * 0.9; // Certificate will take up 90% of the screen width
+const certificateWidth = screenWidth * 0.9; 
 const certificateHeight = certificateWidth / CERTIFICATE_ASPECT_RATIO;
 
 
@@ -29,7 +25,6 @@ type DonationOffer = {
 };
 
 export default function CertificateScreen() {
-    // --- YOUR LOGIC (UNCHANGED) ---
     const router = useRouter();
     const { offerId } = useLocalSearchParams<{ offerId: string }>();
     const viewShotRef = useRef<ViewShot>(null);
@@ -90,7 +85,6 @@ export default function CertificateScreen() {
         return <View style={styles.container}><Text>Donation record not found.</Text></View>;
     }
 
-    // --- YOUR JSX (UNCHANGED) ---
     return (
         <SafeAreaView style={styles.safeArea}>
             <View style={styles.container}>
@@ -116,8 +110,6 @@ export default function CertificateScreen() {
         </SafeAreaView>
     );
 }
-
-// --- RESPONSIVE STYLESHEET ---
 const styles = StyleSheet.create({
     safeArea: { flex: 1, backgroundColor: palette.white },
     container: { 
@@ -128,22 +120,22 @@ const styles = StyleSheet.create({
         backgroundColor: '#f0f0f0' 
     },
     certificateImage: {
-        width: certificateWidth, // Responsive width
-        height: certificateHeight, // Responsive height based on aspect ratio
+        width: certificateWidth,
+        height: certificateHeight, 
         justifyContent: 'center',
         alignItems: 'center',
     },
     donorName: {
         position: 'absolute',
-        top: '42%', // Percentage positioning is already responsive
-        fontSize: scale(18), // Scaled font size
+        top: '42%',
+        fontSize: scale(18), 
         color: palette.certNameColor,
     },
     donationDate: {
         position: 'absolute',
-        top: '79%', // Percentage positioning is already responsive
-        left: '17%', // Percentage positioning is already responsive
-        fontSize: scale(12), // Scaled font size
+        top: '79%', 
+        left: '17%', 
+        fontSize: scale(12), 
         color: palette.darkText,
     },
     downloadButton: {

@@ -7,19 +7,15 @@ import { Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View,
 import { Picker } from '@react-native-picker/picker';
 import { auth, db } from '../firebase';
 
-// --- RESPONSIVE SETUP ---
 const { width: screenWidth } = Dimensions.get('window');
-const guidelineBaseWidth = 375; // Standard screen width to scale from
+const guidelineBaseWidth = 375; 
 
-// This function scales sizes based on the screen width
 const scale = (size: number) => (screenWidth / guidelineBaseWidth) * size;
 
-// --- DATA LISTS (Unchanged) ---
 const DEPARTMENTS = [ 'Computer Science', 'Mathematics', 'Physics', 'Chemistry', 'Commerce', 'History', 'French' ];
 const GENDERS = ['Male', 'Female', 'Other'];
 const BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
 
-// --- HELPER COMPONENT (Moved Outside & Made Responsive) ---
 type FloatingLabelInputProps = {
   label: string;
   value: string;
@@ -65,7 +61,7 @@ const FloatingLabelInput = ({
         inputRange: [0, 1],
         outputRange: ["#888", "#575757ff"],
       }),
-      backgroundColor: "#F8FAFC", // Match card background
+      backgroundColor: "#F8FAFC",
       paddingHorizontal: scale(4),
       zIndex: 1,
     };
@@ -92,7 +88,6 @@ const FloatingLabelInput = ({
 
 
 export default function RegisterScreen() {
-  // --- YOUR LOGIC (UNCHANGED) ---
   const router = useRouter();
   const navigation = useNavigation();
   const user = auth.currentUser;
@@ -191,7 +186,6 @@ export default function RegisterScreen() {
     setIsLoading(true);
     try {
       if (isEditMode && user) {
-        // --- UPDATE LOGIC ---
         const userDocRef = doc(db, 'users', user.uid);
         await updateDoc(userDocRef, {
           firstName: profileData.firstName,
@@ -206,15 +200,11 @@ export default function RegisterScreen() {
         Alert.alert('Profile Updated!', 'Your details have been saved successfully.');
         router.back();
       } else {
-        // --- REGISTER LOGIC ---
         const userCredential = await createUserWithEmailAndPassword(auth, email.trim(), password);
         const newUser = userCredential.user;
         await sendEmailVerification(newUser);
 
-        // 👇 1. CREATE THE USER DATA OBJECT
         const newUserProfile = {
-          // Spread profileData, but also explicitly include all form fields
-          // to ensure everything is captured.
           firstName: form.firstName,
           lastName: form.lastName,
           department: form.department,
@@ -227,13 +217,9 @@ export default function RegisterScreen() {
           uid: newUser.uid,
           createdAt: new Date(),
         };
-
-        // 👇 2. CONDITIONALLY ADD THE nssStatus FIELD
         if (form.isNssVolunteer === 'Yes') {
           (newUserProfile as any).nssStatus = 'pending';
         }
-
-        // 👇 3. SAVE THE COMPLETE OBJECT TO FIRESTORE
         await setDoc(doc(db, 'users', newUser.uid), newUserProfile);
         
         await signOut(auth);
@@ -243,9 +229,7 @@ export default function RegisterScreen() {
     } catch (error: unknown) {
     let message = 'An unknown error occurred. Please try again.';
 
-    // This checks if the error is from Firebase
     if (error instanceof FirebaseError) {
-        // Use a switch to handle specific error codes
         switch (error.code) {
             case 'auth/email-already-in-use':
                 message = 'This email address is already registered. Please try logging in.';
@@ -257,7 +241,6 @@ export default function RegisterScreen() {
                 message = 'Your password is too weak. It must be at least 6 characters long.';
                 break;
             default:
-                // For any other Firebase error, show the original message
                 message = error.message;
         }
     }
@@ -288,7 +271,6 @@ export default function RegisterScreen() {
             </View>
           )}
 
-          {/* All FloatingLabelInput fields first */}
 <FloatingLabelInput
   label="Email"
   value={form.email}
@@ -332,7 +314,6 @@ export default function RegisterScreen() {
   onChangeText={text => handleChange('phone', text)}
   keyboardType="phone-pad"
 />
-{/* Now Picker fields */}
           <Text style={styles.label}>Gender</Text>
           <View style={styles.pickerContainer}>
             <Picker
@@ -410,7 +391,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8FAFC',
     padding: scale(25),
     borderRadius: scale(20),
-    margin: scale(20), // Use margin instead of padding on container
+    margin: scale(20), 
     shadowColor: '#000',
     shadowOpacity: 0.1,
     shadowOffset: { width: 0, height: scale(3) },

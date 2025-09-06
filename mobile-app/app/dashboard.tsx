@@ -21,7 +21,6 @@ const { width: screenWidth } = Dimensions.get('window');
 const guidelineBaseWidth = 375;
 const scale = (size: number) => (screenWidth / guidelineBaseWidth) * size;
 
-// --- Type Definitions ---
 type UserProfile = { uid: string; lastname?: string; firstName?: string; department?: string; totalDonates?: number; lastDonated?: any; bloodGroup?: string; [key: string]: any; };
 type Donation = { id: string; donorName?: string; department?: string; bloodGroup?: string; [key:string]: any; };
 type DepartmentStat = { name: string; donorCount: number; totalUnits: number; };
@@ -31,7 +30,6 @@ type CarouselItem = { type: 'banner'; id: string; } | (Event & { type: 'event' }
 
 const palette = { primaryRed: '#FE465E', statsRed: '#D9324B', darkGreen: '#3A6054', pageBg: '#FFFBFB', cardBgLavender: 'rgba(255, 251, 251, 1)', darkText: '#333333', lightText: '#8A8A8A', white: '#ffffff', borderLight: '#F0F0F0', trophyYellow: '#FFC107', trophyBg: '#FFF2CC', eligibleGreen: '#28a745', };
 
-// --- Responsive Constants ---
 const DONATION_ELIGIBILITY_DAYS = 60;
 const CARD_WIDTH = screenWidth * 0.76; 
 const CARD_MARGIN = screenWidth * 0;
@@ -93,7 +91,7 @@ const DetailRow = ({ label, value }: { label: string, value: string }) => (
 );
 export default function DashboardScreen() {
   
-  const router = useRouter(); // Initialize the router
+  const router = useRouter();
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [topStudentDonors, setTopStudentDonors] = useState<UserProfile[]>([]);
   const [recentDonors, setRecentDonors] = useState<Donation[]>([]);
@@ -250,7 +248,7 @@ export default function DashboardScreen() {
             <View style={styles.welcomeCard}>
                         <View style={styles.welcomeTopRow}>
                             <Text style={styles.welcomeTitle}>Hi {userProfile.firstName || 'User'}!</Text>
-                            <View style={styles.bloodTag/* { position: 'absolute', left: '50%', transform: [{ translateX: -15 }], top: 7 }]*/}>
+                            <View style={styles.bloodTag}>
                               <Text style={styles.bloodTagText}>
                                 <Text style={{ fontSize: 12 }}>Blood:</Text>
                                 <Text style={{ fontSize: 12, fontWeight: 'bold' }}>{userProfile.bloodGroup || 'N/A'}</Text>

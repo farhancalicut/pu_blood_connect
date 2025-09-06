@@ -6,11 +6,9 @@ import { collection, deleteDoc, doc, getDocs, orderBy, query, where } from 'fire
 import { getAuth } from 'firebase/auth';
 import { db } from '../firebase';
 
-// --- RESPONSIVE SETUP ---
 const { width: screenWidth } = Dimensions.get('window');
-const guidelineBaseWidth = 375; // Standard screen width to scale from
+const guidelineBaseWidth = 375;
 
-// This function scales sizes based on the screen width
 const scale = (size: number) => (screenWidth / guidelineBaseWidth) * size;
 
 const palette = { primaryRed: '#9B0000', darkText: '#333333', lightText: '#8A8A8A', white: '#ffffff', borderLight: '#EAEAEA', pageBg: '#F7F7F7' };
@@ -24,9 +22,8 @@ type UserRequest = {
     createdAt: { toDate: () => Date };
 };
 
-// --- HELPER COMPONENT (Moved Outside) ---
 const MyRequestCard = ({ item, onDelete }: { item: UserRequest, onDelete: () => void }) => {
-    const router = useRouter(); // Moved router inside or pass as prop
+    const router = useRouter(); 
     return (
         <View style={styles.card}>
             <View style={{ flex: 1 }}>
@@ -48,7 +45,6 @@ const MyRequestCard = ({ item, onDelete }: { item: UserRequest, onDelete: () => 
 };
 
 export default function MyRequestsScreen() {
-    // --- YOUR LOGIC (UNCHANGED) ---
     const router = useRouter();
     const [requests, setRequests] = useState<UserRequest[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -107,7 +103,6 @@ export default function MyRequestsScreen() {
         );
     };
     
-    // --- YOUR JSX (UNCHANGED) ---
     return (
         <SafeAreaView style={styles.safeArea}>
             {isLoading ? (
@@ -125,7 +120,6 @@ export default function MyRequestsScreen() {
     );
 }
 
-// --- RESPONSIVE STYLESHEET ---
 const styles = StyleSheet.create({
     safeArea: { flex: 1, backgroundColor: palette.white },
     listContainer: { padding: scale(15), backgroundColor: palette.pageBg },

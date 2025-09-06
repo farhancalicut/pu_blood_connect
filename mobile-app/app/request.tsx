@@ -10,17 +10,14 @@ import { db } from '../firebase';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Picker } from '@react-native-picker/picker';
 
-// --- RESPONSIVE SETUP ---
 const { width: screenWidth } = Dimensions.get('window');
-const guidelineBaseWidth = 375; // Standard screen width to scale from
+const guidelineBaseWidth = 375;
 
-// This function scales sizes based on the screen width
 const scale = (size: number) => (screenWidth / guidelineBaseWidth) * size;
 
 const palette = { primaryRed: '#9B0000', darkText: '#333333', lightText: '#8A8A8A', white: '#ffffff', borderLight: '#EAEAEA', pageBg: '#FEF8F8' };
 
 export default function RequestScreen() {
-    // --- YOUR LOGIC (UNCHANGED) ---
     const router = useRouter();
     const [patientName, setPatientName] = useState('');
     const [mobileNumber, setMobileNumber] = useState('');
@@ -89,7 +86,6 @@ export default function RequestScreen() {
         setRequiredDate(currentDate);
     };
 
-    // --- YOUR JSX (UNCHANGED) ---
     return (
         <SafeAreaView style={styles.safeArea}>
             <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{flex: 1}}>
@@ -165,7 +161,6 @@ export default function RequestScreen() {
     );
 };
 
-// --- RESPONSIVE STYLESHEET ---
 const styles = StyleSheet.create({
     safeArea: { flex: 1, backgroundColor: palette.white },
     container: { padding: scale(20), backgroundColor: palette.pageBg },
@@ -195,7 +190,7 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between' 
     },
     halfWidth: { 
-        width: '48%' // Percentage is already responsive
+        width: '48%' 
     },
     switchRow: { 
         flexDirection: 'row', 

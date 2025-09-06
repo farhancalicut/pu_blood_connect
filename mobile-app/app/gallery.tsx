@@ -8,11 +8,9 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, /*storage*/ } from '../firebase';
 import * as ImagePicker from 'expo-image-picker';
 
-// --- RESPONSIVE SETUP ---
 const { width: screenWidth } = Dimensions.get('window');
-const guidelineBaseWidth = 375; // Standard screen width to scale from
+const guidelineBaseWidth = 375; 
 
-// This function scales sizes based on the screen width
 const scale = (size: number) => (screenWidth / guidelineBaseWidth) * size;
 
 const palette = { primaryRed: '#9B0000', darkText: '#333333', lightText: '#8A8A8A', white: '#ffffff', borderLight: '#EAEAEA', pageBg: '#F7F7F7' };
@@ -24,7 +22,6 @@ type GalleryImage = {
 };
 
 export default function GalleryScreen() {
-    // --- YOUR LOGIC (UNCHANGED) ---
     const router = useRouter();
     const navigation = useNavigation();
     const [images, setImages] = useState<GalleryImage[]>([]);
@@ -105,7 +102,7 @@ export default function GalleryScreen() {
                 <TouchableOpacity 
                     onPress={handleAddImage} 
                     disabled={isUploading} 
-                    style={{ marginRight: scale(15) }} // Scaled margin
+                    style={{ marginRight: scale(15) }}
                 >
                     {isUploading 
                         ? <ActivityIndicator size="small" color={palette.primaryRed} />
@@ -116,7 +113,6 @@ export default function GalleryScreen() {
         });
     }, [isUploading, navigation, handleAddImage]);
     
-    // --- YOUR JSX (UNCHANGED) ---
     return (
         <SafeAreaView style={styles.safeArea}>
             {isLoading && images.length === 0 ? (
@@ -140,7 +136,6 @@ export default function GalleryScreen() {
     );
 }
 
-// --- RESPONSIVE STYLESHEET ---
 const styles = StyleSheet.create({
     safeArea: { flex: 1, backgroundColor: palette.white },
     listContainer: { padding: scale(5), backgroundColor: palette.pageBg },

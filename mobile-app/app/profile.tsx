@@ -8,19 +8,15 @@ import { db, /*storage*/ } from '../firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import * as ImagePicker from 'expo-image-picker';
 
-// --- RESPONSIVE SETUP ---
 const { width: screenWidth } = Dimensions.get('window');
-const guidelineBaseWidth = 375; // Standard screen width to scale from
+const guidelineBaseWidth = 375; 
 
-// This function scales sizes based on the screen width
 const scale = (size: number) => (screenWidth / guidelineBaseWidth) * size;
 
 const palette = { primaryRed: '#9B0000', darkText: '#333333', lightText: '#8A8A8A', white: '#ffffff', borderLight: '#EAEAEA', pageBg: '#F7F7F7' };
 
-// --- TYPE DEFINITIONS (Unchanged) ---
 type UserProfile = { name: string; department: string; bloodGroup: string; email: string; profilePicUrl?: string; };
 
-// --- HELPER COMPONENTS (Logic Unchanged, styles will be responsive) ---
 const ProfileInfoRow = ({ icon, label, value }: { icon: React.ComponentProps<typeof Ionicons>['name'], label: string, value: string }) => (
     <View style={styles.infoRow}>
         <Ionicons name={icon} size={scale(22)} color={palette.primaryRed} style={styles.infoIcon} />
@@ -79,7 +75,6 @@ const ChangePasswordModal: FC<{ visible: boolean, onClose: () => void }> = ({ vi
 };
 
 export default function ProfileScreen() {
-    // --- YOUR LOGIC (UNCHANGED) ---
     const router = useRouter();
     const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -144,8 +139,6 @@ export default function ProfileScreen() {
             text: "Log Out", 
             style: "destructive", 
             onPress: () => {
-                // This function should ONLY sign out.
-                // The main layout will handle the redirect.
                 signOut(auth);
                 router.replace('/login');
             }
@@ -156,8 +149,6 @@ export default function ProfileScreen() {
     if (isLoading) {
         return <ActivityIndicator style={{ flex: 1, justifyContent: 'center' }} size="large" color={palette.primaryRed} />;
     }
-
-    // --- YOUR JSX (Ionicons sizes are now scaled) ---
     return (
         <SafeAreaView style={styles.safeArea}>
             <View style={styles.container}>
@@ -198,7 +189,6 @@ export default function ProfileScreen() {
     );
 }
 
-// --- RESPONSIVE STYLESHEET ---
 const styles = StyleSheet.create({
     safeArea: { flex: 1, backgroundColor: palette.white },
     container: { flex: 1, backgroundColor: palette.pageBg },

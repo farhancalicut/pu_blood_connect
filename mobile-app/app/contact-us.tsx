@@ -2,11 +2,9 @@ import React from 'react';
 import { View, Text, StyleSheet, SafeAreaView, Dimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-// --- RESPONSIVE SETUP ---
 const { width: screenWidth } = Dimensions.get('window');
-const guidelineBaseWidth = 375; // Standard screen width to scale from
+const guidelineBaseWidth = 375;
 
-// This function scales sizes based on the screen width
 const scale = (size: number) => (screenWidth / guidelineBaseWidth) * size;
 
 const palette = { primaryRed: '#9B0000', darkText: '#333333', lightText: '#8A8A8A', white: '#ffffff', borderLight: '#EAEAEA', pageBg: '#F7F7F7' };
@@ -35,7 +33,6 @@ export default function ContactUsScreen() {
     );
 }
 
-// --- RESPONSIVE STYLESHEET ---
 const styles = StyleSheet.create({
     safeArea: { 
         flex: 1, 
@@ -65,6 +62,6 @@ const styles = StyleSheet.create({
         fontSize: scale(16), 
         color: palette.darkText, 
         marginLeft: scale(15), 
-        flex: 1 // Allows text to wrap correctly
+        flex: 1 
     },
 });

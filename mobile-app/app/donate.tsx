@@ -24,24 +24,19 @@ import { getAuth } from 'firebase/auth';
 import { addDoc, collection, doc, getDoc, getDocs, orderBy, query, serverTimestamp, where, updateDoc, increment } from 'firebase/firestore';
 import { db } from '../firebase';
 
-// --- RESPONSIVE SETUP ---
 const { width: screenWidth } = Dimensions.get('window');
-const guidelineBaseWidth = 375; // Standard screen width to scale from
+const guidelineBaseWidth = 375; 
 
-// This function scales sizes based on the screen width
 const scale = (size: number) => (screenWidth / guidelineBaseWidth) * size;
 
 const palette = { primaryRed: '#9B0000', darkText: '#333333', lightText: '#8A8A8A', white: '#ffffff', borderLight: '#EAEAEA', pageBg: '#F7F7F7', criticalRed: '#D9324B', cardBg: '#FEFBFB' };
 
-// --- TYPE DEFINITIONS ---
 type Request = { id: string; patientName: string; hospital: string; bloodGroup: string; units: number; isCritical: boolean; requiredDate: { toDate: () => Date }; mobileNumber: string; notes?: string; requesterId: string; requesterName: string; };
 const BLOOD_GROUPS = ['All', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
 type DetailRowProps = { label: string; value: string; isCritical?: boolean; };
 type RequestDetailsModalProps = { visible: boolean; request: Request | null; onClose: () => void; };
 type RequestCardProps = { item: Request; onViewDetails: (item: Request) => void; onDonatePress: (item: Request) => void; };
 type DonorProfile = { uid: string; name: string; mobile: string; };
-
-// --- HELPER COMPONENTS ---
 
 const RequestDetailsModal: FC<RequestDetailsModalProps> = ({ visible, request, onClose }) => {
     const viewShotRef = useRef<ViewShot>(null);

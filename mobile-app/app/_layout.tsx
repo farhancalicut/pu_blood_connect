@@ -10,7 +10,6 @@ import { auth, db } from "../firebase";
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 
-// Import your components and context
 import MenuContext, { useMenu } from "./context/MenuContext";
 import MenuBar from "./MenuBar";
 import Icon from 'react-native-vector-icons/FontAwesome5';
@@ -19,7 +18,6 @@ import { Ionicons } from '@expo/vector-icons';
 
 const { width } = Dimensions.get("window");
 
-// --- YOUR HELPER FUNCTIONS ---
 
 async function registerForPushNotificationsAsync() {
   let token;
@@ -76,7 +74,6 @@ function AdminBackButton() {
   );
 }
 
-// --- THIS COMPONENT HOLDS YOUR COMPLETE APP STACK ---
 function AppStack() {
   return (
     <Stack>
@@ -175,7 +172,7 @@ export default function RootLayout() {
       elevation,
     };
   });
-  
+
   const toggleMenu = () => {
     progress.value = withSpring(progress.value > 0 ? 0 : 1, {
       damping: 30,

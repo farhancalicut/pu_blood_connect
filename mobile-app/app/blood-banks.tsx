@@ -5,11 +5,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { collection, getDocs, query, orderBy, doc, getDoc } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 
-// --- RESPONSIVE SETUP ---
 const { width: screenWidth } = Dimensions.get('window');
-const guidelineBaseWidth = 375; // Standard screen width to scale from
+const guidelineBaseWidth = 375; 
 
-// This function scales sizes based on the screen width
 const scale = (size: number) => (screenWidth / guidelineBaseWidth) * size;
 
 const palette = { primaryRed: '#9B0000', darkText: '#333333', lightText: '#8A8A8A', white: '#ffffff', borderLight: '#EAEAEA', pageBg: '#F7F7F7' };
@@ -81,7 +79,6 @@ export default function BloodBanksScreen() {
     const fetchData = useCallback(async () => {
         setIsLoading(true);
         try {
-            // Check user role
             const user = auth.currentUser;
             if (user) {
                 const userDoc = await getDoc(doc(db, 'users', user.uid));
@@ -129,7 +126,6 @@ export default function BloodBanksScreen() {
     );
 }
 
-// --- RESPONSIVE STYLESHEET ---
 const styles = StyleSheet.create({
     safeArea: { flex: 1, backgroundColor: palette.white },
     listContainer: { padding: scale(15), backgroundColor: palette.pageBg },

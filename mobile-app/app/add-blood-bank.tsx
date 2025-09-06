@@ -5,17 +5,14 @@ import { getAuth } from 'firebase/auth';
 import { collection, addDoc, serverTimestamp, doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 
-// --- RESPONSIVE SETUP ---
 const { width: screenWidth } = Dimensions.get('window');
-const guidelineBaseWidth = 375; // Standard screen width to scale from
+const guidelineBaseWidth = 375; 
 
-// This function scales sizes based on the screen width
 const scale = (size: number) => (screenWidth / guidelineBaseWidth) * size;
 
 const palette = { primaryRed: '#9B0000', darkText: '#333333', lightText: '#8A8A8A', white: '#ffffff', borderLight: '#EAEAEA', pageBg: '#FEF8F8' };
 
 export default function AddBloodBankScreen() {
-    // --- YOUR LOGIC (UNCHANGED) ---
     const router = useRouter();
     const [isAdmin, setIsAdmin] = useState(false);
     const [checkingAdmin, setCheckingAdmin] = useState(true);
@@ -100,7 +97,6 @@ export default function AddBloodBankScreen() {
         return null;
     }
 
-    // --- YOUR JSX (UNCHANGED) ---
     return (
         <SafeAreaView style={styles.safeArea}>
             <ScrollView contentContainerStyle={styles.container}>
@@ -171,7 +167,6 @@ export default function AddBloodBankScreen() {
     );
 }
 
-// --- RESPONSIVE STYLESHEET ---
 const styles = StyleSheet.create({
     safeArea: { flex: 1, backgroundColor: palette.white },
     container: { padding: scale(20), backgroundColor: palette.pageBg },
@@ -196,7 +191,7 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between' 
     },
     halfWidth: { 
-        width: '48%' // Percentage is already responsive
+        width: '48%' 
     },
     submitButton: { 
         backgroundColor: palette.primaryRed, 

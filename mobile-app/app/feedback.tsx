@@ -6,11 +6,9 @@ import { getAuth } from 'firebase/auth';
 import { collection, addDoc, serverTimestamp, doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 
-// --- RESPONSIVE SETUP ---
 const { width: screenWidth } = Dimensions.get('window');
-const guidelineBaseWidth = 375; // Standard screen width to scale from
+const guidelineBaseWidth = 375; 
 
-// This function scales sizes based on the screen width
 const scale = (size: number) => (screenWidth / guidelineBaseWidth) * size;
 
 const palette = {
@@ -23,7 +21,6 @@ const palette = {
 };
 
 export default function FeedbackScreen() {
-    // --- YOUR LOGIC (UNCHANGED) ---
     const router = useRouter();
     const [rating, setRating] = useState(0);
     const [comment, setComment] = useState('');
@@ -71,7 +68,6 @@ export default function FeedbackScreen() {
         }
     };
 
-    // --- YOUR JSX (Ionicons size is now scaled) ---
     return (
         <SafeAreaView style={styles.safeArea}>
             <KeyboardAvoidingView 
@@ -112,7 +108,6 @@ export default function FeedbackScreen() {
     );
 };
 
-// --- RESPONSIVE STYLESHEET ---
 const styles = StyleSheet.create({
     safeArea: {
         flex: 1,

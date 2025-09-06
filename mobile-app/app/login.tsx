@@ -116,16 +116,16 @@ export default function LoginScreen() {
         router.replace('/dashboard');
       } else {
         Alert.alert('Error', 'User profile not found in database.');
-        // await signOut(auth);
+        await signOut(auth);
       }
     } 
-    // else {
-    //   Alert.alert(
-    //     'Verification Required',
-    //     'Please check your email and click the verification link before logging in.'
-    //   );
-      // await signOut(auth);
-    // }
+    else {
+      Alert.alert(
+        'Verification Required',
+        'Please check your email and click the verification link before logging in.'
+      );
+      await signOut(auth);
+    }
   } catch (error: unknown) {
       let message = 'Unknown error occurred';
     if (error instanceof FirebaseError) {
