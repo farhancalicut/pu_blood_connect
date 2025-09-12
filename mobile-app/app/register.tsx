@@ -224,7 +224,7 @@ export default function RegisterScreen() {
         
         await signOut(auth);
         Alert.alert('Registration Successful!', 'A verification link has been sent to your email. Please check your inbox to activate your account.');
-        router.push('/login');
+        // router.push('/login');
       }
     } catch (error: unknown) {
     let message = 'An unknown error occurred. Please try again.';

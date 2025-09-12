@@ -103,7 +103,7 @@ export default function LoginScreen() {
     const userCredential = await signInWithEmailAndPassword(auth, email.trim(), password);
     const user = userCredential.user;
 
-    if (user/*user.emailVerified*/) {
+    // if (user.emailVerified) {
       const userDocRef = doc(db, 'users', user.uid);
       const userDoc = await getDoc(userDocRef);
 
@@ -119,14 +119,15 @@ export default function LoginScreen() {
         await signOut(auth);
       }
     } 
-    else {
-      Alert.alert(
-        'Verification Required',
-        'Please check your email and click the verification link before logging in.'
-      );
-      await signOut(auth);
-    }
-  } catch (error: unknown) {
+    // else {
+    //   Alert.alert(
+    //     'Verification Required',
+    //     'Please check your email and click the verification link before logging in.'
+    //   );
+    //   await signOut(auth);
+    // }
+  // } 
+  catch (error: unknown) {
       let message = 'Unknown error occurred';
     if (error instanceof FirebaseError) {
       switch (error.code) {

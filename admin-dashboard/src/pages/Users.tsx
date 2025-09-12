@@ -1,6 +1,6 @@
 // In src/pages/Users.tsx
 
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { collection, getDocs, orderBy, query } from 'firebase/firestore';
 import { db } from '../firebase';
 
@@ -12,6 +12,7 @@ type User = {
   lastName?: string;
   email?: string;
   department?: string;
+  totalDonates?: number;
 };
 
 // Updated styles to include a search input
@@ -86,6 +87,7 @@ export default function Users() {
             <th style={styles.th}>Name</th>
             <th style={styles.th}>Email</th>
             <th style={styles.th}>Department</th>
+            <th style={styles.th}>Total Donations</th>
             <th style={styles.th}>User ID</th>
           </tr>
         </thead>
@@ -96,6 +98,7 @@ export default function Users() {
               <td style={styles.td}>{user.name || `${user.firstName} ${user.lastName}`}</td>
               <td style={styles.td}>{user.email}</td>
               <td style={styles.td}>{user.department}</td>
+              <td style={styles.td}>{user.totalDonates || 0}</td> 
               <td style={styles.td}>{user.id}</td>
             </tr>
           ))}

@@ -129,6 +129,8 @@ function AppStack() {
       <Stack.Screen name="contact-us" options={{ title: 'Contact Us', headerTitleAlign: 'center' }} />
       <Stack.Screen name="gallery" options={{ title: 'Gallery', headerTitleAlign: 'center' }} />
       <Stack.Screen name="top-donors" options={{ title: 'Top Donors', headerTitleAlign: 'center' }} />
+      <Stack.Screen name="edit-profile" options={{ title: 'Edit Profile', headerTitleAlign: 'center' }} />
+
     </Stack>
   );
 }
@@ -145,8 +147,9 @@ export default function RootLayout() {
       
       const inApp = segments[0] !== 'login' && segments[0] !== 'register';
       
-      if (user && user.emailVerified) {
-        
+      // if (user && user.emailVerified) {
+        if (user) {
+
         if (!inApp) {
           router.replace('/dashboard');
         }

@@ -15,6 +15,7 @@ import Donations from './pages/Donations.tsx';
 import Feedbacks from './pages/Feedbacks.tsx'; 
 import Events from './pages/Events.tsx';
 import EventForm from './pages/EventForm.tsx';
+import NSS from './pages/NSS.tsx';
 
 // Define the routes for your application
 const router = createBrowserRouter([
@@ -47,6 +48,7 @@ const router = createBrowserRouter([
       { path: 'events', element: <Events /> },
       { path: 'events/new', element: <EventForm /> },  
       { path: 'events/edit/:eventId', element: <EventForm /> },
+      { path: 'nss', element: <NSS /> },
     ],
   },
 ]);

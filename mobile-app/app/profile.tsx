@@ -169,7 +169,7 @@ export default function ProfileScreen() {
                     <ProfileInfoRow icon="water-outline" label="Blood Group" value={userProfile?.bloodGroup || ''} />
                 </View>
                 <View style={styles.actionsSection}>
-                    <TouchableOpacity style={styles.actionButton} onPress={() => router.push('/register')}>
+                    <TouchableOpacity style={styles.actionButton} onPress={() => router.push('/edit-profile')}>
                         <Text style={styles.actionButtonText}>Edit Profile</Text>
                         <Ionicons name="chevron-forward" size={scale(22)} color={palette.lightText} />
                     </TouchableOpacity>

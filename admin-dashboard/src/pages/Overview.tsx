@@ -23,7 +23,7 @@ const styles = {
 };
 
 export default function Overview() {
-  const [stats, setStats] = useState({ userCount: 0, totalDonations: 0 });
+  const [stats, setStats] = useState({ userCount: 0, totalDonations: 0, eventCount: 0 });
   const [departmentData, setDepartmentData] = useState<DepartmentData[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -33,19 +33,20 @@ export default function Overview() {
         // Fetch users and donations collections at the same time
         const usersQuery = query(collection(db, 'users'));
         const donationsQuery = query(collection(db, 'donations'));
+        const eventsQuery = query(collection(db, 'events'));
         
-        const [userSnapshot, donationSnapshot] = await Promise.all([
+        const [userSnapshot, donationSnapshot, eventSnapshot] = await Promise.all([
           getDocs(usersQuery),
           getDocs(donationsQuery),
+          getDocs(eventsQuery), // Fetch events
         ]);
 
-        // Calculate total users
         const userCount = userSnapshot.size;
-
-        // Calculate total donations
-        const totalDonations = donationSnapshot.docs.reduce((sum, doc) => sum + (doc.data().units || 1), 0);
+        const totalDonations = donationSnapshot.docs.reduce((sum, doc) => sum + Number(doc.data().units || 0), 0);
+        const eventCount = eventSnapshot.size; // Get the count of events
         
-        setStats({ userCount, totalDonations });
+        // 👇 3. UPDATE THE STATE WITH THE NEW COUNT
+        setStats({ userCount, totalDonations, eventCount });
 
         // Process data for the department chart
         const deptCounts: { [key: string]: number } = {};
@@ -90,7 +91,10 @@ export default function Overview() {
           <div style={styles.statNumber}>{stats.totalDonations}</div>
           <div style={styles.statLabel}>Total Units Donated</div>
         </div>
-        {/* You can add another stat card here, e.g., for events or feedback */}
+        <div style={styles.statCard}>
+          <div style={styles.statNumber}>{stats.eventCount}</div>
+          <div style={styles.statLabel}>Total Camps Organized</div>
+        </div>
       </div>
 
       <h2 style={{ marginBottom: '20px',color: '#333333ff' }}>Donors by Department</h2>

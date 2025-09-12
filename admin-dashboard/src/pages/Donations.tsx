@@ -9,11 +9,25 @@ import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recha
 type Donation = {
   id: string;
   donorName: string;
+  department?: string;
   bloodGroup: string;
   units: number;
   date: {
     toDate: () => Date;
   };
+};
+
+const RADIAN = Math.PI / 180;
+const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }: any) => {
+  const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
+  const x = cx + radius * Math.cos(-midAngle * RADIAN);
+  const y = cy + radius * Math.sin(-midAngle * RADIAN);
+
+  return (
+    <text x={x} y={y} fill="white" textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central">
+      {`${(percent * 100).toFixed(0)}%`}
+    </text>
+  );
 };
 
 // Define a type for our chart data
@@ -33,7 +47,7 @@ const styles = {
     statCard: { backgroundColor: 'white', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' },
     statNumber: { fontSize: '32px', fontWeight: 'bold', marginBottom: '5px', color: '#1e293b' },
     statLabel: { fontSize: '16px', color: '#64748b' }, // Darker gray for label
-    chartContainer: { height: '350px', backgroundColor: 'white', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' },
+    chartContainer: { height: '320px', backgroundColor: 'white', padding: '0px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' },
     tableContainer: { gridColumn: 'span 2', marginTop: '20px', backgroundColor: 'white', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' },
     table: { width: '100%', borderCollapse: 'collapse' as 'collapse' },
     th: { 
@@ -60,9 +74,11 @@ export default function Donations() {
         const donationSnapshot = await getDocs(donationsQuery);
         const donations = donationSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Donation[];
 
+        // --- CORRECTED CALCULATION LOGIC ---
+        
         // Calculate stats
         const donationCount = donations.length;
-        const totalUnits = donations.reduce((sum, doc) => sum + (doc.units || 1), 0);
+        const totalUnits = donations.reduce((sum, doc) => sum + Number(doc.units || 0), 0);
         setStats({ donationCount, totalUnits });
 
         // Process data for pie chart
@@ -70,7 +86,7 @@ export default function Donations() {
         donations.forEach(doc => {
           const bg = doc.bloodGroup;
           if (bg) {
-            bloodGroupCounts[bg] = (bloodGroupCounts[bg] || 0) + (doc.units || 1);
+            bloodGroupCounts[bg] = (bloodGroupCounts[bg] || 0) + (Number(doc.units) || 0);
           }
         });
         const chartData = Object.keys(bloodGroupCounts).map(bgName => ({
@@ -110,16 +126,25 @@ export default function Donations() {
           </div>
         </div>
         <div style={styles.chartContainer}>
-          <h3 style={{ marginBottom: '20px', textAlign: 'center' }}>Units by Blood Group</h3>
-          <ResponsiveContainer width="100%" height="100%">
+          <h3 style={{ marginBottom: '10px', textAlign: 'center' }}>Units by Blood Group</h3>
+          <ResponsiveContainer width="100%" height="80%">
             <PieChart>
-              <Pie data={bloodGroupData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label>
+              <Pie 
+                data={bloodGroupData} 
+                dataKey="value" 
+                nameKey="name" 
+                cx="50%" 
+                cy="50%" // Adjusted vertical position
+                outerRadius={100} 
+                labelLine={false}
+                label={renderCustomizedLabel} // Use our custom label
+              >
                 {bloodGroupData.map((_entry, index) => (
                   <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                 ))}
               </Pie>
               <Tooltip />
-              <Legend />
+              <Legend verticalAlign="bottom" /> 
             </PieChart>
           </ResponsiveContainer>
         </div>
@@ -130,6 +155,7 @@ export default function Donations() {
           <thead>
             <tr>
               <th style={styles.th}>Donor Name</th>
+              <th style={styles.th}>Department</th>
               <th style={styles.th}>Blood Group</th>
               <th style={styles.th}>Units</th>
               <th style={styles.th}>Date</th>
@@ -139,6 +165,7 @@ export default function Donations() {
             {recentDonations.map(donation => (
               <tr key={donation.id}>
                 <td style={styles.td}>{donation.donorName}</td>
+                <td style={styles.td}>{donation.department || 'N/A'}</td>
                 <td style={styles.td}>{donation.bloodGroup}</td>
                 <td style={styles.td}>{donation.units || 1}</td>
                 <td style={styles.td}>{donation.date.toDate().toLocaleDateString()}</td>

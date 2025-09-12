@@ -7,17 +7,22 @@
     "icon": "./assets/images/logo.png",
     "scheme": "publoodconnect",
     "userInterfaceStyle": "automatic",
-
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.farhankoolimad.PU_Blood_Connect"
+      "bundleIdentifier": "com.farhankoolimad.PUBloodConnect",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      },
+      "runtimeVersion": {
+        "policy": "appVersion"
+      }
     },
-
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/logo.png"
       },
-      "package": "com.farhankoolimad.PU_Blood_Connect"
+      "package": "com.farhankoolimad.PUBloodConnect",
+      "runtimeVersion": "1.0.0"
     },
     "web": {
       "bundler": "metro",
@@ -43,6 +48,9 @@
       "eas": {
         "projectId": "aab4fc2c-6891-4e42-a8c3-6207ef8a7683"
       }
+    },
+    "updates": {
+      "url": "https://u.expo.dev/aab4fc2c-6891-4e42-a8c3-6207ef8a7683"
     }
   }
 }

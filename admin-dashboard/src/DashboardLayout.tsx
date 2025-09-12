@@ -67,6 +67,7 @@ export default function DashboardLayout() {
         <Link to="/dashboard/donations" style={styles.navLink}>Donations</Link>
         <Link to="/dashboard/feedbacks" style={styles.navLink}>Feedbacks</Link>
         <Link to="/dashboard/events" style={styles.navLink}>Events</Link> 
+        <Link to="/dashboard/nss" style={styles.navLink}>NSS Management</Link>
         <button onClick={handleLogout} style={styles.logoutButton}>Logout</button>
       </div>
 
