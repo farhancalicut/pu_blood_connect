@@ -15,6 +15,9 @@ import {
 import * as Progress from 'react-native-progress';
 import Icon from 'react-native-vector-icons/FontAwesome5';
 import { db, firebaseApp } from '../firebase';
+import { Platform } from 'react-native';
+
+
 
 
 const { width: screenWidth } = Dimensions.get('window');
@@ -91,6 +94,7 @@ const DetailRow = ({ label, value }: { label: string, value: string }) => (
 );
 export default function DashboardScreen() {
   
+
   const router = useRouter();
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [topStudentDonors, setTopStudentDonors] = useState<UserProfile[]>([]);
@@ -242,10 +246,29 @@ export default function DashboardScreen() {
 
 
   return (
+
+    // <GestureHandlerRootView style={{ flex: 1 }}>
+    // {/* ✅ Provide context so MenuButton works */}
+    // <MenuContext.Provider value={{ toggleMenu }}>
+    //   <View style={{ flex: 1, backgroundColor: "#9B0000" }}>
+    //     <MenuBar />
+    //     <Animated.View style={[styles.stackContainer,styles.shadow, animatedStyle]}>
     <SafeAreaView style={styles.safeArea}>
             <ScrollView style={styles.scrollView} contentContainerStyle={styles.container}>
                 {userProfile && (
             <View style={styles.welcomeCard}>
+                        <View style={styles.welcomeHeadCard}>
+                          <Image
+                            source={require('../assets/images/PU_Logo.png')}
+                            style={styles.headerLogo}
+                            resizeMode="contain"
+                          />
+                          <Text style={styles.headerText}>Welcome to PU</Text>
+                          <Image
+                            source={require('../assets/images/nss_logo.png')}
+                            style={styles.headerLogo}
+                            resizeMode="contain"/>
+                      </View>
                         <View style={styles.welcomeTopRow}>
                             <Text style={styles.welcomeTitle}>Hi {userProfile.firstName || 'User'}!</Text>
                             <View style={styles.bloodTag}>
@@ -417,6 +440,14 @@ export default function DashboardScreen() {
         <TouchableOpacity style={[styles.footerBtn, styles.btnRequest]} onPress={() => router.push('/request')}><Text style={[styles.footerBtnText, { color: palette.statsRed }]}>Request</Text></TouchableOpacity>
       </View>
     </SafeAreaView>
+
+
+  //    </Animated.View>
+  //     </View>
+  //   </MenuContext.Provider>
+  // </GestureHandlerRootView>
+
+
   );
 };
 const styles = StyleSheet.create({
@@ -427,13 +458,15 @@ const styles = StyleSheet.create({
 
   welcomeCard: {
     backgroundColor: '#FEF8F8',
-    borderRadius: scale(16),
-    padding: scale(12),
-    marginHorizontal: scale(16),
-    marginBottom: scale(15),
-    marginTop: scale(20),
-    paddingBottom: scale(18),
+    borderRadius: 16,
+    padding: 12,
+    marginHorizontal: 16,
+    marginBottom: 15,
+    marginTop: 16,
+    paddingBottom: 18,
     elevation: 4,
+    // borderTopEndRadius:0,
+    // borderTopLeftRadius:0,
     shadowColor: 'rgba(0,0,0,0.1)',
   },
   welcomeTopRow: { flexDirection: 'row', alignItems: 'center', marginBottom: scale(-2) },
@@ -505,4 +538,49 @@ const styles = StyleSheet.create({
   footerLinksContainer: { flexDirection: 'row', justifyContent: 'space-evenly', alignItems: 'center', paddingVertical: scale(20), marginTop: scale(-20), marginBottom: 0 },
   footerLinkWrapper: { flexDirection: 'row', alignItems: 'center' },
   footerLink: { fontSize: scale(12), color: palette.lightText, marginHorizontal: scale(5) },
+
+  welcomeHeadCard: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  marginBottom:8,
+  paddingHorizontal: 10,
+  // marginTop : 12,
+  backgroundColor: '#FEF8F8',
+  // borderRadius: 16,
+  borderBottomWidth: 1,
+  borderColor: '#000',
+  // borderBottomEndRadius:0,
+  // borderBottomLeftRadius:0,
+  // padding: 12,
+  // marginHorizontal: 16,
+  marginTop: 10,
+  paddingBottom: 8,
+  // elevation: 4,
+  // shadowColor: 'rgba(0,0,0,0.1)',
+},
+
+headerLogo: {
+  width: 40,
+  height: 40,
+},
+
+headerText: {
+  fontSize: 18,
+  fontWeight: 'bold',
+  textAlign: 'center',
+},
+stackContainer: {
+  ...StyleSheet.absoluteFillObject,
+  overflow: Platform.OS === "android" ? "hidden" : "visible",
+  zIndex:-1,
+},
+shadow: {
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 8,
+    },
+  }
+
 });

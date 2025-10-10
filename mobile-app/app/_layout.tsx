@@ -76,12 +76,15 @@ function AdminBackButton() {
 
 function AppStack() {
   return (
-    <Stack>
+    <Stack screenOptions={{ 
+      animation: 'none', 
+      contentStyle: { backgroundColor: '#ffffff' },
+    }}>
       <Stack.Screen name="index" options={{ headerShown: false }} />
       <Stack.Screen 
         name="login" 
         options={{ 
-          title: 'PU BLOOD CONNECT', 
+          title: 'PU NSS CONNECT', 
           headerTitleAlign: 'center', 
           headerBackVisible: false,
           headerTitleStyle: { fontSize: 18, color: '#de0101ff', fontWeight: 'bold' },
@@ -90,7 +93,7 @@ function AppStack() {
       <Stack.Screen 
         name="register" 
         options={{ 
-          title: 'PU BLOOD CONNECT', 
+          title: 'PU NSS CONNECT', 
           headerTitleAlign: 'center', 
           headerBackVisible: false,
           headerTitleStyle: { fontSize: 18, color: '#de0101ff', fontWeight: 'bold' },
@@ -100,11 +103,12 @@ function AppStack() {
       <Stack.Screen 
         name="dashboard" 
         options={{
-          title: 'PU BLOOD CONNECT',
+          title: 'PU NSS CONNECT',
           headerTitleAlign: 'center',
           headerLeft: () => <MenuButton />,
           headerRight: () => <BellButton />,
           headerStyle: { backgroundColor: '#ffffff' },
+          contentStyle: { backgroundColor: '#ffffff' },
           headerTitleStyle: { fontSize: 18, color: '#de0101ff', fontWeight: 'bold' },
         }} 
       />
@@ -112,7 +116,7 @@ function AppStack() {
       <Stack.Screen name="feedback" options={{ presentation: 'modal', title: 'Share Your Feedback' }} />
       <Stack.Screen name="request" options={{ title: 'Request Blood', headerTitleAlign: 'center' }} />
       <Stack.Screen name="donate" options={{ title: 'Find Donors', headerTitleAlign: 'center' }} />
-      <Stack.Screen name="notifications" options={{ title: 'Notifications', headerTitleAlign: 'center' }} />
+      <Stack.Screen name="notifications" options={{ title: 'Notifications', headerTitleAlign: 'center'}} />
       <Stack.Screen name="upload-credential" options={{ title: 'Upload Credential', headerTitleAlign: 'center' }} />
       <Stack.Screen name="admin" options={{ title: 'Admin Panel', headerTitleAlign: 'center', headerLeft: () => <AdminBackButton /> }} />
       <Stack.Screen name="certificate" options={{ title: 'Your Certificate', headerTitleAlign: 'center' }} />
@@ -135,32 +139,34 @@ function AppStack() {
   );
 }
 
+
 export default function RootLayout() {
   const progress = useSharedValue(0);
   const router = useRouter();
   const segments = useSegments();
   const [authLoading, setAuthLoading] = useState(true);
+  
+  
+  useEffect(() => {
+  const unsubscribe = onAuthStateChanged(auth, (user) => {
+    setAuthLoading(false);
 
-   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setAuthLoading(false);
-      
-      const inApp = segments[0] !== 'login' && segments[0] !== 'register';
-      
-      // if (user && user.emailVerified) {
-        if (user) {
+    const inApp = segments[0] !== 'login' && segments[0] !== 'register';
 
-        if (!inApp) {
-          router.replace('/dashboard');
-        }
-      } else {
-        if (inApp) {
-          router.replace('/login');
-        }
+    if (user && user.emailVerified) {
+      if (!inApp) {
+        router.replace('/dashboard');
       }
-    });
-    return () => unsubscribe();
-  }, [segments]);
+    } else {
+      if (inApp) {
+        router.replace('/login');
+      }
+    }
+  });
+
+  return () => unsubscribe();
+}, [segments])
+
   const animatedStyle = useAnimatedStyle(() => {
     const scale = interpolate(progress.value, [0, 1], [1, 0.83]);
     const translateX = interpolate(progress.value, [0, 1], [0, width * 0.7]);
@@ -190,26 +196,36 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <MenuContext.Provider value={{ toggleMenu }}>
-        <View style={styles.container}>
-          <StatusBar style="light" />
-          <MenuBar />
-          <Animated.View style={[styles.stackContainer, styles.shadow, animatedStyle]}>
-            <AppStack />
-          </Animated.View>
-        </View>
-      </MenuContext.Provider>
-    </GestureHandlerRootView>
+            <View style={styles.container}>
+            <StatusBar style="light" />
+             <MenuBar /> 
+             <Animated.View style={[styles.stackContainer, styles.shadow, animatedStyle]}>
+             <AppStack />
+            </Animated.View>
+        </View> 
+        </MenuContext.Provider>
+      </GestureHandlerRootView>
+
+
+
+
+    
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#9B0000",
+    backgroundColor: "#ffffff",
+  },
+  menuBar: {
+    // ... your menu bar styles
+    zIndex: 1, // Ensure the menu bar is behind the main screen
   },
   stackContainer: {
     ...StyleSheet.absoluteFillObject,
     overflow: Platform.OS === "android" ? "hidden" : "visible",
+    zIndex: 2000
   },
   shadow: {
     shadowColor: "#000",

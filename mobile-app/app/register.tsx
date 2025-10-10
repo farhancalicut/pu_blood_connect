@@ -104,6 +104,8 @@ export default function RegisterScreen() {
   const validateAge = (age: string) => { const num = Number(age); return !isNaN(num) && num > 15; };
   const validateBloodGroup = (bg: string) => BLOOD_GROUPS.includes(bg);
   const validatePassword = (password: string) => password.length >= 6;
+  const validateMobile = (phone: string) => /^[6-9]\d{9}$/.test(phone);
+
 
   useEffect(() => {
     navigation.setOptions?.({
@@ -146,9 +148,9 @@ export default function RegisterScreen() {
   };
 
   const handleSubmit = async () => {
-    const { email, password, confirmPassword, age, gender,  bloodGroup, ...profileData } = form;
+    const { email, password, confirmPassword, age, gender, phone, bloodGroup, ...profileData } = form;
 
-    if (!profileData.firstName || !profileData.lastName || !profileData.department || !profileData.phone) {
+    if (!profileData.firstName || !profileData.lastName || !profileData.department) {
       Alert.alert('Missing Information', 'Please fill all required profile fields.');
       return;
     }
@@ -167,6 +169,10 @@ export default function RegisterScreen() {
     if (!validateBloodGroup(bloodGroup)) {
       Alert.alert('Validation Error', 'Please select a valid blood group.');
       return;
+    }
+    if (!validateMobile(phone)){
+        Alert.alert('Mobile Number is not Valid','Please Enter Correct Valid Mobile No.');
+        return;
     }
     if (!isEditMode) {
       if (!email || !password) {
@@ -224,7 +230,7 @@ export default function RegisterScreen() {
         
         await signOut(auth);
         Alert.alert('Registration Successful!', 'A verification link has been sent to your email. Please check your inbox to activate your account.');
-        // router.push('/login');
+         router.push('/login');
       }
     } catch (error: unknown) {
     let message = 'An unknown error occurred. Please try again.';
@@ -256,14 +262,15 @@ export default function RegisterScreen() {
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
       >
-        <ScrollView
-          contentContainerStyle={styles.card}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
+        <ScrollView contentContainerStyle={{ paddingBottom: 32 }}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
         >
+        <View style={styles.card}>
+        
           {!isEditMode && (
             <View style={styles.tabContainer}>
               <Text style={styles.tab} onPress={() => router.push('/login')}>Login</Text>
@@ -271,49 +278,49 @@ export default function RegisterScreen() {
             </View>
           )}
 
-<FloatingLabelInput
-  label="Email"
-  value={form.email}
-  onChangeText={text => handleChange('email', text)}
-  keyboardType="email-address"
-  editable={!isEditMode}
-  autoCapitalize="none"
-/>
-<FloatingLabelInput
-  label="First Name"
-  value={form.firstName}
-  onChangeText={text => handleChange('firstName', text)}
-/>
-<FloatingLabelInput
-  label="Last Name"
-  value={form.lastName}
-  onChangeText={text => handleChange('lastName', text)}
-/>
-<Text style={styles.label}>Department</Text>
-<View style={styles.pickerContainer}>
-  <Picker
-    selectedValue={form.department}
-    onValueChange={(itemValue) => handleChange('department', itemValue)}
-    style={styles.picker}
-  >
-    <Picker.Item label="Select Department..." value="" />
-    {DEPARTMENTS.map(dept => (
-      <Picker.Item key={dept} label={dept} value={dept} />
-    ))}
-  </Picker>
-</View>
-<FloatingLabelInput
-  label="Age"
-  value={form.age}
-  onChangeText={text => handleChange('age', text)}
-  keyboardType="numeric"
-/>
-<FloatingLabelInput
-  label="Phone Number"
-  value={form.phone}
-  onChangeText={text => handleChange('phone', text)}
-  keyboardType="phone-pad"
-/>
+          <FloatingLabelInput
+            label="Email"
+            value={form.email}
+            onChangeText={text => handleChange('email', text)}
+            keyboardType="email-address"
+            editable={!isEditMode}
+            autoCapitalize="none"
+          />
+          <FloatingLabelInput
+            label="First Name"
+            value={form.firstName}
+            onChangeText={text => handleChange('firstName', text)}
+          />
+          <FloatingLabelInput
+            label="Last Name"
+            value={form.lastName}
+            onChangeText={text => handleChange('lastName', text)}
+          />
+          <Text style={styles.label}>Department</Text>
+          <View style={styles.pickerContainer}>
+            <Picker
+              selectedValue={form.department}
+              onValueChange={(itemValue) => handleChange('department', itemValue)}
+              style={styles.picker}
+            >
+              <Picker.Item label="Select Department..." value="" />
+              {DEPARTMENTS.map(dept => (
+                <Picker.Item key={dept} label={dept} value={dept} />
+              ))}
+            </Picker>
+          </View>
+          <FloatingLabelInput
+            label="Age"
+            value={form.age}
+            onChangeText={text => handleChange('age', text)}
+            keyboardType="numeric"
+          />
+          <FloatingLabelInput
+            label="Phone Number"
+            value={form.phone}
+            onChangeText={text => handleChange('phone', text)}
+            keyboardType="phone-pad"
+          />
           <Text style={styles.label}>Gender</Text>
           <View style={styles.pickerContainer}>
             <Picker
@@ -337,7 +344,7 @@ export default function RegisterScreen() {
               {BLOOD_GROUPS.map(bg => <Picker.Item key={bg} label={bg} value={bg} />)}
             </Picker>
           </View>
-<Text style={styles.label}>Are you an NSS Volunteer?</Text>
+          <Text style={styles.label}>Are you an NSS Volunteer?</Text>
           <View style={styles.pickerContainer}>
             <Picker
               selectedValue={form.isNssVolunteer}
@@ -376,6 +383,7 @@ export default function RegisterScreen() {
           {!isEditMode && (
             <Text style={styles.signInText}>Or <Text style={styles.signInLink} onPress={() => router.push('/login')}>sign in</Text></Text>
           )}
+        </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -386,6 +394,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#EDF0F3',
+
   },
   card: {
     backgroundColor: '#F8FAFC',
