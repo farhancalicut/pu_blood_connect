@@ -1,11 +1,11 @@
 import { useRouter, useNavigation } from 'expo-router';
 import { FirebaseError } from 'firebase/app';
-import { createUserWithEmailAndPassword, sendEmailVerification, signOut } from 'firebase/auth';
+import { createUserWithEmailAndPassword, sendEmailVerification, signOut, getAuth } from 'firebase/auth';
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import React, { useState, useEffect, useRef } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, SafeAreaView, ActivityIndicator, Animated, TextStyle, KeyboardAvoidingView, Platform, Dimensions } from 'react-native';
+import { Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, SafeAreaView, ActivityIndicator, Animated, TextStyle, KeyboardAvoidingView, Platform, Dimensions, TouchableWithoutFeedback, Keyboard } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
-import { auth, db } from '../firebase';
+import { db } from '../firebase';
 
 const { width: screenWidth } = Dimensions.get('window');
 const guidelineBaseWidth = 375; 
@@ -15,6 +15,8 @@ const scale = (size: number) => (screenWidth / guidelineBaseWidth) * size;
 const DEPARTMENTS = [ 'Computer Science', 'Mathematics', 'Physics', 'Chemistry', 'Commerce', 'History', 'French' ];
 const GENDERS = ['Male', 'Female', 'Other'];
 const BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
+const YEARS = ['First', 'Second', 'Third', 'Fourth', 'PhD'];
+const NSS_UNITS = ['Unit 1', 'Unit 2', 'Unit 3', 'Unit 4', 'Unit 5(Karaikal)'];
 
 type FloatingLabelInputProps = {
   label: string;
@@ -37,6 +39,7 @@ const FloatingLabelInput = ({
   }: FloatingLabelInputProps) => {
     const [isFocused, setIsFocused] = React.useState(false);
     const animatedValue = useRef(new Animated.Value(value ? 1 : 0)).current;
+    const inputRef = useRef<TextInput>(null);
 
     React.useEffect(() => {
       Animated.timing(animatedValue, {
@@ -66,10 +69,30 @@ const FloatingLabelInput = ({
       zIndex: 1,
     };
 
+    const handleFocus = () => {
+      setIsFocused(true);
+      // Auto-scroll to focused input after a short delay
+      setTimeout(() => {
+        inputRef.current?.measureInWindow((x, y, width, height) => {
+          const screenHeight = Dimensions.get('window').height;
+          const keyboardApproximateHeight = screenHeight * 0.4; // Approximate keyboard height
+          const targetY = y - scale(80); // Position input above keyboard with padding
+          
+          if ((global as any).scrollViewRef?.current) {
+            (global as any).scrollViewRef.current.scrollTo({ 
+              y: Math.max(0, targetY), 
+              animated: true 
+            });
+          }
+        });
+      }, 150);
+    };
+
     return (
       <View style={{ marginBottom: scale(20), paddingTop: scale(8) }}>
         <Animated.Text style={labelStyle}>{label}</Animated.Text>
         <TextInput
+          ref={inputRef}
           value={value}
           onChangeText={onChangeText}
           style={styles.input}
@@ -77,7 +100,7 @@ const FloatingLabelInput = ({
           keyboardType={keyboardType}
           editable={editable}
           autoCapitalize={autoCapitalize}
-          onFocus={() => setIsFocused(true)}
+          onFocus={handleFocus}
           onBlur={() => setIsFocused(false)}
           placeholder=" "
           placeholderTextColor="transparent"
@@ -90,12 +113,21 @@ const FloatingLabelInput = ({
 export default function RegisterScreen() {
   const router = useRouter();
   const navigation = useNavigation();
-  const user = auth.currentUser;
+  const user = getAuth().currentUser;
   const isEditMode = !!user;
+  const scrollViewRef = useRef<ScrollView>(null);
+
+  // Make scrollViewRef globally accessible for FloatingLabelInput components
+  React.useEffect(() => {
+    (global as any).scrollViewRef = scrollViewRef;
+    return () => {
+      delete (global as any).scrollViewRef;
+    };
+  }, []);
 
   const [form, setForm] = useState({
-    email: '', firstName: '', lastName: '', department: '', age: '',gender: '',
-    bloodGroup: '', phone: '', password: '', confirmPassword: '',isNssVolunteer: '',
+    email: '', firstName: '', lastName: '', department: '', year: '', age: '',gender: '',
+    bloodGroup: '', phone: '', password: '', confirmPassword: '',isNssVolunteer: '', nssUnit: '',
   });
   const [isLoading, setIsLoading] = useState(isEditMode);
 
@@ -129,10 +161,13 @@ export default function RegisterScreen() {
               firstName: data.firstName || '',
               lastName: data.lastName || '',
               department: data.department || '',
+              year: data.year || '',
               age: data.age ? String(data.age) : '',
               gender: data.gender || '',
               bloodGroup: data.bloodGroup || '',
               phone: data.phone || '',
+              isNssVolunteer: data.isNssVolunteer || '',
+              nssUnit: data.nssUnit || '',
             }));
           }
         } finally {
@@ -150,8 +185,12 @@ export default function RegisterScreen() {
   const handleSubmit = async () => {
     const { email, password, confirmPassword, age, gender, phone, bloodGroup, ...profileData } = form;
 
-    if (!profileData.firstName || !profileData.lastName || !profileData.department) {
-      Alert.alert('Missing Information', 'Please fill all required profile fields.');
+    if (!profileData.firstName || !profileData.lastName || !profileData.department || !profileData.year) {
+      Alert.alert('Missing Information', 'Please fill all required fields including name, department, and year.');
+      return;
+    }
+    if (form.isNssVolunteer === 'Yes' && !form.nssUnit) {
+      Alert.alert('Missing Information', 'Please select your NSS Unit.');
       return;
     }
     if (!isEditMode && !validateEmail(email.trim())) {
@@ -193,27 +232,44 @@ export default function RegisterScreen() {
     try {
       if (isEditMode && user) {
         const userDocRef = doc(db, 'users', user.uid);
-        await updateDoc(userDocRef, {
+        const updateData: any = {
           firstName: profileData.firstName,
           lastName: profileData.lastName,
           name: `${form.firstName} ${form.lastName}`,
           department: profileData.department,
+          year: profileData.year,
           age: age,
           gender: gender,
           bloodGroup: bloodGroup,
-          phone: profileData.phone,
-        });
+          phone: phone,
+          isNssVolunteer: form.isNssVolunteer,
+        };
+        
+        if (form.isNssVolunteer === 'Yes') {
+          updateData.nssUnit = form.nssUnit;
+          updateData.nssStatus = 'pending';
+        } else {
+          updateData.nssUnit = '';
+          updateData.nssStatus = '';
+        }
+        
+        await updateDoc(userDocRef, updateData);
         Alert.alert('Profile Updated!', 'Your details have been saved successfully.');
         router.back();
       } else {
-        const userCredential = await createUserWithEmailAndPassword(auth, email.trim(), password);
+        // Create user account
+        const userCredential = await createUserWithEmailAndPassword(getAuth(), email.trim(), password);
         const newUser = userCredential.user;
+        
+        // Send email verification
         await sendEmailVerification(newUser);
 
-        const newUserProfile = {
+        // Create user profile in Firestore
+        const newUserProfile: any = {
           firstName: form.firstName,
           lastName: form.lastName,
           department: form.department,
+          year: form.year,
           age: form.age,
           gender: form.gender,
           bloodGroup: form.bloodGroup,
@@ -222,15 +278,28 @@ export default function RegisterScreen() {
           email: email.trim(),
           uid: newUser.uid,
           createdAt: new Date(),
+          emailVerified: false, // Add this flag to track verification status
         };
         if (form.isNssVolunteer === 'Yes') {
-          (newUserProfile as any).nssStatus = 'pending';
+          newUserProfile.nssStatus = 'pending';
+          newUserProfile.nssUnit = form.nssUnit;
         }
         await setDoc(doc(db, 'users', newUser.uid), newUserProfile);
         
-        await signOut(auth);
-        Alert.alert('Registration Successful!', 'A verification link has been sent to your email. Please check your inbox to activate your account.');
-         router.push('/login');
+        // Sign out the user immediately after registration
+        await signOut(getAuth());
+        
+        // Show success message and redirect to login
+        Alert.alert(
+          'Registration Successful!', 
+          'A verification link has been sent to your email. Please check your inbox and verify your email before logging in.',
+          [
+            {
+              text: 'OK',
+              onPress: () => router.replace('/login')
+            }
+          ]
+        );
       }
     } catch (error: unknown) {
     let message = 'An unknown error occurred. Please try again.';
@@ -246,8 +315,11 @@ export default function RegisterScreen() {
             case 'auth/weak-password':
                 message = 'Your password is too weak. It must be at least 6 characters long.';
                 break;
+            case 'auth/network-request-failed':
+                message = 'Network error. Please check your internet connection and try again.';
+                break;
             default:
-                message = error.message;
+                message = 'Registration failed. Please check your information and try again.';
         }
     }
     Alert.alert('Registration Failed', message);
@@ -263,15 +335,28 @@ export default function RegisterScreen() {
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
       >
-        <ScrollView contentContainerStyle={{ paddingBottom: 32 }}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
+        <ScrollView 
+          ref={scrollViewRef}
+          style={{ flex: 1 }}
+          contentContainerStyle={{ paddingBottom: scale(200) }}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="interactive"
+          scrollEnabled={true}
+          bounces={true}
+          alwaysBounceVertical={true}
+          automaticallyAdjustKeyboardInsets={false}
+          contentInsetAdjustmentBehavior="never"
+          nestedScrollEnabled={true}
+          scrollEventThrottle={16}
+          directionalLockEnabled={false}
         >
-        <View style={styles.card}>
-        
-          {!isEditMode && (
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+          <View style={styles.card}>
+          
+            {!isEditMode && (
             <View style={styles.tabContainer}>
               <Text style={styles.tab} onPress={() => router.push('/login')}>Login</Text>
               <Text style={[styles.tab, styles.activeTab]}>Register</Text>
@@ -306,6 +391,20 @@ export default function RegisterScreen() {
               <Picker.Item label="Select Department..." value="" />
               {DEPARTMENTS.map(dept => (
                 <Picker.Item key={dept} label={dept} value={dept} />
+              ))}
+            </Picker>
+          </View>
+
+          <Text style={styles.label}>Year</Text>
+          <View style={styles.pickerContainer}>
+            <Picker
+              selectedValue={form.year}
+              onValueChange={(itemValue) => handleChange('year', itemValue)}
+              style={styles.picker}
+            >
+              <Picker.Item label="Select Year..." value="" />
+              {YEARS.map(year => (
+                <Picker.Item key={year} label={year} value={year} />
               ))}
             </Picker>
           </View>
@@ -348,7 +447,12 @@ export default function RegisterScreen() {
           <View style={styles.pickerContainer}>
             <Picker
               selectedValue={form.isNssVolunteer}
-              onValueChange={value => handleChange('isNssVolunteer', value)}
+              onValueChange={value => {
+                handleChange('isNssVolunteer', value);
+                if (value !== 'Yes') {
+                  handleChange('nssUnit', ''); // Clear unit selection if not NSS volunteer
+                }
+              }}
               style={styles.picker}
             >
               <Picker.Item label="Please select..." value="" />
@@ -356,6 +460,25 @@ export default function RegisterScreen() {
               <Picker.Item label="No" value="No" />
             </Picker>
           </View>
+          
+          {form.isNssVolunteer === 'Yes' && (
+            <>
+              <Text style={styles.label}>NSS Unit</Text>
+              <View style={styles.pickerContainer}>
+                <Picker
+                  selectedValue={form.nssUnit}
+                  onValueChange={value => handleChange('nssUnit', value)}
+                  style={styles.picker}
+                >
+                  <Picker.Item label="Select your NSS Unit..." value="" />
+                  {NSS_UNITS.map(unit => (
+                    <Picker.Item key={unit} label={unit} value={unit} />
+                  ))}
+                </Picker>
+              </View>
+            </>
+          )}
+          
           {!isEditMode && (
             <>
               <FloatingLabelInput
@@ -383,7 +506,8 @@ export default function RegisterScreen() {
           {!isEditMode && (
             <Text style={styles.signInText}>Or <Text style={styles.signInLink} onPress={() => router.push('/login')}>sign in</Text></Text>
           )}
-        </View>
+          </View>
+        </TouchableWithoutFeedback>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -394,13 +518,13 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#EDF0F3',
-
   },
   card: {
     backgroundColor: '#F8FAFC',
     padding: scale(25),
     borderRadius: scale(20),
-    margin: scale(20), 
+    margin: scale(20),
+    marginBottom: scale(40),
     shadowColor: '#000',
     shadowOpacity: 0.1,
     shadowOffset: { width: 0, height: scale(3) },

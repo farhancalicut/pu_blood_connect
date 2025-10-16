@@ -7,9 +7,12 @@ import { Alert, Image, Pressable, SafeAreaView, Share, StyleSheet, Text, View, D
 import { db } from '../firebase';
 import { useMenu } from './context/MenuContext';
 
-const { width: screenWidth } = Dimensions.get('window');
+const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 const guidelineBaseWidth = 375;
+const guidelineBaseHeight = 812;
 const scale = (size: number) => (screenWidth / guidelineBaseWidth) * size;
+const verticalScale = (size: number) => (screenHeight / guidelineBaseHeight) * size;
+const moderateScale = (size: number, factor = 0.5) => size + (scale(size) - size) * factor;
 
 type MenuItem = {
   icon: React.ComponentProps<typeof Ionicons>['name'];
@@ -17,22 +20,38 @@ type MenuItem = {
   href?: Href;
 };
 
-const menuItems: MenuItem[] = [
-  { icon: 'grid-outline', name: 'Dashboard', href: '/dashboard' },
-  { icon: 'document-text-outline', name: 'My Requests', href: '/my-requests' },
-  { icon: 'time-outline', name: 'My History', href: '/History' },
-  { icon: 'location-outline', name: 'Nearby Blood Banks', href: '/blood-banks' },
-  { icon: 'calendar-outline', name: 'Events & Camps', href: '/events' },
-  { icon: 'notifications-outline', name: 'Notifications', href: '/notifications' },
-];
+// Define different menu items for admin and regular users
+const getMainMenuItems = (isAdmin: boolean): MenuItem[] => {
+  if (isAdmin) {
+    return [
+      { icon: 'shield-outline', name: 'Admin Dashboard', href: '/admin-dashboard' },
+      { icon: 'checkmark-circle-outline', name: 'Pending Approvals', href: '/admin' },
+      { icon: 'people-outline', name: 'Manage Users', href: '/admin-users' },
+      { icon: 'calendar-outline', name: 'Manage Events', href: '/admin-events' },
+      { icon: 'location-outline', name: 'Blood Banks', href: '/admin-blood-banks' },
+      { icon: 'notifications-outline', name: 'Notifications', href: '/notifications' },
+    ];
+  } else {
+    return [
+      { icon: 'grid-outline', name: 'Dashboard', href: '/dashboard' },
+      { icon: 'document-text-outline', name: 'My Requests', href: '/my-requests' },
+      { icon: 'time-outline', name: 'My History', href: '/History' },
+      { icon: 'location-outline', name: 'Nearby Blood Banks', href: '/blood-banks' },
+      { icon: 'calendar-outline', name: 'Events & Camps', href: '/events' },
+      { icon: 'qr-code-outline', name: 'QR Scanner', href: '/qr-scanner' },
+      { icon: 'notifications-outline', name: 'Notifications', href: '/notifications' },
+    ];
+  }
+};
 
 const secondaryMenuItems: MenuItem[] = [
     { icon: 'images-outline', name: 'Gallery', href: '/gallery' },
     { icon: 'chatbox-ellipses-outline', name: 'Share Feedback', href: '/feedback'},
     { icon: 'people-outline', name: 'Refer a Friend' },
     { icon: 'help-circle-outline', name: 'FAQ', href: '/faq' },
-    { icon: 'shield-checkmark-outline', name: 'Admin Panel', href: '/admin' },
 ];
+
+
 
 
 export default function MenuBar() {
@@ -40,6 +59,7 @@ export default function MenuBar() {
   const router = useRouter();
   const [userName, setUserName] = useState<string | null>(null);
   const [profilePicUrl, setProfilePicUrl] = useState('');
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     const auth = getAuth();
@@ -60,13 +80,19 @@ export default function MenuBar() {
             }
             setUserName(fullName);
             setProfilePicUrl(data.profilePicUrl || '');
+            setIsAdmin(data.role === 'admin');
           } else {
             setUserName(user.email || 'User');
+            setIsAdmin(false);
           }
-        }).catch(() => setUserName(user.email || 'User'));
+        }).catch(() => {
+          setUserName(user.email || 'User');
+          setIsAdmin(false);
+        });
       } else {
         setUserName('User');
         setProfilePicUrl('');
+        setIsAdmin(false);
       }
     });
 
@@ -76,7 +102,7 @@ export default function MenuBar() {
   const handleReferralShare = async () => {
     try {
         await Share.share({
-            message: "Join me on PU Blood Connect and be a part of a life-saving community! Download the app here: [Your App Link Here]",
+            message: "Join me on PU NSS CONNECT and be a part of a life-saving community! Download the app here: [Your App Link Here]",
         });
     } catch (error) {
         Alert.alert("Error", "Could not open share menu.");
@@ -121,7 +147,7 @@ export default function MenuBar() {
       </View>
 
       <View style={styles.menuItemsContainer}>
-        {menuItems.map((item, index) => (
+        {getMainMenuItems(isAdmin).map((item, index) => (
           <Pressable
             key={index}
             style={styles.menuItem}
@@ -139,6 +165,7 @@ export default function MenuBar() {
             <Text style={styles.menuItemText}>{item.name}</Text>
           </Pressable>
         ))}
+
       </View>
     </SafeAreaView>
   );
@@ -150,13 +177,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: scale(20),
-    paddingTop: scale(95),
-    paddingBottom: scale(25),
+    paddingTop: verticalScale(100), // Reduced for smaller screens
+    paddingBottom: verticalScale(20), // Reduced for smaller screens
   },
   profileCircle: {
-    width: scale(45),
-    height: scale(45),
-    borderRadius: scale(25),
+    width: moderateScale(40), // Slightly smaller on small screens
+    height: moderateScale(40),
+    borderRadius: moderateScale(20),
     backgroundColor: 'rgba(255, 255, 255, 0.9)',
     justifyContent: 'center',
     alignItems: 'center',
@@ -167,38 +194,43 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   profileTextContainer: {
-    marginLeft: scale(15),
-    marginTop: scale(5),
+    marginLeft: scale(12), // Reduced margin
+    marginTop: scale(3),
+    flex: 1, // Allow text to take available space
   },
   profileName: {
     color: 'white',
-    fontSize: scale(13),
+    fontSize: moderateScale(13),
     fontWeight: 'bold',
   },
   profileLink: {
     color: 'rgba(255, 255, 255, 0.7)',
-    fontSize: scale(13),
+    fontSize: moderateScale(12),
   },
   menuItemsContainer: {
-    paddingLeft: scale(40),
+    paddingLeft: scale(30), // Reduced left padding
+    paddingRight: scale(10), // Add right padding
     flex: 1,
-    marginTop: scale(10),
+    marginTop: verticalScale(8), // Reduced margin
   },
   menuItem: { 
     flexDirection: 'row', 
     alignItems: 'center', 
-    paddingVertical: scale(13) 
+    paddingVertical: verticalScale(13), // Reduced vertical padding
+    paddingRight: scale(10), // Add right padding to prevent text cutoff
   },
   menuItemText: { 
     color: 'white', 
-    fontSize: scale(14), 
-    marginLeft: scale(15), 
-    fontWeight: '500' 
+    fontSize: moderateScale(14), // Slightly smaller font
+    marginLeft: scale(13), // Reduced margin
+    fontWeight: '500',
+    flex: 1, // Allow text to wrap if needed
+    flexWrap: 'wrap',
   },
   divider: { 
     height: 1, 
     backgroundColor: 'rgba(255, 255, 255, 0.2)', 
-    marginVertical: scale(15), 
-    marginRight: scale(20) 
+    marginVertical: verticalScale(12), // Reduced margin
+    marginRight: scale(15) // Reduced margin
   },
 });

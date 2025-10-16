@@ -1,12 +1,9 @@
-import React, { useEffect, useState } from "react";
-import { Dimensions, Platform, StyleSheet, TouchableOpacity, View, ActivityIndicator } from "react-native";
+import React, { useEffect, useState, useRef } from "react";
+import { Dimensions, Platform, StyleSheet, TouchableOpacity, View, ActivityIndicator, Animated as RNAnimated, Easing } from "react-native";
 import { Stack, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import Animated, { interpolate, useAnimatedStyle, useSharedValue, withSpring } from "react-native-reanimated";
-import { onAuthStateChanged } from "firebase/auth";
-import { doc, setDoc } from "firebase/firestore";
-import { auth, db } from "../firebase"; 
+import { onAuthStateChanged, getAuth } from "firebase/auth"; 
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 
@@ -68,7 +65,7 @@ function BellButton() {
 function AdminBackButton() {
   const router = useRouter();
   return (
-    <TouchableOpacity onPress={() => router.replace('/dashboard')} style={{ marginLeft: 15 }}>
+    <TouchableOpacity onPress={() => router.push('/admin-dashboard')} style={{ marginLeft: 15 }}>
       <Ionicons name="chevron-back" size={28} color="#333" />
     </TouchableOpacity>
   );
@@ -78,7 +75,7 @@ function AppStack() {
   return (
     <Stack screenOptions={{ 
       animation: 'none', 
-      contentStyle: { backgroundColor: '#ffffff' },
+      contentStyle: { backgroundColor: '#F0F2F5' },
     }}>
       <Stack.Screen name="index" options={{ headerShown: false }} />
       <Stack.Screen 
@@ -119,6 +116,42 @@ function AppStack() {
       <Stack.Screen name="notifications" options={{ title: 'Notifications', headerTitleAlign: 'center'}} />
       <Stack.Screen name="upload-credential" options={{ title: 'Upload Credential', headerTitleAlign: 'center' }} />
       <Stack.Screen name="admin" options={{ title: 'Admin Panel', headerTitleAlign: 'center', headerLeft: () => <AdminBackButton /> }} />
+      <Stack.Screen 
+        name="admin-dashboard" 
+        options={{ 
+          headerShown: false
+        }} 
+      />
+      <Stack.Screen 
+        name="admin-users" 
+        options={{ 
+          headerShown: false
+        }} 
+      />
+      <Stack.Screen 
+        name="admin-events" 
+        options={{ 
+          headerShown: false
+        }} 
+      />
+      <Stack.Screen 
+        name="admin-donations" 
+        options={{ 
+          headerShown: false
+        }} 
+      />
+      <Stack.Screen 
+        name="admin-feedback" 
+        options={{ 
+          headerShown: false
+        }} 
+      />
+      <Stack.Screen 
+        name="admin-blood-banks" 
+        options={{ 
+          headerShown: false
+        }} 
+      />
       <Stack.Screen name="certificate" options={{ title: 'Your Certificate', headerTitleAlign: 'center' }} />
       <Stack.Screen name="my-requests" options={{ title: 'My Requests', headerTitleAlign: 'center' }} />
       <Stack.Screen name="profile" options={{ title: 'My Profile', headerTitleAlign: 'center' }} />
@@ -141,56 +174,143 @@ function AppStack() {
 
 
 export default function RootLayout() {
-  const progress = useSharedValue(0);
+  const progress = useRef(new RNAnimated.Value(0)).current;
   const router = useRouter();
   const segments = useSegments();
   const [authLoading, setAuthLoading] = useState(true);
+  const [userRole, setUserRole] = useState<string | null>(null);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
   
+  // Close menu when navigating
+  useEffect(() => {
+    if (isMenuOpen) {
+      setIsMenuOpen(false);
+      RNAnimated.timing(progress, {
+        toValue: 0,
+        duration: 350,  // Slower closing animation
+        easing: Easing.out(Easing.quad),  // Smooth closing
+        useNativeDriver: false,
+      }).start();
+    }
+  }, [segments[0]]);
   
   useEffect(() => {
-  const unsubscribe = onAuthStateChanged(auth, (user) => {
-    setAuthLoading(false);
-
+  const unsubscribe = onAuthStateChanged(getAuth(), async (user) => {
     const inApp = segments[0] !== 'login' && segments[0] !== 'register';
 
-    if (user && user.emailVerified) {
-      if (!inApp) {
-        router.replace('/dashboard');
+    if (user) {
+      // User is authenticated - check their email verification and role
+      try {
+        const { doc, getDoc } = await import('firebase/firestore');
+        const { db } = await import('../firebase');
+        const userDocRef = doc(db, 'users', user.uid);
+        const userDoc = await getDoc(userDocRef);
+        
+        const role = userDoc.exists() ? userDoc.data().role : 'user';
+        setUserRole(role);
+        
+        // Check email verification only for regular users (not admins)
+        if (!user.emailVerified && role !== 'admin') {
+          // Email not verified for regular user - sign out and redirect to login
+          const { signOut } = await import('firebase/auth');
+          await signOut(getAuth());
+          setUserRole(null);
+          if (inApp) {
+            router.replace('/login');
+          }
+          return;
+        }
+        
+        // Only redirect if they're on login/register page or if they're on the wrong dashboard
+        if (!inApp) {
+          // Coming from login/register page
+          if (role === 'admin') {
+            router.replace('/admin-dashboard');
+          } else {
+            router.replace('/dashboard');
+          }
+        } else {
+          // Already in app - check if they're on the wrong dashboard
+          const currentPage = segments[0];
+          // Only redirect if they're actually on the wrong dashboard page
+          if (role === 'admin' && currentPage === 'dashboard') {
+            // Admin on user dashboard - redirect to admin dashboard
+            router.replace('/admin-dashboard');
+          } else if (role !== 'admin' && (currentPage === 'admin-dashboard' || currentPage?.startsWith('admin-'))) {
+            // Regular user on any admin page - redirect to user dashboard
+            router.replace('/dashboard');
+          }
+          // Don't redirect for other pages - let users navigate freely
+        }
+      } catch (error) {
+        console.error('Error checking user role:', error);
+        setUserRole('user');
+        if (!inApp) {
+          router.replace('/dashboard');
+        }
       }
     } else {
+      // User is not authenticated
+      setUserRole(null);
       if (inApp) {
         router.replace('/login');
       }
     }
+    
+    // Add small delay to prevent flickering
+    setTimeout(() => setAuthLoading(false), 100);
   });
 
   return () => unsubscribe();
 }, [segments])
 
-  const animatedStyle = useAnimatedStyle(() => {
-    const scale = interpolate(progress.value, [0, 1], [1, 0.83]);
-    const translateX = interpolate(progress.value, [0, 1], [0, width * 0.7]);
-    const borderRadius = interpolate(progress.value, [0, 1], [0, 25]);
-    const shadowOpacity = interpolate(progress.value, [0, 1], [0, 0.2]);
-    const elevation = interpolate(progress.value, [0, 1], [0, 15]);
-
-    return {
-      borderRadius,
-      transform: [{ scale }, { translateX }],
-      shadowOpacity,
-      elevation,
-    };
-  });
+  const animatedStyle = {
+    transform: [
+      {
+        scale: progress.interpolate({
+          inputRange: [0, 1],
+          outputRange: [1, 0.83],
+        }),
+      },
+      {
+        translateX: progress.interpolate({
+          inputRange: [0, 1],
+          outputRange: [0, width * 0.7],
+        }),
+      },
+    ],
+    borderRadius: progress.interpolate({
+      inputRange: [0, 1],
+      outputRange: [0, 25],
+    }),
+    shadowOpacity: progress.interpolate({
+      inputRange: [0, 1],
+      outputRange: [0, 0.2],
+    }),
+    elevation: progress.interpolate({
+      inputRange: [0, 1],
+      outputRange: [0, 15],
+    }),
+  };
 
   const toggleMenu = () => {
-    progress.value = withSpring(progress.value > 0 ? 0 : 1, {
-      damping: 30,
-      stiffness: 120,
-    });
+    const toValue = isMenuOpen ? 0 : 1;
+    setIsMenuOpen(!isMenuOpen);
+    
+    RNAnimated.timing(progress, {
+      toValue,
+      duration: 500,  // Slower animation (was 300)
+      easing: Easing.out(Easing.cubic),  // Smooth easing
+      useNativeDriver: false,
+    }).start();
   };
 
   if (authLoading) {
-    return <ActivityIndicator style={{ flex: 1 }} size="large" />;
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F0F2F5' }}>
+        <ActivityIndicator size="large" color="#9B0000" />
+      </View>
+    );
   }
 
   return (
@@ -199,9 +319,9 @@ export default function RootLayout() {
             <View style={styles.container}>
             <StatusBar style="light" />
              <MenuBar /> 
-             <Animated.View style={[styles.stackContainer, styles.shadow, animatedStyle]}>
+             <RNAnimated.View style={[styles.stackContainer, styles.shadow, animatedStyle]}>
              <AppStack />
-            </Animated.View>
+            </RNAnimated.View>
         </View> 
         </MenuContext.Provider>
       </GestureHandlerRootView>
@@ -216,7 +336,7 @@ export default function RootLayout() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#ffffff",
+    backgroundColor: "#F0F2F5", // Match the page background
   },
   menuBar: {
     // ... your menu bar styles
@@ -224,8 +344,9 @@ const styles = StyleSheet.create({
   },
   stackContainer: {
     ...StyleSheet.absoluteFillObject,
-    overflow: Platform.OS === "android" ? "hidden" : "visible",
-    zIndex: 2000
+    overflow: "hidden", // Force hidden on both platforms
+    zIndex: 2000,
+    backgroundColor: "#F0F2F5", // Ensure background consistency
   },
   shadow: {
     shadowColor: "#000",

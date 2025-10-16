@@ -51,11 +51,14 @@ export default function FeedbackScreen() {
         }
         setIsLoading(true);
         try {
-            await addDoc(collection(db, 'testimonials'), {
-                donorName: userName,
+            await addDoc(collection(db, 'feedback'), {
+                userName: userName,
                 department: userDepartment,
                 rating: rating,
-                text: comment,
+                comment: comment,
+                status: 'new',
+                priority: 'medium',
+                category: 'general',
                 createdAt: serverTimestamp(),
             });
             Alert.alert('Thank You!', 'Your feedback has been submitted successfully.');

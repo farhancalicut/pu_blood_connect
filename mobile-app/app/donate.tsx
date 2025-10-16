@@ -137,6 +137,7 @@ export default function DonateScreen() {
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [selectedRequest, setSelectedRequest] = useState<Request | null>(null);
     const [donorProfile, setDonorProfile] = useState<DonorProfile | null>(null);
+    const lastLoadTimeRef = useRef<number>(0);  // Track last data load time
 
     const openDetailsModal = (request: Request) => { setSelectedRequest(request); setIsModalVisible(true); };
     const closeDetailsModal = () => setIsModalVisible(false);
@@ -159,6 +160,7 @@ export default function DonateScreen() {
             Alert.alert('Error', 'Could not fetch blood requests.');
         } finally {
             setIsLoading(false);
+            lastLoadTimeRef.current = Date.now(); // Update last load time
         }
     }, []);
 
@@ -180,7 +182,20 @@ export default function DonateScreen() {
         }
     }, []);
 
-    useFocusEffect(useCallback(() => { fetchRequests(); }, [fetchRequests]));
+    useFocusEffect(
+        useCallback(() => {
+            // Only reload data if it's been more than 30 seconds since last load
+            // or if there's no data yet
+            const now = Date.now();
+            const lastLoadTime = lastLoadTimeRef.current;
+            const shouldRefresh = !lastLoadTime || (now - lastLoadTime > 30000) || 
+                                allRequests.length === 0;
+            
+            if (shouldRefresh) {
+                fetchRequests();
+            }
+        }, [fetchRequests, allRequests.length])
+    );
 
     useEffect(() => {
         let result = allRequests;

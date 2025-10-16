@@ -62,7 +62,7 @@ export default function HistoryScreen() {
     const renderDonatedItem = ({ item }: { item: DonationOffer }) => {
         const handleShareDonation = async () => {
             try {
-                const message = `I'm proud to have donated ${item.bloodGroup} blood at ${item.hospital} on ${item.createdAt.toDate().toLocaleDateString()} through the PU Blood Connect app! #DonateBloodSaveLives`;
+                const message = `I'm proud to have donated ${item.bloodGroup} blood at ${item.hospital} on ${item.createdAt.toDate().toLocaleDateString()} through the PU NSS CONNECT app! #DonateBloodSaveLives`;
                 await Share.share({ message });
             } catch (error) {
                 console.error("Error sharing donation:", error);

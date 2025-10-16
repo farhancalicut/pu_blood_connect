@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "PU_Blood_Connect",
-    "slug": "PU_Blood_Connect",
+    "name": "PU NSS CONNECT",
+    "slug": "PU NSS CONNECT",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/logo.png",
-    "scheme": "publoodconnect",
+    "icon": "./assets/images/nss_logo.png",
+    "scheme": "punssconnect",
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": true,
@@ -19,7 +19,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/logo.png"
+        "foregroundImage": "./assets/images/nss_logo.png"
       },
       "package": "com.farhankoolimad.PUBloodConnect",
       "runtimeVersion": "1.0.0"
@@ -27,16 +27,27 @@
     "web": {
       "bundler": "metro",
       "output": "static",
-      "favicon": "./assets/images/logo.png"
+      "favicon": "./assets/images/nss_logo.png"
     },
     "plugins": [
       "expo-router",
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/logo.png",
+          "image": "./assets/images/nss_logo.png",
           "resizeMode": "contain",
-          "backgroundColor": "#FFFFFF"
+          "backgroundColor": "#FFFFFF",
+          "imageWidth": 200,
+          "dark": {
+            "image": "./assets/images/nss_logo.png",
+            "backgroundColor": "#FFFFFF"
+          }
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow PU NSS Connect to access your camera to scan QR codes for event attendance."
         }
       ]
     ],

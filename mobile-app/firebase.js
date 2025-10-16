@@ -1,10 +1,9 @@
-// firebase.ts
+// firebase.js
 import { initializeApp } from "firebase/app";
-import { initializeAuth, getReactNativePersistence } from 'firebase/auth';
-import ReactNativeAsyncStorage from '@react-native-async-storage/async-storage';
+import { initializeAuth, getReactNativePersistence, getAuth } from 'firebase/auth';
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
-
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const firebaseConfig = {
   apiKey: "AIzaSyA4HkXUN_F7bqWYq2lJtCD-6wVZEsKufxM",
@@ -17,13 +16,18 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 
-// 👇 2. INITIALIZE AUTH WITH PERSISTENCE
-// This is the new, correct way to initialize auth for React Native
-export const auth = initializeAuth(app, {
-  persistence: getReactNativePersistence(ReactNativeAsyncStorage)
-});
+// Initialize Firebase Auth with persistence
+let auth;
+try {
+  auth = initializeAuth(app, {
+    persistence: getReactNativePersistence(AsyncStorage)
+  });
+} catch (error) {
+  // If auth is already initialized, get the existing instance
+  auth = getAuth(app);
+}
 
-// The rest of your exports are correct
+export { auth };
 export const db = getFirestore(app);
 export const storage = getStorage(app);
 export const firebaseApp = app;

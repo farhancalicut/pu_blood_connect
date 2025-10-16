@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { differenceInDays } from 'date-fns';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { getAuth } from 'firebase/auth';
-import { collection, doc, getDoc, getDocs, limit, orderBy, query, where } from 'firebase/firestore';
+import { arrayRemove, arrayUnion, collection, doc, getDoc, getDocs, limit, orderBy, query, updateDoc, where } from 'firebase/firestore';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -11,14 +11,13 @@ import {
   Image,
   ImageBackground,
   SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View,
+  Animated,
 } from 'react-native';
 import * as Progress from 'react-native-progress';
 import Icon from 'react-native-vector-icons/FontAwesome5';
+import { LinearGradient } from 'expo-linear-gradient';
 import { db, firebaseApp } from '../firebase';
 import { Platform } from 'react-native';
-
-
-
 
 const { width: screenWidth } = Dimensions.get('window');
 const guidelineBaseWidth = 375;
@@ -28,7 +27,18 @@ type UserProfile = { uid: string; lastname?: string; firstName?: string; departm
 type Donation = { id: string; donorName?: string; department?: string; bloodGroup?: string; [key:string]: any; };
 type DepartmentStat = { name: string; donorCount: number; totalUnits: number; };
 type Testimonial = { id: string; donorName: string; department: string; text: string; rating?: number; createdAt?: any; };
-type Event = { id: string; title: string; posterImageUrl: string; eventDate: { toDate: () => Date }; };
+type Event = { 
+  id: string; 
+  title: string; 
+  eventDate: { toDate: () => Date }; 
+  location?: string;
+  description?: string;
+  joinedStudents?: string[];  // Array of user IDs who joined the event
+  attendedStudents?: string[];  // Array of user IDs who actually attended
+  qrCode?: string;  // QR code for attendance tracking
+  maxParticipants?: number;
+  isActive?: boolean;
+};
 type CarouselItem = { type: 'banner'; id: string; } | (Event & { type: 'event' });
 
 const palette = { primaryRed: '#FE465E', statsRed: '#D9324B', darkGreen: '#3A6054', pageBg: '#FFFBFB', cardBgLavender: 'rgba(255, 251, 251, 1)', darkText: '#333333', lightText: '#8A8A8A', white: '#ffffff', borderLight: '#F0F0F0', trophyYellow: '#FFC107', trophyBg: '#FFF2CC', eligibleGreen: '#28a745', };
@@ -51,11 +61,158 @@ const BannerCard = () => {
     );
 };
 
-const EventCarouselCard = ({ item }: { item: Event }) => {
+const EventCarouselCard = ({ item, onJoinEvent, onLeaveEvent, isJoined, isLoading }: { 
+  item: Event; 
+  onJoinEvent: (eventId: string) => void;
+  onLeaveEvent: (eventId: string) => void;
+  isJoined: boolean;
+  isLoading: boolean;
+}) => {
     const router = useRouter();
+  const eventDate = item.eventDate.toDate();
+  // Get today's date at midnight
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  // Event is upcoming if eventDate is today or in the future
+  const eventDay = new Date(eventDate);
+  eventDay.setHours(0, 0, 0, 0);
+  const isUpcoming = eventDay >= today;
+    const scaleAnim = new Animated.Value(1);
+    
+    const handleCardPress = () => {
+      router.push('/events');
+    };
+
+    const handleJoinPress = (e: any) => {
+      e.stopPropagation(); // Prevent card press
+      if (isJoined) {
+        onLeaveEvent(item.id);
+      } else {
+        onJoinEvent(item.id);
+      }
+    };
+
+    const handlePressIn = () => {
+      Animated.spring(scaleAnim, {
+        toValue: 0.98,
+        useNativeDriver: true,
+      }).start();
+    };
+
+    const handlePressOut = () => {
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        useNativeDriver: true,
+      }).start();
+    };
+    
     return (
-        <TouchableOpacity style={styles.carouselItemWrapper} onPress={() => router.push('/events')}>
-            <Image source={{ uri: item.posterImageUrl }} style={styles.carouselImage} />
+        <TouchableOpacity 
+          style={styles.carouselItemWrapper} 
+          onPress={handleCardPress}
+          onPressIn={handlePressIn}
+          onPressOut={handlePressOut}
+          activeOpacity={1}
+        >
+            <Animated.View style={[styles.eventCardProfessional, { transform: [{ scale: scaleAnim }] }]}>
+                {/* Gradient Background Overlay */}
+                <View style={styles.eventCardGradientOverlay} />
+                
+                {/* Event Card with Gradient Background */}
+                <LinearGradient
+                  colors={['#c91a1a0b', '#00122413']}
+                  style={styles.eventCardBackground}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                >
+
+                  
+                  {/* Status Badge */}
+                  <LinearGradient
+                    colors={isUpcoming ? [palette.primaryRed, palette.statsRed] : [palette.lightText, '#999999']}
+                    style={styles.eventStatusBadgeProfessional}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                  >
+                    <Text style={styles.eventStatusTextProfessional}>
+                      {isUpcoming ? 'UPCOMING' : 'PAST'}
+                    </Text>
+                  </LinearGradient>
+                  
+                  {/* Content Container */}
+                  <View style={styles.eventCardContentProfessional}>
+                    <View style={styles.eventCardHeader}>
+                      <Text style={styles.eventCardTitleProfessional} numberOfLines={2}>
+                        {item.title}
+                      </Text>
+                    </View>
+                    
+                    <View style={styles.eventCardDetailsProfessional}>
+                      <View style={styles.eventDetailRowProfessional}>
+                        <View style={styles.eventDetailIconContainer}>
+                          <Ionicons name="calendar" size={scale(14)} color={palette.lightText} />
+                        </View>
+                        <Text style={styles.eventDetailTextProfessional}>
+                          {eventDate.toLocaleDateString('en-US', { 
+                            month: 'short', 
+                            day: 'numeric',
+                            year: 'numeric'
+                          })}
+                        </Text>
+                      </View>
+                      
+                      <View style={styles.eventDetailRowProfessional}>
+                        <View style={styles.eventDetailIconContainer}>
+                          <Ionicons name="location" size={scale(14)} color={palette.lightText} />
+                        </View>
+                        <Text style={styles.eventDetailTextProfessional} numberOfLines={1}>
+                          {item.location || 'Location TBD'}
+                        </Text>
+                      </View>
+                    </View>
+                    
+                    {/* Action Buttons */}
+                    <View style={styles.eventCardActionsProfessional}>
+                      {/* View Details Button */}
+                      <TouchableOpacity 
+                        style={styles.viewDetailsButtonProfessional} 
+                        onPress={handleCardPress}
+                        activeOpacity={0.8}
+                      >
+                        <Ionicons name="information-circle" size={scale(14)} color={palette.lightText} />
+                        <Text style={styles.viewDetailsButtonTextProfessional}>Details</Text>
+                      </TouchableOpacity>
+
+                      {/* Join/Leave Button */}
+                      {isUpcoming && (
+                        <TouchableOpacity onPress={handleJoinPress} disabled={isLoading} activeOpacity={0.8}>
+                          <LinearGradient
+                            colors={isJoined ? [palette.eligibleGreen, '#34ce57'] : [palette.primaryRed, palette.statsRed]}
+                            style={styles.joinButtonProfessional}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 1 }}
+                          >
+                            {isLoading ? (
+                              <ActivityIndicator size="small" color={palette.white} />
+                            ) : (
+                              <>
+                                <Ionicons 
+                                  name={isJoined ? "checkmark-circle" : "add-circle"} 
+                                  size={scale(14)} 
+                                  color={palette.white} 
+                                />
+                                <Text style={styles.joinButtonTextProfessional}>
+                                  {isJoined ? 'Joined' : 'Join'}
+                                </Text>
+                              </>
+                            )}
+                          </LinearGradient>
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  </View>
+                </LinearGradient>
+            </Animated.View>
         </TouchableOpacity>
     );
 };
@@ -74,7 +231,8 @@ const TestimonialCard = ({ item }: { item: Testimonial }) => (
       <Text style={styles.testimonialText}>"{String(item.text)}"</Text>
     </View>
 );
-  const ListItem = ({ name, detail, action, iconName, iconBg, iconColor, isTrophy = false }: { name: string; detail?: string; action: React.ReactNode; iconName: string; iconBg: string; iconColor?: string; isTrophy?: boolean; }) => (
+
+const ListItem = ({ name, detail, action, iconName, iconBg, iconColor, isTrophy = false }: { name: string; detail?: string; action: React.ReactNode; iconName: string; iconBg: string; iconColor?: string; isTrophy?: boolean; }) => (
     <View style={styles.listItem}>
       <View style={[styles.itemIcon, { backgroundColor: iconBg }]}>
         <Icon name={iconName} size={scale(18)} color={iconColor || palette.darkText} solid={isTrophy} />
@@ -86,20 +244,21 @@ const TestimonialCard = ({ item }: { item: Testimonial }) => (
       <Text style={[styles.itemAction, { color: palette.primaryRed }]}>{String(action)}</Text>
     </View>
 );
+
 const DetailRow = ({ label, value }: { label: string, value: string }) => (
     <View style={styles.detailRow}>
         <Text style={styles.detailLabel}>{label}</Text>
         <Text style={styles.detailValue}>{value}</Text>
     </View>
 );
-export default function DashboardScreen() {
-  
 
+export default function DashboardScreen() {
   const router = useRouter();
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [topStudentDonors, setTopStudentDonors] = useState<UserProfile[]>([]);
   const [recentDonors, setRecentDonors] = useState<Donation[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState<'department' | 'students'>('department');
   const [daysUntilEligible, setDaysUntilEligible] = useState(0);
   const [progress, setProgress] = useState(0);
@@ -111,11 +270,29 @@ export default function DashboardScreen() {
   const [activeIndex, setActiveIndex] = useState(0);
   const flatListRef = useRef<FlatList>(null);
   const [pastCampaignsCount, setPastCampaignsCount] = useState(0);
+  const [isTestimonialAutoScroll, setIsTestimonialAutoScroll] = useState(true);
+  const testimonialAutoScrollRef = useRef<number | null>(null);
   const [upcomingEvents, setUpcomingEvents] = useState<Event[]>([]);
+  const [joinedEvents, setJoinedEvents] = useState<string[]>([]);  // Array of joined event IDs
+  const [joiningEvents, setJoiningEvents] = useState<Set<string>>(new Set());  // Loading states
+  const lastLoadTimeRef = useRef<number>(0);  // Track last data load time
   const daysPassed = DONATION_ELIGIBILITY_DAYS - daysUntilEligible;
-  const loadDashboardData = useCallback(() => {
+  
+  // Auto-scroll for event carousel
+  const [carouselActiveIndex, setCarouselActiveIndex] = useState(0);
+  const carouselRef = useRef<FlatList>(null);
+  const scrollTimeout = useRef<number | null>(null);
+  
+  const loadDashboardData = useCallback((isInitialLoad = false) => {
     const auth = getAuth(firebaseApp);
     const user = auth.currentUser;
+
+    // Only show loading screen on initial load, use refreshing state for subsequent loads
+    if (isInitialLoad) {
+      setLoading(true);
+    } else {
+      setRefreshing(true);
+    }
 
     const fetchUserData = async () => { if (!user) return; const docSnap = await getDoc(doc(db, 'users', user.uid)); if (docSnap.exists()) setUserProfile({ uid: user.uid, ...docSnap.data() }); };
     const fetchTopDonors = async () => { const q = query(collection(db, 'users'), orderBy('totalDonates', 'desc'), limit(5)); const snap = await getDocs(q); setTopStudentDonors(snap.docs.map(d => ({ uid: d.id, ...d.data() }))); };
@@ -171,9 +348,13 @@ export default function DashboardScreen() {
     };
 
     const fetchUpcomingEvents = async () => {
+            // Get today's date at midnight to include today's events
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            
             const q = query(
                 collection(db, 'events'),
-                where('eventDate', '>=', new Date()),
+                where('eventDate', '>=', today),
                 orderBy('eventDate', 'asc'),
                 limit(5)
             );
@@ -181,18 +362,54 @@ export default function DashboardScreen() {
             const eventsData = snap.docs.map(d => ({ id: d.id, ...d.data() } as Event));
             setUpcomingEvents(eventsData);
         };
+
+    const fetchJoinedEvents = async () => {
+      if (!user) return;
+      try {
+        const eventsQuery = query(
+          collection(db, 'events'),
+          where('joinedStudents', 'array-contains', user.uid)
+        );
+        const eventsSnapshot = await getDocs(eventsQuery);
+        const joinedEventIds = eventsSnapshot.docs.map(doc => doc.id);
+        setJoinedEvents(joinedEventIds);
+      } catch (error) {
+        console.error('Error fetching joined events:', error);
+      }
+    };
     
      Promise.all([
       fetchUserData(), fetchTopDonors(), fetchRecent(),
-      fetchAggregateStats(), fetchTestimonials(), fetchUpcomingEvents()
+      fetchAggregateStats(), fetchTestimonials(), fetchUpcomingEvents(),
+      fetchJoinedEvents()
     ])
       .catch(console.error)
-      .finally(() => setLoading(false));
+      .finally(() => {
+        setLoading(false);
+        setRefreshing(false);
+        lastLoadTimeRef.current = Date.now(); // Update last load time
+      });
   }, []);
+
+  // Initial data load when component mounts
+  useEffect(() => {
+    loadDashboardData(true); // true indicates initial load
+  }, [loadDashboardData]);
 
   useFocusEffect(
     useCallback(() => {
-      loadDashboardData();
+      // Only reload data if this is the very first load or data is very old
+      const now = Date.now();
+      const lastLoadTime = lastLoadTimeRef.current;
+      
+      // Only refresh on focus if:
+      // 1. Never loaded before, OR
+      // 2. Data is older than 5 minutes (very conservative)
+      const shouldRefresh = !lastLoadTime || (now - lastLoadTime > 300000);
+      
+      if (shouldRefresh) {
+        loadDashboardData(false); // false = don't show loading screen, just refresh
+      }
     }, [loadDashboardData])
   );
 
@@ -221,18 +438,188 @@ export default function DashboardScreen() {
 
  
   const handleScroll = (event: any) => {
-  const scrollPosition = event.nativeEvent.contentOffset.x;
-  const index = Math.round(scrollPosition / FULL_CARD_WIDTH);
-  setActiveIndex(index);
-};
-  const scrollToNext = () => { if (activeIndex < testimonials.length - 1) flatListRef.current?.scrollToIndex({ index: activeIndex + 1 }); };
-  const scrollToPrev = () => { if (activeIndex > 0) flatListRef.current?.scrollToIndex({ index: activeIndex - 1 }); };
+    const scrollPosition = event.nativeEvent.contentOffset.x;
+    const index = Math.round(scrollPosition / FULL_CARD_WIDTH);
+    setActiveIndex(index);
+  };
+
+  // Auto-scroll for testimonials
+  useEffect(() => {
+    if (!isTestimonialAutoScroll || testimonials.length <= 1) return;
+
+    const startAutoScroll = () => {
+      testimonialAutoScrollRef.current = setInterval(() => {
+        setActiveIndex(prevIndex => {
+          const nextIndex = (prevIndex + 1) % testimonials.length;
+          
+          flatListRef.current?.scrollToIndex({
+            index: nextIndex,
+            animated: true,
+          });
+          
+          return nextIndex;
+        });
+      }, 5000); // Change every 5 seconds
+    };
+
+    startAutoScroll();
+
+    return () => {
+      if (testimonialAutoScrollRef.current) {
+        clearInterval(testimonialAutoScrollRef.current);
+      }
+    };
+  }, [testimonials.length, isTestimonialAutoScroll]);
+
+  // Handle user touch - stop auto scroll
+  const handleTestimonialTouchStart = () => {
+    setIsTestimonialAutoScroll(false);
+    if (testimonialAutoScrollRef.current) {
+      clearInterval(testimonialAutoScrollRef.current);
+    }
+  };
+
+  // Resume auto scroll after user stops touching (with delay)
+  const handleTestimonialTouchEnd = () => {
+    setTimeout(() => {
+      setIsTestimonialAutoScroll(true);
+    }, 5000); // Resume after 5 seconds of no interaction
+  };
+
+  const scrollToNext = () => { 
+    setIsTestimonialAutoScroll(false); // Stop auto scroll when user manually navigates
+    if (activeIndex < testimonials.length - 1) {
+      flatListRef.current?.scrollToIndex({ index: activeIndex + 1 });
+    } else {
+      flatListRef.current?.scrollToIndex({ index: 0 }); // Loop to first
+    }
+    setTimeout(() => {
+      setIsTestimonialAutoScroll(true);
+    }, 5000); // Resume after 5 seconds
+  };
+  
+  const scrollToPrev = () => { 
+    setIsTestimonialAutoScroll(false); // Stop auto scroll when user manually navigates
+    if (activeIndex > 0) {
+      flatListRef.current?.scrollToIndex({ index: activeIndex - 1 });
+    } else {
+      flatListRef.current?.scrollToIndex({ index: testimonials.length - 1 }); // Loop to last
+    }
+    setTimeout(() => {
+      setIsTestimonialAutoScroll(true);
+    }, 2000); // Resume after 5 seconds
+  };
 
   const carouselData: CarouselItem[] = useMemo(() => {
       const bannerItem: CarouselItem = { type: 'banner', id: 'banner' };
       const eventsWithType = upcomingEvents.map(event => ({ ...event, type: 'event' as const }));
       return [bannerItem, ...eventsWithType];
   }, [upcomingEvents]);
+
+  // Auto-scroll effect for event carousel
+  useEffect(() => {
+    if (carouselData.length <= 1) return;
+    
+    const autoScrollInterval = setInterval(() => {
+      setCarouselActiveIndex(prevIndex => {
+        const nextIndex = (prevIndex + 1) % carouselData.length;
+        
+        // Scroll to next item
+        carouselRef.current?.scrollToIndex({
+          index: nextIndex,
+          animated: true,
+        });
+        
+        return nextIndex;
+      });
+    }, 4000); // Change every 4 seconds
+
+    return () => {
+      clearInterval(autoScrollInterval);
+      // Clear any pending scroll timeout
+      if (scrollTimeout.current) {
+        clearTimeout(scrollTimeout.current);
+      }
+    };
+  }, [carouselData.length]);
+
+  // Handle manual scroll - only update when scroll ends
+  const handleCarouselScroll = (event: any) => {
+    const scrollPosition = event.nativeEvent.contentOffset.x;
+    const index = Math.round(scrollPosition / screenWidth);
+    
+    // Update immediately when momentum scroll ends (no flickering)
+    if (index >= 0 && index < carouselData.length) {
+      setCarouselActiveIndex(index);
+    }
+  };
+
+  // Join/Leave event functions
+  const handleJoinEvent = async (eventId: string) => {
+    const auth = getAuth(firebaseApp);
+    const user = auth.currentUser;
+    if (!user) return;
+
+    setJoiningEvents(prev => new Set(prev).add(eventId));
+    
+    try {
+      const eventRef = doc(db, 'events', eventId);
+      await updateDoc(eventRef, {
+        joinedStudents: arrayUnion(user.uid)
+      });
+      
+      setJoinedEvents(prev => [...prev, eventId]);
+      
+      // Update the local events state to reflect the change
+      setUpcomingEvents(prev => prev.map(event => 
+        event.id === eventId 
+          ? { ...event, joinedStudents: [...(event.joinedStudents || []), user.uid] }
+          : event
+      ));
+    } catch (error) {
+      console.error('Error joining event:', error);
+      // TODO: Show error message to user
+    } finally {
+      setJoiningEvents(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(eventId);
+        return newSet;
+      });
+    }
+  };
+
+  const handleLeaveEvent = async (eventId: string) => {
+    const auth = getAuth(firebaseApp);
+    const user = auth.currentUser;
+    if (!user) return;
+
+    setJoiningEvents(prev => new Set(prev).add(eventId));
+    
+    try {
+      const eventRef = doc(db, 'events', eventId);
+      await updateDoc(eventRef, {
+        joinedStudents: arrayRemove(user.uid)
+      });
+      
+      setJoinedEvents(prev => prev.filter(id => id !== eventId));
+      
+      // Update the local events state to reflect the change
+      setUpcomingEvents(prev => prev.map(event => 
+        event.id === eventId 
+          ? { ...event, joinedStudents: (event.joinedStudents || []).filter(uid => uid !== user.uid) }
+          : event
+      ));
+    } catch (error) {
+      console.error('Error leaving event:', error);
+      // TODO: Show error message to user
+    } finally {
+      setJoiningEvents(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(eventId);
+        return newSet;
+      });
+    }
+  };
 
   if (loading) {
     return (
@@ -243,16 +630,7 @@ export default function DashboardScreen() {
     );
   }
 
-
-
   return (
-
-    // <GestureHandlerRootView style={{ flex: 1 }}>
-    // {/* ✅ Provide context so MenuButton works */}
-    // <MenuContext.Provider value={{ toggleMenu }}>
-    //   <View style={{ flex: 1, backgroundColor: "#9B0000" }}>
-    //     <MenuBar />
-    //     <Animated.View style={[styles.stackContainer,styles.shadow, animatedStyle]}>
     <SafeAreaView style={styles.safeArea}>
             <ScrollView style={styles.scrollView} contentContainerStyle={styles.container}>
                 {userProfile && (
@@ -265,7 +643,7 @@ export default function DashboardScreen() {
                           />
                           <Text style={styles.headerText}>Welcome to PU</Text>
                           <Image
-                            source={require('../assets/images/nss_logo.png')}
+                            source={require('../assets/images/logo.png')}
                             style={styles.headerLogo}
                             resizeMode="contain"/>
                       </View>
@@ -317,24 +695,51 @@ export default function DashboardScreen() {
                     </View>
                 )}
 
-          <FlatList
-          data={carouselData}
-          keyExtractor={(item) => item.id}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          pagingEnabled
-          renderItem={({ item }) => {
-            if (item.type === 'banner') {
-              return <BannerCard />;
-            }
-            return <EventCarouselCard item={item} />;
-          }}
-        />
+          <View>
+            <FlatList
+              ref={carouselRef}
+              data={carouselData}
+              keyExtractor={(item) => item.id}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              pagingEnabled
+              onMomentumScrollEnd={handleCarouselScroll}
+              renderItem={({ item }) => {
+                if (item.type === 'banner') {
+                  return <BannerCard />;
+                }
+                return (
+                  <EventCarouselCard 
+                    item={item}
+                    onJoinEvent={handleJoinEvent}
+                    onLeaveEvent={handleLeaveEvent}
+                    isJoined={joinedEvents.includes(item.id)}
+                    isLoading={joiningEvents.has(item.id)}
+                  />
+                );
+              }}
+            />
+            
+            {/* Carousel Indicators */}
+            {carouselData.length > 1 && (
+              <View style={styles.carouselIndicators}>
+                {carouselData.map((_, index) => (
+                  <View
+                    key={`indicator-${index}`}
+                    style={[
+                      styles.carouselDot,
+                      carouselActiveIndex === index 
+                        ? styles.carouselDotActive 
+                        : styles.carouselDotInactive
+                    ]}
+                  />
+                ))}
+              </View>
+            )}
+          </View>
 
         <ImageBackground 
          source={require('../assets/images/puhits.png')}
-      
-        
        >
          <View style={styles.statsOverlay}>
                 <Text style={styles.statsHeader}>PU HITS</Text>
@@ -353,7 +758,6 @@ export default function DashboardScreen() {
                     </View>
                 </View>
             </View>
-            
             </ImageBackground>
 
         <View style={styles.listSection}>
@@ -363,7 +767,7 @@ export default function DashboardScreen() {
                             <Text style={styles.viewAll}>View Full List</Text>
                         </TouchableOpacity>
                     </View>
-                    {recentDonors.slice(0, 5).map(donor => (
+                    {recentDonors.slice(0, 3).map(donor => (
                         <ListItem 
                             key={donor.id} 
                             name={donor.donorName || 'Anonymous'} 
@@ -386,15 +790,15 @@ export default function DashboardScreen() {
                         <TouchableOpacity style={[styles.tab, activeTab === 'students' && styles.activeTab]} onPress={() => setActiveTab('students')}><Text style={[styles.tabText, activeTab === 'students' && styles.activeTabText]}>Students</Text></TouchableOpacity>
                         <TouchableOpacity style={[styles.tab, activeTab === 'department' && styles.activeTab]} onPress={() => setActiveTab('department')}><Text style={[styles.tabText, activeTab === 'department' && styles.activeTabText]}>Department</Text></TouchableOpacity>
                     </View>
-          {activeTab === 'students' ? (topStudentDonors.map(donor => (<ListItem key={donor.uid} name={donor.firstName || 'Anonymous'} detail={donor.department} action={`${donor.totalDonates} Units`} iconName="trophy" iconBg={palette.trophyBg} iconColor={palette.trophyYellow} isTrophy />))) : (topDepartments.map(dept => (<ListItem key={dept.name} name={dept.name} detail={`${dept.donorCount} Donors`} action={`${dept.totalUnits} Units`} iconName="trophy" iconBg={palette.trophyBg} iconColor={palette.trophyYellow} isTrophy />)))}
+          {activeTab === 'students' ? (topStudentDonors.slice(0, 3).map(donor => (<ListItem key={donor.uid} name={donor.firstName || 'Anonymous'} detail={donor.department} action={`${donor.totalDonates} Units`} iconName="trophy" iconBg={palette.trophyBg} iconColor={palette.trophyYellow} isTrophy />))) : (topDepartments.slice(0, 3).map(dept => (<ListItem key={dept.name} name={dept.name} detail={`${dept.donorCount} Donors`} action={`${dept.totalUnits} Units`} iconName="trophy" iconBg={palette.trophyBg} iconColor={palette.trophyYellow} isTrophy />)))}
         </View>
         
 
         <View style={styles.testimonialSection}>
             <Text style={styles.sectionTitle}>What Our Donors Say</Text>
             <View style={styles.carouselContainer}>
-                <TouchableOpacity onPress={scrollToPrev} style={styles.arrowButton} disabled={activeIndex === 0}>
-                    <Icon name="chevron-left" size={20} color={activeIndex === 0 ? 'rgba(255,255,255,0.3)' : palette.white} />
+                <TouchableOpacity onPress={scrollToPrev} style={styles.arrowButton}>
+                    <Icon name="chevron-left" size={20} color={palette.white} />
                 </TouchableOpacity>
                 
                 <FlatList
@@ -409,11 +813,19 @@ export default function DashboardScreen() {
                     contentContainerStyle={{ paddingHorizontal: CARD_MARGIN }}
                     snapToInterval={FULL_CARD_WIDTH} 
                     decelerationRate="fast"
+                    onTouchStart={handleTestimonialTouchStart}
+                    onTouchEnd={handleTestimonialTouchEnd}
+                    onMomentumScrollEnd={() => {
+                      // When user finishes scrolling manually, stop auto scroll temporarily
+                      setIsTestimonialAutoScroll(false);
+                      setTimeout(() => {
+                        setIsTestimonialAutoScroll(true);
+                      }, 5000);
+                    }}
                 />
-               
 
-                <TouchableOpacity onPress={scrollToNext} style={styles.arrowButton} disabled={activeIndex >= testimonials.length - 1}>
-                    <Icon name="chevron-right" size={20} color={activeIndex >= testimonials.length - 1 ? 'rgba(255,255,255,0.3)' : palette.white} />
+                <TouchableOpacity onPress={scrollToNext} style={styles.arrowButton}>
+                    <Icon name="chevron-right" size={20} color={palette.white} />
                 </TouchableOpacity>
             </View>
         </View>
@@ -440,21 +852,19 @@ export default function DashboardScreen() {
         <TouchableOpacity style={[styles.footerBtn, styles.btnRequest]} onPress={() => router.push('/request')}><Text style={[styles.footerBtnText, { color: palette.statsRed }]}>Request</Text></TouchableOpacity>
       </View>
     </SafeAreaView>
-
-
-  //    </Animated.View>
-  //     </View>
-  //   </MenuContext.Provider>
-  // </GestureHandlerRootView>
-
-
   );
 };
+
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#F0F2F5' },
   scrollView: { flex: 1 },
   container: { paddingBottom: scale(80) },
-  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  loadingContainer: { 
+    flex: 1, 
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    backgroundColor: '#F0F2F5' // Match the page background
+  },
 
   welcomeCard: {
     backgroundColor: '#FEF8F8',
@@ -465,8 +875,6 @@ const styles = StyleSheet.create({
     marginTop: 16,
     paddingBottom: 18,
     elevation: 4,
-    // borderTopEndRadius:0,
-    // borderTopLeftRadius:0,
     shadowColor: 'rgba(0,0,0,0.1)',
   },
   welcomeTopRow: { flexDirection: 'row', alignItems: 'center', marginBottom: scale(-2) },
@@ -540,47 +948,340 @@ const styles = StyleSheet.create({
   footerLink: { fontSize: scale(12), color: palette.lightText, marginHorizontal: scale(5) },
 
   welcomeHeadCard: {
-  flexDirection: 'row',
-  alignItems: 'center',
-  justifyContent: 'space-between',
-  marginBottom:8,
-  paddingHorizontal: 10,
-  // marginTop : 12,
-  backgroundColor: '#FEF8F8',
-  // borderRadius: 16,
-  borderBottomWidth: 1,
-  borderColor: '#000',
-  // borderBottomEndRadius:0,
-  // borderBottomLeftRadius:0,
-  // padding: 12,
-  // marginHorizontal: 16,
-  marginTop: 10,
-  paddingBottom: 8,
-  // elevation: 4,
-  // shadowColor: 'rgba(0,0,0,0.1)',
-},
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom:8,
+    paddingHorizontal: 10,
+    backgroundColor: '#FEF8F8',
+    borderBottomWidth: 1,
+    borderColor: '#000',
+    marginTop: 10,
+    paddingBottom: 8,
+  },
 
-headerLogo: {
-  width: 40,
-  height: 40,
-},
+  headerLogo: {
+    width: 40,
+    height: 40,
+  },
 
-headerText: {
-  fontSize: 18,
-  fontWeight: 'bold',
-  textAlign: 'center',
-},
-stackContainer: {
-  ...StyleSheet.absoluteFillObject,
-  overflow: Platform.OS === "android" ? "hidden" : "visible",
-  zIndex:-1,
-},
-shadow: {
+  headerText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
+  
+  stackContainer: {
+    ...StyleSheet.absoluteFillObject,
+    overflow: Platform.OS === "android" ? "hidden" : "visible",
+    zIndex:-1,
+  },
+  
+  shadow: {
     shadowColor: "#000",
     shadowOffset: {
       width: 0,
       height: 8,
     },
-  }
+  },
+
+  // Enhanced Event Card Styles
+  eventCard: {
+    backgroundColor: palette.white,
+    borderRadius: scale(15),
+    marginHorizontal: scale(5),
+    elevation: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.15,
+    shadowRadius: scale(6),
+    overflow: 'hidden',
+  },
+
+  eventStatusBadge: {
+    position: 'absolute',
+    top: scale(8),
+    right: scale(8),
+    paddingHorizontal: scale(8),
+    paddingVertical: scale(3),
+    borderRadius: scale(12),
+  },
+  eventStatusText: {
+    color: palette.white,
+    fontSize: scale(9),
+    fontWeight: 'bold',
+  },
+  eventCardContent: {
+    padding: scale(15),
+  },
+  eventCardTitle: {
+    fontSize: scale(16),
+    fontWeight: 'bold',
+    color: palette.darkText,
+    marginBottom: scale(10),
+    lineHeight: scale(20),
+  },
+  eventCardDetails: {
+    marginBottom: scale(12),
+    gap: scale(6),
+  },
+  eventDetailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  eventDetailText: {
+    fontSize: scale(12),
+    color: palette.lightText,
+    marginLeft: scale(6),
+    flex: 1,
+  },
+  eventCardAction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: scale(8),
+    borderTopWidth: 1,
+    borderTopColor: palette.borderLight,
+  },
+  eventActionText: {
+    fontSize: scale(13),
+    fontWeight: '600',
+    color: palette.primaryRed,
+  },
+
+
+
+  // Carousel indicators
+  carouselIndicators: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: scale(2),
+    marginBottom: scale(7),
+  },
+  carouselDot: {
+    width: scale(6),
+    height: scale(6),
+    borderRadius: scale(10),
+    marginHorizontal: scale(4),
+  },
+  carouselDotActive: {
+    backgroundColor: palette.primaryRed,
+  },
+  carouselDotInactive: {
+    backgroundColor: palette.lightText,
+  },
+
+  // Join Event Button Styles
+  // Event Card Actions Layout
+  eventCardActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: scale(8),
+    minHeight: scale(30),
+  },
+  
+  // View Details Button
+  viewDetailsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'transparent',
+    paddingHorizontal: scale(8),
+    paddingVertical: scale(4),
+  },
+  viewDetailsButtonText: {
+    fontSize: scale(10),
+    fontWeight: '500',
+    color: palette.primaryRed,
+    marginLeft: scale(3),
+  },
+
+  // Join Event Button Styles
+  joinButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: palette.primaryRed,
+    paddingHorizontal: scale(8),
+    paddingVertical: scale(6),
+    borderRadius: scale(15),
+    flex: 1,
+    minWidth: scale(80),
+    maxWidth: scale(110),
+    justifyContent: 'center',
+  },
+  joinedButton: {
+    backgroundColor: palette.white,
+    borderWidth: 1,
+    borderColor: palette.primaryRed,
+  },
+  joinButtonText: {
+    fontSize: scale(9),
+    fontWeight: '600',
+    color: palette.white,
+    marginLeft: scale(2),
+    textAlign: 'center',
+    flexShrink: 1,
+  },
+  joinedButtonText: {
+    color: palette.primaryRed,
+  },
+
+  // Professional Event Card Styles
+  eventCardProfessional: {
+    backgroundColor: palette.white,
+    borderRadius: scale(20),
+    overflow: 'hidden',
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: scale(12),
+    marginHorizontal: scale(8),
+  },
+  
+  eventCardGradientOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'transparent',
+    borderRadius: scale(20),
+    borderWidth: 1,
+    borderColor: 'rgba(254, 70, 94, 0.1)',
+    zIndex: 1,
+  },
+  
+  eventCardBackground: {
+    width: '100%',
+    height: scale(160),
+    justifyContent: 'flex-end',
+  },
+  
+
+  
+  eventCardDarkOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    borderRadius: scale(20),
+  },
+  
+  eventStatusBadgeProfessional: {
+    position: 'absolute',
+    top: scale(12),
+    right: scale(12),
+    paddingHorizontal: scale(10),
+    paddingVertical: scale(4),
+    borderRadius: scale(15),
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 2,
+  },
+  
+  eventStatusTextProfessional: {
+    color: palette.white,
+    fontSize: scale(9),
+    fontWeight: 'bold',
+    letterSpacing: 0.5,
+  },
+  
+  eventCardContentProfessional: {
+    padding: scale(15),
+    paddingTop: scale(10),
+    zIndex: 2,
+  },
+  
+  eventCardHeader: {
+    marginBottom: scale(8),
+  },
+  
+  eventCardTitleProfessional: {
+    fontSize: scale(16),
+    fontWeight: 'bold',
+    color: palette.darkText,
+    lineHeight: scale(18),
+  },
+  
+  eventCardDetailsProfessional: {
+    marginBottom: scale(10),
+    gap: scale(4),
+  },
+  
+  eventDetailRowProfessional: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  
+  eventDetailIconContainer: {
+    width: scale(24),
+    height: scale(24),
+    borderRadius: scale(12),
+    backgroundColor: 'rgba(0, 0, 0, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: scale(8),
+  },
+  
+  eventDetailTextProfessional: {
+    fontSize: scale(12),
+    color: palette.lightText,
+    fontWeight: '500',
+    flex: 1,
+  },
+  
+  eventCardActionsProfessional: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  
+  viewDetailsButtonProfessional: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.05)',
+    paddingHorizontal: scale(12),
+    paddingVertical: scale(6),
+    borderRadius: scale(20),
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.1)',
+  },
+  
+  viewDetailsButtonTextProfessional: {
+    fontSize: scale(10),
+    fontWeight: '600',
+    color: palette.lightText,
+    marginLeft: scale(4),
+  },
+  
+  joinButtonProfessional: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: scale(12),
+    paddingVertical: scale(6),
+    borderRadius: scale(18),
+    minWidth: scale(70),
+    justifyContent: 'center',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
+  },
+  
+
+  
+  joinButtonTextProfessional: {
+    fontSize: scale(10),
+    fontWeight: '600',
+    color: palette.white,
+    marginLeft: scale(4),
+  },
 
 });

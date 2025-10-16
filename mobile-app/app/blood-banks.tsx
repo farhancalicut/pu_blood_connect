@@ -3,7 +3,8 @@ import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, SafeAreaView
 import { useRouter, useFocusEffect, useNavigation } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { collection, getDocs, query, orderBy, doc, getDoc } from 'firebase/firestore';
-import { db, auth } from '../firebase';
+import { getAuth } from 'firebase/auth';
+import { db } from '../firebase';
 
 const { width: screenWidth } = Dimensions.get('window');
 const guidelineBaseWidth = 375; 
@@ -16,16 +17,30 @@ type BloodBank = {
     id: string;
     name: string;
     address: string;
-    phone: string;
-    coordinates: {
+    phone?: string;
+    phoneNumber?: string;
+    coordinates?: {
         latitude: number;
         longitude: number;
     };
+    latitude?: number;
+    longitude?: number;
+    city?: string;
+    operatingHours?: string;
+    bloodTypes?: string[];
 };
 
 const BloodBankCard = memo(({ item }: { item: BloodBank }) => {
     const openMaps = useCallback(() => {
-        const { latitude, longitude } = item.coordinates;
+        // Handle both coordinate structures (nested coordinates object or flat latitude/longitude)
+        const latitude = item.coordinates?.latitude || item.latitude;
+        const longitude = item.coordinates?.longitude || item.longitude;
+        
+        if (!latitude || !longitude) {
+            Alert.alert("Error", "Location coordinates not available for this blood bank.");
+            return;
+        }
+
         const scheme = Platform.select({ ios: 'maps:0,0?q=', android: 'geo:0,0?q=' });
         const latLng = `${latitude},${longitude}`;
         const label = item.name;
@@ -42,20 +57,92 @@ const BloodBankCard = memo(({ item }: { item: BloodBank }) => {
     }, [item]);
 
     const callPhone = useCallback(() => {
-        Linking.openURL(`tel:${item.phone}`);
-    }, [item.phone]);
+        const phone = item.phone || item.phoneNumber;
+        if (phone) {
+            Linking.openURL(`tel:${phone}`);
+        } else {
+            Alert.alert("Error", "Phone number not available for this blood bank.");
+        }
+    }, [item.phone, item.phoneNumber]);
+
+    const getBloodTypeColor = (bloodType: string) => {
+        const colors: { [key: string]: string } = {
+            'A+': '#FF6B6B', 'A-': '#FF8787',
+            'B+': '#4ECDC4', 'B-': '#45B7AA',
+            'AB+': '#45B7D1', 'AB-': '#6C7CE0',
+            'O+': '#FFA726', 'O-': '#FF7043'
+        };
+        return colors[bloodType] || '#8E8E93';
+    };
+
+    const phone = item.phone || item.phoneNumber;
+    const hasLocation = (item.coordinates?.latitude && item.coordinates?.longitude) || (item.latitude && item.longitude);
 
     return (
         <View style={styles.card}>
-            <Text style={styles.cardTitle}>{item.name}</Text>
-            <Text style={styles.cardAddress}>{item.address}</Text>
-            <View style={styles.cardFooter}>
-                <TouchableOpacity onPress={callPhone} accessibilityLabel="Call Blood Bank">
-                    <Text style={styles.phoneText}><Ionicons name="call" size={scale(14)} /> {item.phone}</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.directionsButton} onPress={openMaps} accessibilityLabel="Get Directions">
-                    <Text style={styles.directionsButtonText}>Get Directions</Text>
-                </TouchableOpacity>
+            <View style={styles.cardHeader}>
+                <Text style={styles.cardTitle}>{item.name}</Text>
+                {item.city && (
+                    <View style={styles.cityBadge}>
+                        <Text style={styles.cityText}>{item.city}</Text>
+                    </View>
+                )}
+            </View>
+
+            <View style={styles.cardDetails}>
+                <View style={styles.detailRow}>
+                    <Ionicons name="location-outline" size={scale(16)} color={palette.lightText} />
+                    <Text style={styles.addressText}>{item.address}</Text>
+                </View>
+
+                {item.operatingHours && (
+                    <View style={styles.detailRow}>
+                        <Ionicons name="time-outline" size={scale(16)} color={palette.lightText} />
+                        <Text style={styles.detailText}>{item.operatingHours}</Text>
+                    </View>
+                )}
+            </View>
+
+            {item.bloodTypes && item.bloodTypes.length > 0 && (
+                <View style={styles.bloodTypesSection}>
+                    <Text style={styles.bloodTypesLabel}>Available Blood Types</Text>
+                    <View style={styles.bloodTypesContainer}>
+                        {item.bloodTypes.slice(0, 6).map((type) => (
+                            <View 
+                                key={type}
+                                style={[styles.bloodTypeChip, { backgroundColor: getBloodTypeColor(type) }]}
+                            >
+                                <Text style={styles.bloodTypeText}>{type}</Text>
+                            </View>
+                        ))}
+                        {item.bloodTypes.length > 6 && (
+                            <View style={styles.moreTypesChip}>
+                                <Text style={styles.moreTypesText}>+{item.bloodTypes.length - 6}</Text>
+                            </View>
+                        )}
+                    </View>
+                </View>
+            )}
+
+            <View style={styles.actionButtons}>
+                {phone && (
+                    <TouchableOpacity style={styles.callButton} onPress={callPhone} accessibilityLabel="Call Blood Bank">
+                        <Ionicons name="call" size={scale(16)} color={palette.white} />
+                        <Text style={styles.callButtonText}>Call</Text>
+                    </TouchableOpacity>
+                )}
+                
+                {hasLocation ? (
+                    <TouchableOpacity style={styles.directionsButton} onPress={openMaps} accessibilityLabel="Get Directions">
+                        <Ionicons name="navigate" size={scale(16)} color={palette.white} />
+                        <Text style={styles.directionsButtonText}>Get Directions</Text>
+                    </TouchableOpacity>
+                ) : (
+                    <View style={styles.disabledButton}>
+                        <Ionicons name="navigate" size={scale(16)} color={palette.lightText} />
+                        <Text style={styles.disabledButtonText}>Location Not Available</Text>
+                    </View>
+                )}
             </View>
         </View>
     );
@@ -79,7 +166,7 @@ export default function BloodBanksScreen() {
     const fetchData = useCallback(async () => {
         setIsLoading(true);
         try {
-            const user = auth.currentUser;
+            const user = getAuth().currentUser;
             if (user) {
                 const userDoc = await getDoc(doc(db, 'users', user.uid));
                 setIsAdmin(userDoc.exists() && userDoc.data().role === 'admin');
@@ -127,51 +214,159 @@ export default function BloodBanksScreen() {
 }
 
 const styles = StyleSheet.create({
-    safeArea: { flex: 1, backgroundColor: palette.white },
-    listContainer: { padding: scale(15), backgroundColor: palette.pageBg },
+    safeArea: { 
+        flex: 1, 
+        backgroundColor: palette.pageBg 
+    },
+    listContainer: { 
+        padding: scale(15), 
+        backgroundColor: palette.pageBg 
+    },
     card: { 
         backgroundColor: palette.white, 
-        padding: scale(15), 
-        borderRadius: scale(10), 
+        padding: scale(20), 
+        borderRadius: scale(15), 
         marginBottom: scale(15), 
-        borderWidth: 1, 
-        borderColor: palette.borderLight 
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+        elevation: 4,
+    },
+    cardHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'flex-start',
+        marginBottom: scale(15),
     },
     cardTitle: { 
         fontSize: scale(18), 
         fontWeight: 'bold', 
-        color: palette.darkText, 
-        marginBottom: scale(5) 
+        color: palette.darkText,
+        flex: 1,
+        marginRight: scale(10)
     },
-    cardAddress: { 
+    cityBadge: {
+        backgroundColor: palette.primaryRed + '20',
+        paddingHorizontal: scale(8),
+        paddingVertical: scale(4),
+        borderRadius: scale(12),
+    },
+    cityText: {
+        fontSize: scale(12),
+        fontWeight: '600',
+        color: palette.primaryRed,
+    },
+    cardDetails: {
+        marginBottom: scale(15),
+    },
+    detailRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: scale(8),
+    },
+    addressText: { 
         fontSize: scale(14), 
-        color: palette.lightText, 
-        lineHeight: scale(20) 
-    },
-    cardFooter: { 
-        flexDirection: 'row', 
-        justifyContent: 'space-between', 
-        alignItems: 'center', 
-        marginTop: scale(15), 
-        borderTopWidth: 1, 
-        borderTopColor: palette.borderLight, 
-        paddingTop: scale(10) 
-    },
-    phoneText: { 
         color: palette.darkText, 
-        fontSize: scale(14), 
-        fontWeight: '500' 
+        lineHeight: scale(20),
+        marginLeft: scale(8),
+        flex: 1,
+    },
+    detailText: {
+        fontSize: scale(14),
+        color: palette.lightText,
+        marginLeft: scale(8),
+        flex: 1,
+    },
+    bloodTypesSection: {
+        marginBottom: scale(15),
+        padding: scale(12),
+        backgroundColor: palette.pageBg,
+        borderRadius: scale(10),
+    },
+    bloodTypesLabel: {
+        fontSize: scale(13),
+        fontWeight: '600',
+        color: palette.darkText,
+        marginBottom: scale(8),
+    },
+    bloodTypesContainer: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+    },
+    bloodTypeChip: {
+        paddingHorizontal: scale(8),
+        paddingVertical: scale(4),
+        borderRadius: scale(12),
+        marginRight: scale(6),
+        marginBottom: scale(4),
+    },
+    bloodTypeText: {
+        fontSize: scale(11),
+        fontWeight: '600',
+        color: palette.white,
+    },
+    moreTypesChip: {
+        paddingHorizontal: scale(8),
+        paddingVertical: scale(4),
+        borderRadius: scale(12),
+        backgroundColor: palette.lightText,
+        marginRight: scale(6),
+        marginBottom: scale(4),
+    },
+    moreTypesText: {
+        fontSize: scale(11),
+        fontWeight: '600',
+        color: palette.white,
+    },
+    actionButtons: {
+        flexDirection: 'row',
+        gap: scale(10),
+    },
+    callButton: {
+        flex: 1,
+        backgroundColor: '#34C759',
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: scale(12),
+        borderRadius: scale(8),
+        gap: scale(6),
+    },
+    callButtonText: {
+        color: palette.white,
+        fontWeight: '600',
+        fontSize: scale(14),
     },
     directionsButton: { 
+        flex: 1,
         backgroundColor: palette.primaryRed, 
-        paddingVertical: scale(8), 
-        paddingHorizontal: scale(15), 
-        borderRadius: scale(20) 
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: scale(12),
+        borderRadius: scale(8),
+        gap: scale(6),
     },
     directionsButtonText: { 
         color: palette.white, 
-        fontWeight: 'bold', 
-        fontSize: scale(12) 
+        fontWeight: '600', 
+        fontSize: scale(14),
+    },
+    disabledButton: {
+        flex: 1,
+        backgroundColor: palette.borderLight,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: scale(12),
+        borderRadius: scale(8),
+        gap: scale(6),
+    },
+    disabledButtonText: {
+        color: palette.lightText,
+        fontWeight: '500',
+        fontSize: scale(14),
     },
     emptyText: {
         textAlign: 'center', 

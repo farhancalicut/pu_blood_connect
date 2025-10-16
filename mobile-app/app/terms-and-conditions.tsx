@@ -13,7 +13,7 @@ export default function TermsAndConditionsScreen() {
         <SafeAreaView style={styles.safeArea}>
             <ScrollView contentContainerStyle={styles.container}>
                 <Text style={styles.heading}>1. Acceptance of Terms</Text>
-                <Text style={styles.paragraph}>By using the PU Blood Connect app, you agree to be bound by these Terms and Conditions.</Text>
+                <Text style={styles.paragraph}>By using the PU NSS CONNECT app, you agree to be bound by these Terms and Conditions.</Text>
                 
                 <Text style={styles.heading}>2. Disclaimer</Text>
                 <Text style={styles.paragraph}>This app acts as a facilitator to connect blood donors and requesters. We do not verify medical information and are not responsible for any interactions or transactions between users. Users are responsible for their own safety and for verifying all information.</Text>

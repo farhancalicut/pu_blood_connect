@@ -6,7 +6,8 @@ import {
 import { useRouter, useNavigation } from 'expo-router';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { Picker } from '@react-native-picker/picker';
-import { auth, db } from '../firebase';
+import { EmailAuthProvider, reauthenticateWithCredential, updatePassword, getAuth } from 'firebase/auth';
+import { db } from '../firebase';
 import { FirebaseError } from 'firebase/app';
 
 // --- RESPONSIVE SETUP ---
@@ -18,6 +19,8 @@ const scale = (size: number) => (screenWidth / guidelineBaseWidth) * size;
 const DEPARTMENTS = ['Computer Science', 'Mathematics', 'Physics', 'Chemistry', 'Commerce', 'History', 'French'];
 const GENDERS = ['Male', 'Female', 'Other'];
 const BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
+const YEARS = ['First', 'Second', 'Third', 'Fourth', 'PhD'];
+const NSS_UNITS = ['Unit 1', 'Unit 2', 'Unit 3', 'Unit 4'];
 
 // --- HELPER COMPONENT (You can move this to a separate file if you wish) ---
 type FloatingLabelInputProps = {
@@ -68,11 +71,11 @@ const FloatingLabelInput = ({ label, value, onChangeText, keyboardType = 'defaul
 export default function EditProfileScreen() {
   const router = useRouter();
   const navigation = useNavigation();
-  const user = auth.currentUser;
+  const user = getAuth().currentUser;
 
   const [form, setForm] = useState({
-    firstName: '', lastName: '', department: '', age: '', gender: '',
-    bloodGroup: '', phone: '', isNssVolunteer: '',
+    firstName: '', lastName: '', department: '', year: '', age: '', gender: '',
+    bloodGroup: '', phone: '', isNssVolunteer: '', nssUnit: '',
   });
   const [isLoading, setIsLoading] = useState(true);
 
@@ -89,11 +92,13 @@ export default function EditProfileScreen() {
               firstName: data.firstName || '',
               lastName: data.lastName || '',
               department: data.department || '',
+              year: data.year || '',
               age: data.age ? String(data.age) : '',
               gender: data.gender || '',
               bloodGroup: data.bloodGroup || '',
               phone: data.phone || '',
               isNssVolunteer: data.isNssVolunteer || '',
+              nssUnit: data.nssUnit || '',
             });
           }
         } catch (error) {
@@ -115,25 +120,40 @@ export default function EditProfileScreen() {
   };
 
   const handleSubmit = async () => {
-    if (!form.firstName || !form.lastName || !form.department || !form.phone) {
+    if (!form.firstName || !form.lastName || !form.department || !form.year || !form.phone) {
       Alert.alert('Missing Information', 'Please fill all required profile fields.');
+      return;
+    }
+    if (form.isNssVolunteer === 'Yes' && !form.nssUnit) {
+      Alert.alert('Missing Information', 'Please select your NSS Unit.');
       return;
     }
     setIsLoading(true);
     try {
       if (user) {
         const userDocRef = doc(db, 'users', user.uid);
-        await updateDoc(userDocRef, {
+        const updateData: any = {
           firstName: form.firstName,
           lastName: form.lastName,
           name: `${form.firstName} ${form.lastName}`,
           department: form.department,
+          year: form.year,
           age: form.age,
           gender: form.gender,
           bloodGroup: form.bloodGroup,
           phone: form.phone,
           isNssVolunteer: form.isNssVolunteer,
-        });
+        };
+        
+        if (form.isNssVolunteer === 'Yes') {
+          updateData.nssUnit = form.nssUnit;
+          updateData.nssStatus = updateData.nssStatus || 'pending'; // Keep existing status or set to pending
+        } else {
+          updateData.nssUnit = '';
+          updateData.nssStatus = '';
+        }
+        
+        await updateDoc(userDocRef, updateData);
         Alert.alert('Profile Updated!', 'Your details have been saved successfully.');
         router.back();
       }
@@ -167,6 +187,14 @@ export default function EditProfileScreen() {
             </Picker>
           </View>
           
+          <Text style={styles.label}>Year</Text>
+          <View style={styles.pickerContainer}>
+            <Picker selectedValue={form.year} onValueChange={value => handleChange('year', value)}>
+              <Picker.Item label="Select Year..." value="" />
+              {YEARS.map(year => <Picker.Item key={year} label={year} value={year} />)}
+            </Picker>
+          </View>
+          
           <FloatingLabelInput label="Age" value={form.age} onChangeText={text => handleChange('age', text)} keyboardType="numeric" />
           <FloatingLabelInput label="Phone Number" value={form.phone} onChangeText={text => handleChange('phone', text)} keyboardType="phone-pad" />
           
@@ -188,12 +216,37 @@ export default function EditProfileScreen() {
           
           <Text style={styles.label}>Are you an NSS Volunteer?</Text>
           <View style={styles.pickerContainer}>
-            <Picker selectedValue={form.isNssVolunteer} onValueChange={value => handleChange('isNssVolunteer', value)}>
+            <Picker 
+              selectedValue={form.isNssVolunteer} 
+              onValueChange={value => {
+                handleChange('isNssVolunteer', value);
+                if (value !== 'Yes') {
+                  handleChange('nssUnit', ''); // Clear unit selection if not NSS volunteer
+                }
+              }}
+            >
               <Picker.Item label="Please select..." value="" />
               <Picker.Item label="Yes" value="Yes" />
               <Picker.Item label="No" value="No" />
             </Picker>
           </View>
+          
+          {form.isNssVolunteer === 'Yes' && (
+            <>
+              <Text style={styles.label}>NSS Unit</Text>
+              <View style={styles.pickerContainer}>
+                <Picker
+                  selectedValue={form.nssUnit}
+                  onValueChange={value => handleChange('nssUnit', value)}
+                >
+                  <Picker.Item label="Select your NSS Unit..." value="" />
+                  {NSS_UNITS.map(unit => (
+                    <Picker.Item key={unit} label={unit} value={unit} />
+                  ))}
+                </Picker>
+              </View>
+            </>
+          )}
           
           <TouchableOpacity style={styles.updateButton} onPress={handleSubmit} disabled={isLoading}>
             {isLoading ? <ActivityIndicator color="#fff" /> : <Text style={styles.updateButtonText}>Update Profile</Text>}
