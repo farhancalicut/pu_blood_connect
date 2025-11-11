@@ -1,31 +1,21 @@
-import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  Alert,
-  Modal,
-  ActivityIndicator,
-  Dimensions,
-} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router, Stack } from 'expo-router';
 import { getAuth } from 'firebase/auth';
-import { doc, getDoc, updateDoc, arrayUnion } from 'firebase/firestore';
+import { arrayUnion, doc, getDoc, updateDoc } from 'firebase/firestore';
+import React, { useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  Dimensions,
+  Modal,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { db } from '../firebase';
 
-// Try to import expo-camera, fallback if not available
-let CameraView: any = null;
-let useCameraPermissions: any = null;
-
-try {
-  const cameraModule = require('expo-camera');
-  CameraView = cameraModule.CameraView;
-  useCameraPermissions = cameraModule.useCameraPermissions;
-} catch (error) {
-  console.log('expo-camera not available, using fallback');
-}
+import { CameraView, useCameraPermissions } from 'expo-camera';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -42,42 +32,13 @@ const QRScannerScreen: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [attendedEventTitle, setAttendedEventTitle] = useState('');
-  const [cameraAvailable, setCameraAvailable] = useState(!!CameraView);
-
-  // Use camera permissions hook at the top level, with conditional logic
-  let permission = null;
-  let requestPermission = null;
-  
-  try {
-    if (useCameraPermissions && CameraView) {
-      const [perm, requestPerm] = useCameraPermissions();
-      permission = perm;
-      requestPermission = requestPerm;
-    }
-  } catch (error) {
-    console.log('Camera permissions not available, using fallback mode');
-  }
-
-  useEffect(() => {
-    if (useCameraPermissions && CameraView && permission) {
-      // Real camera is available
-      setCameraAvailable(true);
-      if (!permission.granted && requestPermission) {
-        requestPermission();
-      }
-    } else {
-      // Fallback mode
-      setCameraAvailable(false);
-    }
-  }, [permission]);
+  const [permission, requestPermission] = useCameraPermissions();
 
   const requestCameraPermission = async () => {
-    if (requestPermission) {
-      try {
-        await requestPermission();
-      } catch (error) {
-        console.error('Error requesting camera permission:', error);
-      }
+    try {
+      await requestPermission();
+    } catch (error) {
+      console.error('Error requesting camera permission:', error);
     }
   };
 
@@ -200,18 +161,17 @@ const QRScannerScreen: React.FC = () => {
     router.back();
   };
 
-  // Handle camera permission for real camera mode
-  if (cameraAvailable) {
-    if (!permission) {
-      return (
-        <View style={styles.container}>
-          <ActivityIndicator size="large" color="#007AFF" />
-          <Text style={styles.loadingText}>Loading camera...</Text>
-        </View>
-      );
-    }
+  // Handle camera permission
+  if (!permission) {
+    return (
+      <View style={styles.container}>
+        <ActivityIndicator size="large" color="#007AFF" />
+        <Text style={styles.loadingText}>Loading camera...</Text>
+      </View>
+    );
+  }
 
-    if (!permission.granted) {
+  if (!permission.granted) {
       return (
         <View style={styles.container}>
           <View style={styles.header}>
@@ -235,7 +195,6 @@ const QRScannerScreen: React.FC = () => {
         </View>
       );
     }
-  }
 
   return (
     <>
@@ -243,7 +202,7 @@ const QRScannerScreen: React.FC = () => {
       <View style={styles.container}>
         <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#007AFF" />
+          <Ionicons name="arrow-back" size={24} color="#000000ff" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Scan Attendance QR</Text>
         <View style={styles.placeholder} />
@@ -252,75 +211,31 @@ const QRScannerScreen: React.FC = () => {
       <View style={styles.scannerContainer}>
         {scanning && !scanned ? (
           <View style={styles.cameraContainer}>
-            {cameraAvailable && CameraView ? (
-              <>
-                <CameraView
-                  style={StyleSheet.absoluteFillObject}
-                  facing="back"
-                  onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
-                  barcodeScannerSettings={{
-                    barcodeTypes: ["qr"],
-                  }}
-                />
-                
-                {/* Scanner Overlay */}
-                <View style={styles.scannerOverlay}>
-                  <View style={styles.scannerFrame}>
-                    <View style={styles.cornerTopLeft} />
-                    <View style={styles.cornerTopRight} />
-                    <View style={styles.cornerBottomLeft} />
-                    <View style={styles.cornerBottomRight} />
-                  </View>
-                  <Text style={styles.scannerOverlayText}>
-                    Point camera at QR code to scan
-                  </Text>
-                </View>
-              </>
-            ) : (
-              /* Fallback Scanner for Expo Go */
-              <View style={styles.scannerFallback}>
-                <Ionicons name="camera-outline" size={100} color="#007AFF" />
-                <Text style={styles.fallbackTitle}>Camera Not Available</Text>
-                <Text style={styles.fallbackText}>
-                  Camera scanning requires a development build.{'\n'}
-                  In Expo Go, use the demo button below.
-                </Text>
-                
-                {/* Demo scan button for Expo Go */}
-                <TouchableOpacity 
-                  style={styles.demoScanButton}
-                  onPress={() => {
-                    Alert.alert(
-                      'Demo QR Scanner',
-                      'This is a demo mode for Expo Go. In a real development build, you would scan an actual QR code from the admin dashboard.\n\nFor testing, please:\n1. Create an event in admin dashboard\n2. Generate QR code for that event\n3. Use development build to scan it',
-                      [
-                        { 
-                          text: 'Go to Events', 
-                          onPress: () => {
-                            setScanning(false);
-                            router.push('/events');
-                          }
-                        },
-                        { 
-                          text: 'Close Scanner',
-                          onPress: () => {
-                            setScanning(false);
-                            router.back();
-                          }
-                        }
-                      ]
-                    );
-                  }}
-                >
-                  <Ionicons name="information-circle" size={20} color="white" />
-                  <Text style={styles.demoScanButtonText}>Demo Info</Text>
-                </TouchableOpacity>
+            <CameraView
+              style={StyleSheet.absoluteFillObject}
+              facing="back"
+              onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
+              barcodeScannerSettings={{
+                barcodeTypes: ["qr"],
+              }}
+            />
+            
+            {/* Scanner Overlay */}
+            <View style={styles.scannerOverlay}>
+              <View style={styles.scannerFrame}>
+                <View style={styles.cornerTopLeft} />
+                <View style={styles.cornerTopRight} />
+                <View style={styles.cornerBottomLeft} />
+                <View style={styles.cornerBottomRight} />
               </View>
-            )}
+              <Text style={styles.scannerOverlayText}>
+                Point camera at QR code to scan
+              </Text>
+            </View>
           </View>
         ) : (
           <View style={styles.instructionsContainer}>
-            <Ionicons name="scan-outline" size={80} color="#007AFF" />
+            <Ionicons name="scan-outline" size={80} color="#bf0000ff" />
             <Text style={styles.instructionsTitle}>Ready to Scan</Text>
             <Text style={styles.instructionsText}>
               Position the QR code within the camera frame to mark your attendance.
@@ -452,37 +367,6 @@ const styles = StyleSheet.create({
     flex: 1,
     position: 'relative',
   },
-  scannerPlaceholder: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#F8F9FA',
-    padding: 40,
-  },
-  scannerPlaceholderText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#007AFF',
-    marginTop: 15,
-  },
-  scannerInstructions: {
-    fontSize: 14,
-    color: '#8E8E93',
-    textAlign: 'center',
-    marginTop: 10,
-  },
-  demoScanButton: {
-    backgroundColor: '#007AFF',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 20,
-    marginTop: 20,
-  },
-  demoScanButtonText: {
-    color: 'white',
-    fontSize: 14,
-    fontWeight: '600',
-  },
   scannerOverlay: {
     ...StyleSheet.absoluteFillObject,
     justifyContent: 'center',
@@ -535,7 +419,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#007AFF',
+    backgroundColor: '#8a0202ff',
     marginHorizontal: 20,
     marginBottom: 40,
     paddingVertical: 15,
@@ -665,32 +549,6 @@ const styles = StyleSheet.create({
     borderBottomWidth: 4,
     borderRightWidth: 4,
     borderColor: '#007AFF',
-  },
-  
-  // Fallback Scanner Styles
-  scannerFallback: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#f8f9fa',
-    padding: 20,
-  },
-  
-  fallbackTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#333',
-    marginTop: 20,
-    marginBottom: 10,
-    textAlign: 'center',
-  },
-  
-  fallbackText: {
-    fontSize: 16,
-    color: '#666',
-    textAlign: 'center',
-    lineHeight: 24,
-    marginBottom: 30,
   },
 });
 

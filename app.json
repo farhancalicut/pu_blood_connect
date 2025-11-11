@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "PU NSS CONNECT",
-    "slug": "pu-nss-connect",
+    "slug": "PU_Blood_Connect",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/logo_app.png",

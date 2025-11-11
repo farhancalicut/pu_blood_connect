@@ -1,40 +1,41 @@
-import React, { useState, useEffect, useRef } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  TextInput,
-  Alert,
-  Modal,
-  Platform,
-  RefreshControl,
-  Image,
-  Share,
-  Dimensions,
-} from 'react-native';
-import QRCode from 'react-native-qrcode-svg';
-import ViewShot from 'react-native-view-shot';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
-import { 
-  collection, 
-  query, 
-  getDocs, 
-  addDoc, 
-  updateDoc, 
-  deleteDoc, 
-  doc, 
-  getDoc,
-  orderBy, 
-  where,
-  serverTimestamp 
+import * as Sharing from 'expo-sharing';
+import { getAuth, onAuthStateChanged, User } from 'firebase/auth';
+import {
+    addDoc,
+    collection,
+    deleteDoc,
+    doc,
+    getDoc,
+    getDocs,
+    orderBy,
+    query,
+    serverTimestamp,
+    updateDoc
 } from 'firebase/firestore';
+import React, { useEffect, useRef, useState } from 'react';
+import {
+    Alert,
+    Image,
+    Modal,
+    Platform,
+    RefreshControl,
+    ScrollView,
+    Share,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View
+} from 'react-native';
+import QRCode from 'react-native-qrcode-svg';
+import ViewShot from 'react-native-view-shot';
 import { db } from '../firebase';
-import { onAuthStateChanged, User, getAuth } from 'firebase/auth';
+import { uploadImageToCloudinary } from '../utils/cloudinary';
+import { notifyUsersAboutNewEvent } from '../utils/notifications';
 
 interface Event {
   id: string;
@@ -46,7 +47,6 @@ interface Event {
   location: string;
   organizer: string;
   contactNumber: string;
-  maxParticipants: number;
   currentParticipants: number;
   posterImageUrl?: string; // Add poster image URL
   status: 'upcoming' | 'ongoing' | 'completed' | 'cancelled';
@@ -74,7 +74,6 @@ const AdminEvents: React.FC = () => {
     location: '',
     organizer: '',
     contactNumber: '',
-    maxParticipants: '50',
   });
 
   // Date and Time Picker States
@@ -138,6 +137,45 @@ const AdminEvents: React.FC = () => {
         ...doc.data()
       })) as Event[];
 
+      // Auto-update event status based on date
+      const today = new Date();
+      today.setHours(0, 0, 0, 0); // Set to start of today
+
+      for (const event of eventsData) {
+        // Only auto-update if current status is 'upcoming'
+        if (event.status === 'upcoming' && event.date) {
+          let eventDate: Date | null = null;
+
+          // Parse the event date
+          if (event.eventDate) {
+            // If eventDate field exists (from dashboard compatibility)
+            if (typeof (event.eventDate as any).toDate === 'function') {
+              eventDate = (event.eventDate as any).toDate();
+            } else if (event.eventDate instanceof Date) {
+              eventDate = event.eventDate;
+            }
+          } else if (event.date && event.date.includes('/')) {
+            // Parse from DD/MM/YYYY format
+            const [day, month, year] = event.date.split('/');
+            eventDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+          }
+
+          if (eventDate) {
+            eventDate.setHours(0, 0, 0, 0); // Set to start of day for comparison
+            
+            // If event date is before today (past event), mark as completed
+            if (eventDate < today) {
+              try {
+                await updateDoc(doc(db, 'events', event.id), { status: 'completed' });
+                event.status = 'completed'; // Update local data too
+              } catch (error) {
+                console.error('Error auto-updating event status:', error);
+              }
+            }
+          }
+        }
+      }
+
       setEvents(eventsData);
       setFilteredEvents(eventsData);
       setLoading(false);
@@ -193,7 +231,6 @@ const AdminEvents: React.FC = () => {
       location: '',
       organizer: '',
       contactNumber: '',
-      maxParticipants: '50',
     });
     setEditingEvent(null);
     setSelectedDate(today);
@@ -235,7 +272,7 @@ const AdminEvents: React.FC = () => {
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       aspect: [16, 9], // Poster aspect ratio
-      quality: 0.8,
+      quality: 0.6, // Reduced quality to help keep under 500KB
     });
 
     if (!pickerResult.canceled && pickerResult.assets[0]) {
@@ -254,6 +291,20 @@ const AdminEvents: React.FC = () => {
     }
 
     try {
+      // Upload poster image to Cloudinary if one is selected
+      let posterImageUrl = editingEvent?.posterImageUrl || null;
+      
+      if (selectedImage && selectedImage !== editingEvent?.posterImageUrl) {
+        const uploadResult = await uploadImageToCloudinary(selectedImage, 'event_posters');
+        
+        if (!uploadResult.success) {
+          Alert.alert('Upload Error', uploadResult.error || 'Failed to upload poster image');
+          return;
+        }
+        
+        posterImageUrl = uploadResult.url || null;
+      }
+
       // Convert date string to proper Date object for consistency with dashboard
       let eventDate;
       
@@ -290,8 +341,7 @@ const AdminEvents: React.FC = () => {
       const eventData = {
         ...eventForm,
         eventDate: eventDate, // Add eventDate field for dashboard compatibility
-        posterImageUrl: selectedImage, // Add poster image URL
-        maxParticipants: parseInt(eventForm.maxParticipants) || 50,
+        posterImageUrl: posterImageUrl, // Add poster image URL from Cloudinary
         currentParticipants: editingEvent?.currentParticipants || 0,
         status: editingEvent?.status || 'upcoming',
         createdBy: user?.email,
@@ -304,6 +354,19 @@ const AdminEvents: React.FC = () => {
       } else {
         await addDoc(collection(db, 'events'), eventData);
         Alert.alert('Success', 'Event created successfully!');
+        
+        // Send push notifications to all users about new event
+        try {
+          const eventDateFormatted = eventForm.date || 'TBA';
+          await notifyUsersAboutNewEvent(
+            eventForm.title,
+            eventDateFormatted,
+            eventForm.location
+          );
+        } catch (notifError) {
+          console.error('Error sending event notifications:', notifError);
+          // Don't fail event creation if notifications fail
+        }
       }
 
       setShowEventModal(false);
@@ -324,7 +387,6 @@ const AdminEvents: React.FC = () => {
       location: event.location || '',
       organizer: event.organizer || '',
       contactNumber: event.contactNumber || '',
-      maxParticipants: (event.maxParticipants || 50).toString(),
     });
 
     // Set date and time pickers if editing
@@ -370,17 +432,6 @@ const AdminEvents: React.FC = () => {
         }
       ]
     );
-  };
-
-  const updateEventStatus = async (eventId: string, newStatus: Event['status']) => {
-    try {
-      await updateDoc(doc(db, 'events', eventId), { status: newStatus });
-      Alert.alert('Success', 'Event status updated successfully!');
-      fetchEvents();
-    } catch (error) {
-      console.error('Error updating event status:', error);
-      Alert.alert('Error', 'Failed to update event status.');
-    }
   };
 
   // QR Code and Attendance Functions
@@ -454,16 +505,20 @@ const AdminEvents: React.FC = () => {
         // Capture the QR code as an image
         const uri = await qrRef.current.capture();
         
-        if (Platform.OS === 'ios') {
-          await Share.share({
-            url: uri,
-            message: `Attendance QR Code for Event: ${selectedEventForQR.title}\n\nScan this QR code to mark your attendance.`,
+        // Check if sharing is available
+        const isAvailable = await Sharing.isAvailableAsync();
+        
+        if (isAvailable) {
+          // Use expo-sharing to share the image
+          await Sharing.shareAsync(uri, {
+            mimeType: 'image/png',
+            dialogTitle: `Attendance QR Code for ${selectedEventForQR.title}`,
+            UTI: 'public.png',
           });
         } else {
+          // Fallback to Share API with message only
           await Share.share({
-            title: 'Event Attendance QR Code',
-            message: `Attendance QR Code for Event: ${selectedEventForQR.title}\n\nScan this QR code to mark your attendance.`,
-            url: `file://${uri}`,
+            message: `Attendance QR Code for Event: ${selectedEventForQR.title}\n\nScan this QR code to mark your attendance.\n\nQR Code saved at: ${uri}`,
           });
         }
       }
@@ -615,12 +670,6 @@ const AdminEvents: React.FC = () => {
                   <Ionicons name="person-outline" size={16} color="#8E8E93" />
                   <Text style={styles.eventDetailText}>{event.organizer}</Text>
                 </View>
-                <View style={styles.eventDetailRow}>
-                  <Ionicons name="people-outline" size={16} color="#8E8E93" />
-                  <Text style={styles.eventDetailText}>
-                    {event.currentParticipants || 0}/{event.maxParticipants || 50} participants
-                  </Text>
-                </View>
               </View>
 
               {/* Action Buttons */}
@@ -718,7 +767,7 @@ const AdminEvents: React.FC = () => {
                 >
                   <Ionicons name="image-outline" size={32} color="#666" />
                   <Text style={styles.imagePickerText}>Select Poster Image</Text>
-                  <Text style={styles.imagePickerSubtext}>Recommended: 16:9 aspect ratio</Text>
+                  <Text style={styles.imagePickerSubtext}>Recommended: 16:9 aspect ratio, under 500KB</Text>
                 </TouchableOpacity>
               )}
             </View>
@@ -778,17 +827,6 @@ const AdminEvents: React.FC = () => {
                 value={eventForm.contactNumber}
                 onChangeText={(text) => setEventForm({...eventForm, contactNumber: text})}
                 keyboardType="phone-pad"
-              />
-            </View>
-
-            <View style={styles.formGroup}>
-              <Text style={styles.formLabel}>Max Participants</Text>
-              <TextInput
-                style={styles.formInput}
-                placeholder="Enter maximum participants"
-                value={eventForm.maxParticipants}
-                onChangeText={(text) => setEventForm({...eventForm, maxParticipants: text})}
-                keyboardType="numeric"
               />
             </View>
           </ScrollView>

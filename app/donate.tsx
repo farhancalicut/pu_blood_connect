@@ -1,7 +1,14 @@
-import React, { FC, useCallback, useEffect, useRef, useState, memo } from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import * as Clipboard from 'expo-clipboard';
+import { useFocusEffect } from 'expo-router';
+import * as Sharing from 'expo-sharing';
+import { getAuth } from 'firebase/auth';
+import { addDoc, collection, doc, getDoc, getDocs, orderBy, query, serverTimestamp, updateDoc, where } from 'firebase/firestore';
+import React, { FC, useCallback, useEffect, useRef, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
+    Dimensions,
     FlatList,
     Image,
     Modal,
@@ -10,18 +17,9 @@ import {
     Text,
     TextInput,
     TouchableOpacity,
-    View,
-    Dimensions,
-    Linking,
-    Platform,
+    View
 } from 'react-native';
-import { useFocusEffect } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
 import ViewShot from 'react-native-view-shot';
-import * as Clipboard from 'expo-clipboard';
-import * as Sharing from 'expo-sharing';
-import { getAuth } from 'firebase/auth';
-import { addDoc, collection, doc, getDoc, getDocs, orderBy, query, serverTimestamp, where, updateDoc, increment } from 'firebase/firestore';
 import { db } from '../firebase';
 
 const { width: screenWidth } = Dimensions.get('window');
@@ -31,7 +29,7 @@ const scale = (size: number) => (screenWidth / guidelineBaseWidth) * size;
 
 const palette = { primaryRed: '#9B0000', darkText: '#333333', lightText: '#8A8A8A', white: '#ffffff', borderLight: '#EAEAEA', pageBg: '#F7F7F7', criticalRed: '#D9324B', cardBg: '#FEFBFB' };
 
-type Request = { id: string; patientName: string; hospital: string; bloodGroup: string; units: number; isCritical: boolean; requiredDate: { toDate: () => Date }; mobileNumber: string; notes?: string; requesterId: string; requesterName: string; };
+type Request = { id: string; patientName: string; hospital: string; bloodGroup: string; units: number; isCritical: boolean; requiredDate: { toDate: () => Date }; mobileNumber: string; notes?: string; requesterId: string; requesterName: string; acceptedDonors?: string[]; };
 const BLOOD_GROUPS = ['All', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
 type DetailRowProps = { label: string; value: string; isCritical?: boolean; };
 type RequestDetailsModalProps = { visible: boolean; request: Request | null; onClose: () => void; };
@@ -145,16 +143,47 @@ export default function DonateScreen() {
     const fetchRequests = useCallback(async () => {
         setIsLoading(true);
         try {
+            // Fetch all requests (both student and hospital requests)
+            // Hospital requests have hospitalId field, student requests have requesterId
             const q = query(
                 collection(db, 'requests'), 
-                where('status', '==', 'pending'),
-                orderBy('isCritical', 'desc'),
+                where('status', 'in', ['pending', 'active']),
                 orderBy('createdAt', 'desc')
             );
             const querySnapshot = await getDocs(q);
-            const requestsData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Request));
-            setAllRequests(requestsData);
-            setFilteredRequests(requestsData);
+            const allRequestsData = querySnapshot.docs.map(doc => {
+                const data = doc.data();
+                // If it's a hospital request, map the fields
+                if (data.hospitalId) {
+                    return {
+                        id: doc.id,
+                        patientName: data.patientName,
+                        hospital: data.hospitalName || data.hospital,
+                        bloodGroup: data.bloodGroup,
+                        units: data.unitsNeeded || data.units,
+                        isCritical: data.urgency === 'critical' || data.isCritical,
+                        requiredDate: data.requiredBy || data.requiredDate,
+                        mobileNumber: data.contactNumber || data.mobileNumber,
+                        notes: data.additionalNotes || data.notes || '',
+                        requesterId: data.hospitalId,
+                        requesterName: data.hospitalName,
+                    } as Request;
+                }
+                // Student request - use as is
+                return { id: doc.id, ...data } as Request;
+            });
+
+            // Sort by critical first, then by date
+            allRequestsData.sort((a, b) => {
+                if (a.isCritical && !b.isCritical) return -1;
+                if (!a.isCritical && b.isCritical) return 1;
+                const dateA = a.requiredDate?.toDate?.() || new Date();
+                const dateB = b.requiredDate?.toDate?.() || new Date();
+                return dateB.getTime() - dateA.getTime();
+            });
+
+            setAllRequests(allRequestsData);
+            setFilteredRequests(allRequestsData);
         } catch (error) {
             console.error("Error fetching requests: ", error);
             Alert.alert('Error', 'Could not fetch blood requests.');
@@ -249,7 +278,14 @@ export default function DonateScreen() {
                                 status: "offered",
                                 createdAt: serverTimestamp()
                             });
-                            await Promise.all([notificationPromise, offerPromise]);
+                            
+                            // Update acceptedDonors array in the request document
+                            const requestRef = doc(db, 'requests', request.id);
+                            const updatePromise = updateDoc(requestRef, {
+                                acceptedDonors: [...(request.acceptedDonors || []), donorProfile.uid]
+                            });
+                            
+                            await Promise.all([notificationPromise, offerPromise, updatePromise]);
                             Alert.alert("Sent!", `${request.requesterName} has been notified. Check your History page for next steps.`);
                         } catch (error) {
                             console.error("Error creating notification/offer: ", error);

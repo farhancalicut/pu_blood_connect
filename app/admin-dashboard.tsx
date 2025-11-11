@@ -1,30 +1,27 @@
-import React, { useState, useCallback, useEffect } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  SafeAreaView, 
-  ScrollView, 
-  TouchableOpacity, 
-  Alert,
-  Dimensions,
-  ActivityIndicator,
-  StatusBar,
-  Platform
-} from 'react-native';
-import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { getAuth, signOut } from 'firebase/auth';
-import { 
-  doc, 
-  getDoc, 
-  collection, 
-  getDocs, 
-  query, 
-  orderBy, 
-  where, 
-  limit 
+import {
+    collection,
+    doc,
+    getDoc,
+    getDocs,
+    query,
+    where
 } from 'firebase/firestore';
+import React, { useCallback, useState } from 'react';
+import {
+    ActivityIndicator,
+    Alert,
+    Dimensions,
+    SafeAreaView,
+    ScrollView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View
+} from 'react-native';
 import { db } from '../firebase';
 
 const { width: screenWidth } = Dimensions.get('window');
@@ -65,6 +62,7 @@ const quickActions: QuickActionItem[] = [
   { icon: 'checkmark-circle-outline', title: 'Pending Approvals', route: '/admin', color: '#F5A623' },
   { icon: 'shield-outline', title: 'NSS Management', route: '/admin-nss', color: '#8E44AD' },
   { icon: 'calendar-outline', title: 'Manage Events', route: '/admin-events', color: '#7ED321' },
+  { icon: 'business-outline', title: 'Manage Hospitals', route: '/admin-hospitals', color: '#E91E63' },
   { icon: 'location-outline', title: 'Blood Banks', route: '/admin-blood-banks', color: '#D0021B' },
   { icon: 'document-text-outline', title: 'Donations', route: '/admin-donations', color: '#9013FE' },
   { icon: 'chatbox-ellipses-outline', title: 'Feedback', route: '/admin-feedback', color: '#50E3C2' }

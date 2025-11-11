@@ -1,12 +1,18 @@
-import React, { useState, useCallback, useMemo, useEffect } from "react";
-import {
-  View, Text, TouchableOpacity, StyleSheet, SafeAreaView,
-  ActivityIndicator, FlatList, Share, Dimensions
-} from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { useRouter, useFocusEffect } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import { getAuth } from "firebase/auth";
-import { collection, query, where, orderBy, getDocs } from "firebase/firestore";
+import { collection, getDocs, orderBy, query, where } from "firebase/firestore";
+import React, { useCallback, useMemo, useState } from "react";
+import {
+    ActivityIndicator,
+    Dimensions,
+    FlatList,
+    SafeAreaView,
+    Share,
+    StyleSheet,
+    Text, TouchableOpacity,
+    View
+} from "react-native";
 import { db } from "../firebase";
 
 const { width: screenWidth } = Dimensions.get('window');
@@ -90,19 +96,19 @@ export default function HistoryScreen() {
     };
 
     const renderPendingItem = ({ item }: { item: DonationOffer }) => {
-        const statusText = item.status === 'offered' ? "Upload Your Credential" : "Under Verification";
+        const statusText = item.status === 'offered' ? "Upload Credential" : "Under Verification";
         const isActionable = item.status === 'offered';
 
         return (
             <View style={styles.card}>
-                <View>
+                <View style={styles.cardContent}>
                     <Text style={styles.cardTitle}>Offer on: {item.createdAt.toDate().toLocaleDateString()}</Text>
                     <Text style={styles.cardText}>Blood: {item.bloodGroup}</Text>
                     <Text style={styles.cardText}>Location: {item.hospital}</Text>
                 </View>
-                <View style={styles.cardActions}>
-                    <TouchableOpacity disabled={!isActionable} onPress={() => isActionable && router.push({ pathname: '/upload-credential', params: { offerId: item.id }})}>
-                        <Text style={[styles.pendingStatus, isActionable && styles.actionableText]}>{statusText}</Text>
+                <View style={styles.cardActionsPending}>
+                    <TouchableOpacity disabled={!isActionable} onPress={() => isActionable && router.push({ pathname: '/upload-credential', params: { offerId: item.id }})} style={styles.uploadButton}>
+                        <Text style={[styles.pendingStatus, isActionable && styles.actionableText]} numberOfLines={2}>{statusText}</Text>
                     </TouchableOpacity>
                 </View>
             </View>
@@ -174,6 +180,10 @@ const styles = StyleSheet.create({
     justifyContent:"space-between",
     alignItems: 'center'
   },
+  cardContent: {
+    flex: 1,
+    marginRight: scale(12),
+  },
   cardTitle: {
     fontWeight: "bold",
     fontSize: scale(13),
@@ -186,6 +196,15 @@ const styles = StyleSheet.create({
   },
   cardActions: {
     alignItems: 'flex-end',
+  },
+  cardActionsPending: {
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+    maxWidth: scale(100),
+  },
+  uploadButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   certificate: {
     color: "#B71C1C",
@@ -207,6 +226,7 @@ const styles = StyleSheet.create({
     color: "#555",
     fontWeight: "500",
     fontSize: scale(12),
+    textAlign: 'center',
   },
   actionableText: {
     color: '#3478f6', 

@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, ActivityIndicator, KeyboardAvoidingView, Platform, SafeAreaView, Dimensions } from 'react-native';
-import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { getAuth } from 'firebase/auth';
-import { collection, addDoc, serverTimestamp, doc, getDoc } from 'firebase/firestore';
+import { addDoc, collection, doc, getDoc, serverTimestamp } from 'firebase/firestore';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, Alert, Dimensions, KeyboardAvoidingView, Platform, SafeAreaView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { db } from '../firebase';
 
 const { width: screenWidth } = Dimensions.get('window');
@@ -51,7 +51,11 @@ export default function FeedbackScreen() {
         }
         setIsLoading(true);
         try {
+            const auth = getAuth();
+            const user = auth.currentUser;
+            
             await addDoc(collection(db, 'feedback'), {
+                userId: user?.uid || null, // Add userId for profile picture lookup
                 userName: userName,
                 department: userDepartment,
                 rating: rating,
@@ -61,7 +65,12 @@ export default function FeedbackScreen() {
                 category: 'general',
                 createdAt: serverTimestamp(),
             });
-            Alert.alert('Thank You!', 'Your feedback has been submitted successfully.');
+            Alert.alert(
+                'Thank You!', 
+                rating >= 4 
+                    ? 'Your feedback has been submitted successfully. Great reviews like yours may appear in our testimonials section!' 
+                    : 'Your feedback has been submitted successfully. We appreciate all feedback and will work to improve.'
+            );
             router.back(); 
         } catch (error) {
             console.error("Error submitting feedback: ", error);

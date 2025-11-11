@@ -1,12 +1,12 @@
-import React, { useState, useCallback, FC } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ActivityIndicator, TouchableOpacity, Alert, Modal, TextInput, Image, Dimensions, ScrollView, FlatList } from 'react-native';
-import { useRouter, useFocusEffect, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { getAuth, signOut, EmailAuthProvider, reauthenticateWithCredential, updatePassword } from 'firebase/auth';
-import { doc, getDoc, updateDoc, collection, query, where, getDocs } from 'firebase/firestore';
-import { db, /*storage*/ } from '../firebase';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import * as ImagePicker from 'expo-image-picker';
+import { Stack, useFocusEffect, useRouter } from 'expo-router';
+import { EmailAuthProvider, getAuth, reauthenticateWithCredential, signOut, updatePassword } from 'firebase/auth';
+import { collection, doc, getDoc, getDocs, query, updateDoc, where } from 'firebase/firestore';
+import React, { FC, useCallback, useState } from 'react';
+import { ActivityIndicator, Alert, Dimensions, Image, Modal, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { db } from '../firebase';
+import { uploadImageToCloudinary } from '../utils/cloudinary';
 
 const { width: screenWidth } = Dimensions.get('window');
 const guidelineBaseWidth = 375; 
@@ -101,6 +101,7 @@ export default function ProfileScreen() {
     const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [participatedEvents, setParticipatedEvents] = useState<Event[]>([]);
+    const [donationCount, setDonationCount] = useState(0);
     const [activeTab, setActiveTab] = useState('profile'); // 'profile' or 'events'
     const auth = getAuth();
     const user = auth.currentUser;
@@ -166,28 +167,57 @@ export default function ProfileScreen() {
         }
     }, [user]);
 
+    const fetchDonationCount = useCallback(async () => {
+        if (!user) return;
+        try {
+            // Query donations collection where donorId matches current user
+            const donationsQuery = query(
+                collection(db, 'donations'),
+                where('donorId', '==', user.uid)
+            );
+            const querySnapshot = await getDocs(donationsQuery);
+            setDonationCount(querySnapshot.size);
+            console.log(`User has ${querySnapshot.size} approved donations`);
+        } catch (error) {
+            console.error('Error fetching donation count:', error);
+        }
+    }, [user]);
+
     useFocusEffect(useCallback(() => { 
         fetchUserProfile(); 
         fetchParticipatedEvents();
-    }, [fetchUserProfile, fetchParticipatedEvents]));
+        fetchDonationCount();
+    }, [fetchUserProfile, fetchParticipatedEvents, fetchDonationCount]));
 
     const handleProfilePicChange = async () => {
         if (!user) return;
         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-        if (status !== 'granted') { Alert.alert('Permission Denied', 'We need permission to access your photos.'); return; }
-        let result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true, aspect: [1, 1], quality: 0.5, });
+        if (status !== 'granted') { 
+            Alert.alert('Permission Denied', 'We need permission to access your photos.'); 
+            return; 
+        }
+        let result = await ImagePicker.launchImageLibraryAsync({ 
+            mediaTypes: ImagePicker.MediaTypeOptions.Images, 
+            allowsEditing: true, 
+            aspect: [1, 1], 
+            quality: 0.5, 
+        });
         if (!result.canceled) {
             const uri = result.assets[0].uri;
             setIsUploading(true);
             try {
-                const response = await fetch(uri);
-                const blob = await response.blob();
-                // const storageRef = ref(storage, `profile_pictures/${user.uid}`);
-                // await uploadBytes(storageRef, blob);
-                // const downloadURL = await getDownloadURL(storageRef);
+                // Upload image to Cloudinary
+                const uploadResult = await uploadImageToCloudinary(uri, 'profile_pictures');
+                
+                if (!uploadResult.success) {
+                    Alert.alert('Upload Error', uploadResult.error || 'Failed to upload image');
+                    setIsUploading(false);
+                    return;
+                }
+
                 const userDocRef = doc(db, 'users', user.uid);
-                // await updateDoc(userDocRef, { profilePicUrl: downloadURL });
-                // setUserProfile(prev => prev ? { ...prev, profilePicUrl: downloadURL } : null);
+                await updateDoc(userDocRef, { profilePicUrl: uploadResult.url });
+                setUserProfile(prev => prev ? { ...prev, profilePicUrl: uploadResult.url } : null);
                 Alert.alert("Success", "Profile picture updated!");
             } catch (error) {
                 console.error("Error uploading image: ", error);
@@ -309,7 +339,7 @@ export default function ProfileScreen() {
                                 <View style={styles.statIconContainer}>
                                     <Ionicons name="heart" size={20} color="#FF6B6B" />
                                 </View>
-                                <Text style={styles.statValue}>0</Text>
+                                <Text style={styles.statValue}>{donationCount}</Text>
                                 <Text style={styles.statLabel}>Donations</Text>
                             </TouchableOpacity>
                         </View>

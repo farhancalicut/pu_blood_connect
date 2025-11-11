@@ -1,9 +1,11 @@
-import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ActivityIndicator, FlatList, TouchableOpacity, Alert, Dimensions } from 'react-native';
-import { useRouter, useFocusEffect } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { getAuth } from 'firebase/auth';
-import { doc, getDoc, collection, query, where, getDocs, updateDoc, increment, addDoc, serverTimestamp } from 'firebase/firestore';
+import { addDoc, collection, doc, getDoc, getDocs, increment, query, serverTimestamp, updateDoc, where } from 'firebase/firestore';
+import React, { useCallback, useState } from 'react';
+import { ActivityIndicator, Alert, Dimensions, FlatList, Image, Modal, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { db } from '../firebase';
+import { notifyCertificateGenerated } from '../utils/notifications';
 
 const { width: screenWidth } = Dimensions.get('window');
 const guidelineBaseWidth = 375; 
@@ -23,12 +25,18 @@ type Submission = {
     hospital: string;
 };
 
-const SubmissionCard = React.memo(({ item, onApprove, onReject, processingId }: { item: Submission, onApprove: () => void, onReject: () => void, processingId: string | null }) => (
+const SubmissionCard = React.memo(({ item, onApprove, onReject, processingId, onViewCertificate }: { 
+    item: Submission, 
+    onApprove: () => void, 
+    onReject: () => void, 
+    processingId: string | null,
+    onViewCertificate: () => void 
+}) => (
     <View style={styles.card}>
         <Text style={styles.cardTitle}>{item.donorName}</Text>
         <Text style={styles.cardText}>Units Donated: {item.confirmedUnits}</Text>
-        <TouchableOpacity onPress={() => Alert.alert("Certificate", "Viewing the certificate image will be implemented next.")}>
-            <Text style={styles.viewCertificateLink}>View Certificate</Text>
+        <TouchableOpacity onPress={onViewCertificate}>
+            <Text style={styles.viewCertificateLink}>View Certificate Image</Text>
         </TouchableOpacity>
         <View style={styles.buttonRow}>
             <TouchableOpacity
@@ -57,6 +65,8 @@ export default function AdminScreen() {
     const [isAdmin, setIsAdmin] = useState(false);
     const [submissions, setSubmissions] = useState<Submission[]>([]);
     const [processingId, setProcessingId] = useState<string | null>(null);
+    const [selectedCertificate, setSelectedCertificate] = useState<string | null>(null);
+    const [showCertificateModal, setShowCertificateModal] = useState(false);
 
     const checkAdminStatusAndFetchData = useCallback(async () => {
         setIsLoading(true);
@@ -104,7 +114,8 @@ export default function AdminScreen() {
             if (!donorDocSnap.exists()) {
                 throw new Error("Donor user profile not found!");
             }
-            const donorDepartment = donorDocSnap.data().department || 'N/A';
+            const donorData = donorDocSnap.data();
+            const donorDepartment = donorData.department || 'N/A';
 
             await updateDoc(offerDocRef, { status: 'completed' });
 
@@ -122,6 +133,21 @@ export default function AdminScreen() {
                 date: submission.confirmedDate,
                 createdAt: serverTimestamp(),
             });
+
+            // Send certificate notification
+            if (donorData.pushToken) {
+                try {
+                    const donorName = donorData.firstName || submission.donorName;
+                    await notifyCertificateGenerated(
+                        donorData.pushToken,
+                        submission.donorId,
+                        donorName,
+                        'Blood Donation'
+                    );
+                } catch (notifError) {
+                    console.error('Error sending certificate notification:', notifError);
+                }
+            }
 
             Alert.alert('Success', `${submission.donorName}'s donation has been approved.`);
             checkAdminStatusAndFetchData();
@@ -149,6 +175,15 @@ export default function AdminScreen() {
     if (isLoading) {
         return <ActivityIndicator style={{ flex: 1 }} size="large" color={palette.primaryRed} />;
     }
+
+    const handleViewCertificate = (certificateUrl: string) => {
+        if (certificateUrl) {
+            setSelectedCertificate(certificateUrl);
+            setShowCertificateModal(true);
+        } else {
+            Alert.alert('No Certificate', 'No certificate image available for this submission.');
+        }
+    };
     
     return (
         <SafeAreaView style={styles.safeArea}>
@@ -161,6 +196,7 @@ export default function AdminScreen() {
                         onApprove={() => handleApprove(item)}
                         onReject={() => handleReject(item)}
                         processingId={processingId}
+                        onViewCertificate={() => handleViewCertificate(item.certificateUrl)}
                     />
                 }
                 contentContainerStyle={styles.listContainer}
@@ -168,6 +204,36 @@ export default function AdminScreen() {
                 ListEmptyComponent={<Text style={styles.emptyText}>No credentials are waiting for approval.</Text>}
                 extraData={processingId}
             />
+
+            {/* Certificate Image Modal */}
+            <Modal
+                visible={showCertificateModal}
+                transparent={true}
+                animationType="fade"
+                onRequestClose={() => setShowCertificateModal(false)}
+            >
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContent}>
+                        <View style={styles.modalHeader}>
+                            <Text style={styles.modalTitle}>Certificate Image</Text>
+                            <TouchableOpacity onPress={() => setShowCertificateModal(false)}>
+                                <Ionicons name="close" size={scale(28)} color={palette.darkText} />
+                            </TouchableOpacity>
+                        </View>
+                        <ScrollView contentContainerStyle={styles.imageScrollContainer}>
+                            {selectedCertificate ? (
+                                <Image 
+                                    source={{ uri: selectedCertificate }} 
+                                    style={styles.certificateImage}
+                                    resizeMode="contain"
+                                />
+                            ) : (
+                                <Text style={styles.noImageText}>No image available</Text>
+                            )}
+                        </ScrollView>
+                    </View>
+                </View>
+            </Modal>
         </SafeAreaView>
     );
 }
@@ -228,5 +294,46 @@ const styles = StyleSheet.create({
         marginTop: scale(50), 
         color: palette.lightText, 
         fontSize: scale(16) 
-    }
+    },
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    modalContent: {
+        backgroundColor: palette.white,
+        borderRadius: scale(12),
+        width: '90%',
+        maxHeight: '80%',
+        overflow: 'hidden',
+    },
+    modalHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: scale(16),
+        borderBottomWidth: 1,
+        borderBottomColor: palette.borderLight,
+    },
+    modalTitle: {
+        fontSize: scale(18),
+        fontWeight: 'bold',
+        color: palette.darkText,
+    },
+    imageScrollContainer: {
+        padding: scale(16),
+        alignItems: 'center',
+    },
+    certificateImage: {
+        width: screenWidth * 0.8,
+        height: screenWidth * 1.2,
+        borderRadius: scale(8),
+    },
+    noImageText: {
+        fontSize: scale(14),
+        color: palette.lightText,
+        textAlign: 'center',
+        marginTop: scale(20),
+    },
 });

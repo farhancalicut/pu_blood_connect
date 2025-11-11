@@ -1,23 +1,23 @@
 import { Ionicons } from '@expo/vector-icons';
 import { differenceInDays } from 'date-fns';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { getAuth } from 'firebase/auth';
 import { arrayRemove, arrayUnion, collection, doc, getDoc, getDocs, limit, orderBy, query, updateDoc, where } from 'firebase/firestore';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
-  Dimensions,
-  FlatList,
-  Image,
-  ImageBackground,
-  SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View,
-  Animated,
+    ActivityIndicator,
+    Animated,
+    Dimensions,
+    FlatList,
+    Image,
+    ImageBackground,
+    Platform,
+    SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View,
 } from 'react-native';
 import * as Progress from 'react-native-progress';
 import Icon from 'react-native-vector-icons/FontAwesome5';
-import { LinearGradient } from 'expo-linear-gradient';
 import { db, firebaseApp } from '../firebase';
-import { Platform } from 'react-native';
 
 const { width: screenWidth } = Dimensions.get('window');
 const guidelineBaseWidth = 375;
@@ -26,7 +26,7 @@ const scale = (size: number) => (screenWidth / guidelineBaseWidth) * size;
 type UserProfile = { uid: string; lastname?: string; firstName?: string; department?: string; totalDonates?: number; lastDonated?: any; bloodGroup?: string; [key: string]: any; };
 type Donation = { id: string; donorName?: string; department?: string; bloodGroup?: string; [key:string]: any; };
 type DepartmentStat = { name: string; donorCount: number; totalUnits: number; };
-type Testimonial = { id: string; donorName: string; department: string; text: string; rating?: number; createdAt?: any; };
+type Testimonial = { id: string; donorName: string; department: string; text: string; rating?: number; createdAt?: any; profilePicUrl?: string; };
 type Event = { 
   id: string; 
   title: string; 
@@ -36,7 +36,6 @@ type Event = {
   joinedStudents?: string[];  // Array of user IDs who joined the event
   attendedStudents?: string[];  // Array of user IDs who actually attended
   qrCode?: string;  // QR code for attendance tracking
-  maxParticipants?: number;
   isActive?: boolean;
 };
 type CarouselItem = { type: 'banner'; id: string; } | (Event & { type: 'event' });
@@ -221,7 +220,11 @@ const TestimonialCard = ({ item }: { item: Testimonial }) => (
     <View style={styles.testimonialCard}>
       <View style={styles.cardHeader}>
         <View style={styles.cardAvatar}>
-            <Icon name="user-alt" size={scale(16)} color={palette.darkText} />
+            {item.profilePicUrl ? (
+                <Image source={{ uri: item.profilePicUrl }} style={styles.avatarImage} />
+            ) : (
+                <Icon name="user-alt" size={scale(16)} color={palette.darkText} />
+            )}
         </View>
         <View style={styles.cardHeaderText}>
             <Text style={styles.donorName}>{String(item.donorName)}</Text>
@@ -342,9 +345,57 @@ export default function DashboardScreen() {
       setTopDepartments(statsArray);
     };
     const fetchTestimonials = async () => {
-        const q = query(collection(db, 'testimonials'), orderBy('createdAt', 'desc'));
-        const snap = await getDocs(q);
-        setTestimonials(snap.docs.map(d => ({ id: d.id, ...d.data() } as Testimonial)));
+        try {
+            // Simplified query - get all feedback first, then filter in memory
+            const q = query(
+                collection(db, 'feedback'), 
+                orderBy('createdAt', 'desc'), 
+                limit(50) // Get more to have better selection after filtering
+            );
+            const snap = await getDocs(q);
+            
+            // Filter for high-rating feedback and map to testimonial format
+            const highRatingFeedback = await Promise.all(
+                snap.docs
+                    .map(d => ({ id: d.id, ...d.data() }))
+                    .filter((feedback: any) => feedback.rating >= 4) // Filter in memory
+                    .slice(0, 10) // Take top 10
+                    .map(async (feedback: any) => {
+                        // Fetch user profile picture if userId is available
+                        let profilePicUrl = '';
+                        if (feedback.userId) {
+                            try {
+                                const userDoc = await getDoc(doc(db, 'users', feedback.userId));
+                                if (userDoc.exists()) {
+                                    const userData = userDoc.data();
+                                    profilePicUrl = userData.profilePicUrl || '';
+                                    console.log(`Fetched profile pic for ${feedback.userName}: ${profilePicUrl ? 'Found' : 'Not found'}`);
+                                }
+                            } catch (error) {
+                                console.error('Error fetching user profile:', error);
+                            }
+                        } else {
+                            console.log(`No userId for feedback from ${feedback.userName}`);
+                        }
+                        
+                        return {
+                            id: feedback.id,
+                            donorName: feedback.userName || 'Anonymous',
+                            department: feedback.department || 'Unknown',
+                            text: feedback.comment || 'No comment provided',
+                            rating: feedback.rating || 5,
+                            createdAt: feedback.createdAt,
+                            profilePicUrl: profilePicUrl
+                        } as Testimonial;
+                    })
+            );
+            
+            setTestimonials(highRatingFeedback);
+        } catch (error) {
+            console.error('Error fetching testimonials:', error);
+            // Set empty array on error
+            setTestimonials([]);
+        }
     };
 
     const fetchUpcomingEvents = async () => {
@@ -445,17 +496,34 @@ export default function DashboardScreen() {
 
   // Auto-scroll for testimonials
   useEffect(() => {
+    // Reset active index when testimonials change
+    if (testimonials.length === 0) {
+      setActiveIndex(0);
+      return;
+    }
+    
+    // Ensure active index is within bounds
+    if (activeIndex >= testimonials.length) {
+      setActiveIndex(0);
+    }
+    
     if (!isTestimonialAutoScroll || testimonials.length <= 1) return;
 
     const startAutoScroll = () => {
       testimonialAutoScrollRef.current = setInterval(() => {
         setActiveIndex(prevIndex => {
+          // Safety check
+          if (testimonials.length === 0) return 0;
+          
           const nextIndex = (prevIndex + 1) % testimonials.length;
           
-          flatListRef.current?.scrollToIndex({
-            index: nextIndex,
-            animated: true,
-          });
+          // Only scroll if FlatList exists and index is valid
+          if (flatListRef.current && nextIndex >= 0 && nextIndex < testimonials.length) {
+            flatListRef.current?.scrollToIndex({
+              index: nextIndex,
+              animated: true,
+            });
+          }
           
           return nextIndex;
         });
@@ -469,7 +537,7 @@ export default function DashboardScreen() {
         clearInterval(testimonialAutoScrollRef.current);
       }
     };
-  }, [testimonials.length, isTestimonialAutoScroll]);
+  }, [testimonials.length, isTestimonialAutoScroll, activeIndex]);
 
   // Handle user touch - stop auto scroll
   const handleTestimonialTouchStart = () => {
@@ -487,24 +555,40 @@ export default function DashboardScreen() {
   };
 
   const scrollToNext = () => { 
+    if (testimonials.length === 0) return; // Safety check
+    
     setIsTestimonialAutoScroll(false); // Stop auto scroll when user manually navigates
-    if (activeIndex < testimonials.length - 1) {
-      flatListRef.current?.scrollToIndex({ index: activeIndex + 1 });
-    } else {
-      flatListRef.current?.scrollToIndex({ index: 0 }); // Loop to first
+    
+    const newIndex = activeIndex < testimonials.length - 1 ? activeIndex + 1 : 0;
+    
+    if (flatListRef.current && newIndex >= 0 && newIndex < testimonials.length) {
+      flatListRef.current?.scrollToIndex({ 
+        index: newIndex,
+        animated: true 
+      });
+      setActiveIndex(newIndex);
     }
+    
     setTimeout(() => {
       setIsTestimonialAutoScroll(true);
     }, 5000); // Resume after 5 seconds
   };
   
   const scrollToPrev = () => { 
+    if (testimonials.length === 0) return; // Safety check
+    
     setIsTestimonialAutoScroll(false); // Stop auto scroll when user manually navigates
-    if (activeIndex > 0) {
-      flatListRef.current?.scrollToIndex({ index: activeIndex - 1 });
-    } else {
-      flatListRef.current?.scrollToIndex({ index: testimonials.length - 1 }); // Loop to last
+    
+    const newIndex = activeIndex > 0 ? activeIndex - 1 : testimonials.length - 1;
+    
+    if (flatListRef.current && newIndex >= 0 && newIndex < testimonials.length) {
+      flatListRef.current?.scrollToIndex({ 
+        index: newIndex,
+        animated: true 
+      });
+      setActiveIndex(newIndex);
     }
+    
     setTimeout(() => {
       setIsTestimonialAutoScroll(true);
     }, 2000); // Resume after 5 seconds
@@ -801,28 +885,36 @@ export default function DashboardScreen() {
                     <Icon name="chevron-left" size={20} color={palette.white} />
                 </TouchableOpacity>
                 
-                <FlatList
-                    ref={flatListRef}
-                    data={testimonials}
-                    renderItem={({ item }) => <TestimonialCard item={item} />}
-                    keyExtractor={(item) => item.id}
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    onScroll={handleScroll}
-                    scrollEventThrottle={16}
-                    contentContainerStyle={{ paddingHorizontal: CARD_MARGIN }}
-                    snapToInterval={FULL_CARD_WIDTH} 
-                    decelerationRate="fast"
-                    onTouchStart={handleTestimonialTouchStart}
-                    onTouchEnd={handleTestimonialTouchEnd}
-                    onMomentumScrollEnd={() => {
-                      // When user finishes scrolling manually, stop auto scroll temporarily
-                      setIsTestimonialAutoScroll(false);
+                {testimonials.length > 0 ? (
+                  <FlatList
+                      ref={flatListRef}
+                      data={testimonials}
+                      renderItem={({ item }) => <TestimonialCard item={item} />}
+                      keyExtractor={(item) => item.id}
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                      onScroll={handleScroll}
+                      scrollEventThrottle={16}
+                      contentContainerStyle={{ paddingHorizontal: CARD_MARGIN }}
+                      snapToInterval={FULL_CARD_WIDTH} 
+                      decelerationRate="fast"
+                      onTouchStart={handleTestimonialTouchStart}
+                      onTouchEnd={handleTestimonialTouchEnd}
+                      onMomentumScrollEnd={() => {
+                        // When user finishes scrolling manually, stop auto scroll temporarily
+                        setIsTestimonialAutoScroll(false);
                       setTimeout(() => {
                         setIsTestimonialAutoScroll(true);
                       }, 5000);
                     }}
                 />
+                ) : (
+                  <View style={styles.emptyTestimonialContainer}>
+                    <Text style={styles.emptyTestimonialText}>
+                      No testimonials yet. Be the first to share your feedback!
+                    </Text>
+                  </View>
+                )}
 
                 <TouchableOpacity onPress={scrollToNext} style={styles.arrowButton}>
                     <Icon name="chevron-right" size={20} color={palette.white} />
@@ -915,10 +1007,13 @@ const styles = StyleSheet.create({
   testimonialCard: { width: CARD_WIDTH, backgroundColor: palette.white, borderRadius: scale(15), padding: scale(20), marginHorizontal: CARD_MARGIN_HORIZONTAL, elevation: 5, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 10 },
   cardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: scale(15) },
   cardAvatar: { width: scale(40), height: scale(40), borderRadius: scale(20), backgroundColor: palette.borderLight, justifyContent: 'center', alignItems: 'center', marginRight: scale(12) },
+  avatarImage: { width: scale(40), height: scale(40), borderRadius: scale(20) },
   cardHeaderText: { flex: 1 },
   donorName: { fontSize: scale(15), fontWeight: 'bold', color: palette.darkText },
   donorDepartment: { fontSize: scale(11), color: palette.statsRed },
   testimonialText: { fontSize: scale(14), color: palette.lightText, lineHeight: scale(22) },
+  emptyTestimonialContainer: { width: CARD_WIDTH, backgroundColor: palette.white, borderRadius: scale(15), padding: scale(30), marginHorizontal: CARD_MARGIN_HORIZONTAL, elevation: 5, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 10, justifyContent: 'center', alignItems: 'center' },
+  emptyTestimonialText: { fontSize: scale(16), color: palette.lightText, textAlign: 'center', fontStyle: 'italic' },
   
   listSection: { marginHorizontal: scale(15), backgroundColor: palette.cardBgLavender, padding: scale(20), borderRadius: scale(12), marginVertical: scale(7), elevation: 2, shadowColor: '#390000ff', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 8 },
   listHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: scale(15) },

@@ -1,12 +1,12 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, Image, ScrollView, SafeAreaView, ActivityIndicator, Platform, Dimensions } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { doc, updateDoc } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { db, /*storage*/ } from '../firebase';
-import * as ImagePicker from 'expo-image-picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import * as ImagePicker from 'expo-image-picker';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { doc, updateDoc } from 'firebase/firestore';
+import React, { useState } from 'react';
+import { ActivityIndicator, Alert, Dimensions, Image, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { db } from '../firebase';
+import { uploadImageToCloudinary } from '../utils/cloudinary';
 
 const { width: screenWidth } = Dimensions.get('window');
 const guidelineBaseWidth = 375;
@@ -36,7 +36,7 @@ export default function UploadCredentialScreen() {
             mediaTypes: ImagePicker.MediaTypeOptions.Images,
             allowsEditing: true,
             aspect: [4, 3],
-            quality: 1,
+            quality: 0.7, // Reduced quality to help keep file size under 500KB
         });
         if (!result.canceled) {
             setImageUri(result.assets[0].uri);
@@ -54,18 +54,22 @@ export default function UploadCredentialScreen() {
         }
         setIsUploading(true);
         try {
-            const response = await fetch(imageUri);
-            const blob = await response.blob();
-            // const storageRef = ref(storage, `certificates/${offerId}-${Date.now()}.jpg`);
-            // await uploadBytes(storageRef, blob);
-            // const downloadURL = await getDownloadURL(storageRef);
+            // Upload image to Cloudinary
+            const uploadResult = await uploadImageToCloudinary(imageUri, 'donation_certificates');
+            
+            if (!uploadResult.success) {
+                Alert.alert('Upload Error', uploadResult.error || 'Failed to upload image');
+                setIsUploading(false);
+                return;
+            }
+
             const offerDocRef = doc(db, 'donationOffers', offerId);
             await updateDoc(offerDocRef, {
                 status: 'credentials_submitted',
                 confirmedUnits: Number(units),
                 confirmedLocation: location,
                 confirmedDate: date,
-                // certificateUrl: downloadURL,
+                certificateUrl: uploadResult.url,
             });
             Alert.alert('Success!', 'Your credentials have been submitted for verification.');
             router.back();
@@ -95,14 +99,16 @@ export default function UploadCredentialScreen() {
                 <Text style={styles.label}>Hospital / Camp Location</Text>
                 <TextInput style={styles.input} value={location} onChangeText={setLocation} placeholder="Where did you donate?" />
 
-                <Text style={styles.label}>Upload Certificate</Text>
+                <Text style={styles.label}>Upload Certificate Image</Text>
+                <Text style={styles.sizeHint}>Please select an image under 500KB</Text>
                 <TouchableOpacity style={styles.imagePicker} onPress={pickImage}>
                     {imageUri ? (
                         <Image source={{ uri: imageUri }} style={styles.imagePreview} />
                     ) : (
                         <>
                             <Ionicons name="cloud-upload-outline" size={scale(32)} color={palette.lightText} />
-                            <Text style={styles.imagePickerText}>Select an image</Text>
+                            <Text style={styles.imagePickerText}>Tap to select certificate image</Text>
+                            <Text style={styles.imageSizeText}>(Max size: 500KB)</Text>
                         </>
                     )}
                 </TouchableOpacity>
@@ -126,6 +132,12 @@ const styles = StyleSheet.create({
         color: palette.lightText, 
         marginBottom: scale(8), 
         fontWeight: '500' 
+    },
+    sizeHint: {
+        fontSize: scale(12),
+        color: palette.primaryRed,
+        marginBottom: scale(8),
+        fontStyle: 'italic',
     },
     input: { 
         backgroundColor: palette.white, 
@@ -153,6 +165,11 @@ const styles = StyleSheet.create({
         color: palette.lightText, 
         marginTop: scale(10),
         fontSize: scale(14),
+    },
+    imageSizeText: {
+        color: palette.primaryRed,
+        marginTop: scale(4),
+        fontSize: scale(12),
     },
     imagePreview: { 
         width: '100%', 

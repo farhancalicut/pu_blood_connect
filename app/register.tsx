@@ -1,10 +1,12 @@
-import { useRouter, useNavigation } from 'expo-router';
-import { FirebaseError } from 'firebase/app';
-import { createUserWithEmailAndPassword, sendEmailVerification, signOut, getAuth } from 'firebase/auth';
-import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
-import React, { useState, useEffect, useRef } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, SafeAreaView, ActivityIndicator, Animated, TextStyle, KeyboardAvoidingView, Platform, Dimensions, TouchableWithoutFeedback, Keyboard } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
+import * as Device from 'expo-device';
+import * as Notifications from 'expo-notifications';
+import { useNavigation, useRouter } from 'expo-router';
+import { FirebaseError } from 'firebase/app';
+import { createUserWithEmailAndPassword, getAuth, sendEmailVerification, signOut } from 'firebase/auth';
+import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
+import React, { useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Alert, Animated, Dimensions, Keyboard, KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TextStyle, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
 import { db } from '../firebase';
 
 const { width: screenWidth } = Dimensions.get('window');
@@ -264,6 +266,26 @@ export default function RegisterScreen() {
         // Send email verification
         await sendEmailVerification(newUser);
 
+        // Get push notification token
+        let pushToken = null;
+        if (Device.isDevice) {
+          try {
+            const { status: existingStatus } = await Notifications.getPermissionsAsync();
+            let finalStatus = existingStatus;
+            if (existingStatus !== 'granted') {
+              const { status } = await Notifications.requestPermissionsAsync();
+              finalStatus = status;
+            }
+            if (finalStatus === 'granted') {
+              pushToken = (await Notifications.getExpoPushTokenAsync({
+                projectId: 'aab4fc2c-6891-4e42-a8c3-6207ef8a7683',
+              })).data;
+            }
+          } catch (error) {
+            console.log('Error getting push token:', error);
+          }
+        }
+
         // Create user profile in Firestore
         const newUserProfile: any = {
           firstName: form.firstName,
@@ -279,6 +301,7 @@ export default function RegisterScreen() {
           uid: newUser.uid,
           createdAt: new Date(),
           emailVerified: false, // Add this flag to track verification status
+          pushToken: pushToken, // Save push token
         };
         if (form.isNssVolunteer === 'Yes') {
           newUserProfile.nssStatus = 'pending';
@@ -289,6 +312,9 @@ export default function RegisterScreen() {
         // Sign out the user immediately after registration
         await signOut(getAuth());
         
+        // Clear loading state before showing alert
+        setIsLoading(false);
+        
         // Show success message and redirect to login
         Alert.alert(
           'Registration Successful!', 
@@ -296,37 +322,51 @@ export default function RegisterScreen() {
           [
             {
               text: 'OK',
-              onPress: () => router.replace('/login')
+              onPress: () => {
+                // Use setTimeout to ensure Alert is dismissed before navigation
+                setTimeout(() => {
+                  router.replace('/login');
+                }, 100);
+              }
             }
           ]
         );
+        return; // Exit early to prevent further execution
       }
     } catch (error: unknown) {
-    let message = 'An unknown error occurred. Please try again.';
+      console.error('Registration error:', error);
+      let message = 'An unknown error occurred. Please try again.';
 
-    if (error instanceof FirebaseError) {
-        switch (error.code) {
-            case 'auth/email-already-in-use':
-                message = 'This email address is already registered. Please try logging in.';
-                break;
-            case 'auth/invalid-email':
-                message = 'The email address you entered is not valid.';
-                break;
-            case 'auth/weak-password':
-                message = 'Your password is too weak. It must be at least 6 characters long.';
-                break;
-            case 'auth/network-request-failed':
-                message = 'Network error. Please check your internet connection and try again.';
-                break;
-            default:
-                message = 'Registration failed. Please check your information and try again.';
-        }
+      if (error instanceof FirebaseError) {
+          switch (error.code) {
+              case 'auth/email-already-in-use':
+                  message = 'This email address is already registered. Please try logging in.';
+                  break;
+              case 'auth/invalid-email':
+                  message = 'The email address you entered is not valid.';
+                  break;
+              case 'auth/weak-password':
+                  message = 'Your password is too weak. It must be at least 6 characters long.';
+                  break;
+              case 'auth/network-request-failed':
+                  message = 'Network error. Please check your internet connection and try again.';
+                  break;
+              case 'auth/operation-not-allowed':
+                  message = 'Email/password accounts are not enabled. Please contact support.';
+                  break;
+              case 'auth/too-many-requests':
+                  message = 'Too many failed attempts. Please try again later.';
+                  break;
+              default:
+                  message = `Registration failed: ${error.message}`;
+          }
+      }
+      
+      Alert.alert('Registration Failed', message);
+    } finally {
+      // Ensure loading state is always cleared
+      setIsLoading(false);
     }
-    Alert.alert('Registration Failed', message);
-
-} finally {
-    setIsLoading(false);
-}
   };
 
   

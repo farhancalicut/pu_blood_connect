@@ -1,12 +1,12 @@
-import React, { useState, useCallback, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, SafeAreaView, ActivityIndicator, TouchableOpacity, Image, Alert, Dimensions } from 'react-native';
-import { useRouter, useFocusEffect, useNavigation } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { collection, getDocs, query, orderBy, addDoc, serverTimestamp, doc, getDoc } from 'firebase/firestore';
-import { getAuth } from 'firebase/auth';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { db, /*storage*/ } from '../firebase';
 import * as ImagePicker from 'expo-image-picker';
+import { useFocusEffect, useNavigation, useRouter } from 'expo-router';
+import { getAuth } from 'firebase/auth';
+import { addDoc, collection, doc, getDoc, getDocs, orderBy, query, serverTimestamp } from 'firebase/firestore';
+import React, { useCallback, useEffect, useState } from 'react';
+import { ActivityIndicator, Alert, Dimensions, FlatList, Image, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { db } from '../firebase';
+import { uploadImageToCloudinary } from '../utils/cloudinary';
 
 const { width: screenWidth } = Dimensions.get('window');
 const guidelineBaseWidth = 375; 
@@ -63,7 +63,7 @@ export default function GalleryScreen() {
             mediaTypes: ImagePicker.MediaTypeOptions.Images,
             allowsEditing: true,
             aspect: [4, 4],
-            quality: 0.7,
+            quality: 0.6, // Reduced quality to help keep under 500KB
         });
 
         if (result.canceled) {
@@ -73,15 +73,20 @@ export default function GalleryScreen() {
         setIsUploading(true);
         try {
             const imageUri = result.assets[0].uri;
-            const response = await fetch(imageUri);
-            const blob = await response.blob();
-            // const storageRef = ref(storage, `gallery_images/${user.uid}-${Date.now()}.jpg`);
-            // await uploadBytes(storageRef, blob);
-            // const downloadURL = await getDownloadURL(storageRef);
+            
+            // Upload image to Cloudinary
+            const uploadResult = await uploadImageToCloudinary(imageUri, 'gallery_images');
+            
+            if (!uploadResult.success) {
+                Alert.alert('Upload Error', uploadResult.error || 'Failed to upload image');
+                setIsUploading(false);
+                return;
+            }
+            
             const userDoc = await getDoc(doc(db, 'users', user.uid));
             const uploaderName = userDoc.exists() ? (userDoc.data().name || `${userDoc.data().firstName} ${userDoc.data().lastName}`.trim()) : 'Anonymous';
             await addDoc(collection(db, 'galleryImages'), {
-                // imageUrl: downloadURL,
+                imageUrl: uploadResult.url,
                 caption: '',
                 uploaderId: user.uid,
                 uploaderName: uploaderName,

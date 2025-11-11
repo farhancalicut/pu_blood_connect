@@ -1,20 +1,31 @@
-import React, { useEffect, useState, useRef } from "react";
-import { Dimensions, Platform, StyleSheet, TouchableOpacity, View, ActivityIndicator, Animated as RNAnimated, Easing } from "react-native";
-import { Stack, useRouter, useSegments } from "expo-router";
-import { StatusBar } from "expo-status-bar";
-import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { onAuthStateChanged, getAuth } from "firebase/auth"; 
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
+import { Stack, useRouter, useSegments } from "expo-router";
+import { StatusBar } from "expo-status-bar";
+import { getAuth, onAuthStateChanged } from "firebase/auth";
+import React, { useEffect, useRef, useState } from "react";
+import { ActivityIndicator, Dimensions, Easing, Platform, Animated as RNAnimated, StyleSheet, TouchableOpacity, View } from "react-native";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 
+import { Ionicons } from '@expo/vector-icons';
+import RegularIcon from 'react-native-vector-icons/FontAwesome';
+import Icon from 'react-native-vector-icons/FontAwesome5';
+import { runReminderScheduler } from '../utils/reminderScheduler';
 import MenuContext, { useMenu } from "./context/MenuContext";
 import MenuBar from "./MenuBar";
-import Icon from 'react-native-vector-icons/FontAwesome5';
-import RegularIcon from 'react-native-vector-icons/FontAwesome';
-import { Ionicons } from '@expo/vector-icons';
 
 const { width } = Dimensions.get("window");
 
+// Configure how notifications are handled when app is in foreground
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
+  }),
+});
 
 async function registerForPushNotificationsAsync() {
   let token;
@@ -152,6 +163,48 @@ function AppStack() {
           headerShown: false
         }} 
       />
+      <Stack.Screen 
+        name="admin-hospitals" 
+        options={{ 
+          headerShown: false
+        }} 
+      />
+      <Stack.Screen 
+        name="admin-nss" 
+        options={{ 
+          headerShown: false
+        }} 
+      />
+      
+      {/* Hospital Screens */}
+      <Stack.Screen 
+        name="hospital-dashboard" 
+        options={{ 
+          headerShown: false
+        }} 
+      />
+      <Stack.Screen 
+        name="hospital-add-request" 
+        options={{ 
+          title: 'Add Blood Request',
+          headerTitleAlign: 'center'
+        }} 
+      />
+      <Stack.Screen 
+        name="hospital-my-requests" 
+        options={{ 
+          title: 'My Blood Requests',
+          headerTitleAlign: 'center'
+        }} 
+      />
+      <Stack.Screen 
+        name="hospital-request-details" 
+        options={{ 
+          title: 'Request Details',
+          headerTitleAlign: 'center'
+        }} 
+      />
+      
       <Stack.Screen name="certificate" options={{ title: 'Your Certificate', headerTitleAlign: 'center' }} />
       <Stack.Screen name="my-requests" options={{ title: 'My Requests', headerTitleAlign: 'center' }} />
       <Stack.Screen name="profile" options={{ title: 'My Profile', headerTitleAlign: 'center' }} />
@@ -181,6 +234,19 @@ export default function RootLayout() {
   const [userRole, setUserRole] = useState<string | null>(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   
+  // Set up reminder scheduler - runs every 10 minutes
+  useEffect(() => {
+    // Run immediately on app start
+    runReminderScheduler();
+    
+    // Then run every 10 minutes
+    const intervalId = setInterval(() => {
+      runReminderScheduler();
+    }, 10 * 60 * 1000); // 10 minutes
+    
+    return () => clearInterval(intervalId);
+  }, []);
+  
   // Close menu when navigating
   useEffect(() => {
     if (isMenuOpen) {
@@ -209,8 +275,8 @@ export default function RootLayout() {
         const role = userDoc.exists() ? userDoc.data().role : 'user';
         setUserRole(role);
         
-        // Check email verification only for regular users (not admins)
-        if (!user.emailVerified && role !== 'admin') {
+        // Check email verification only for regular users (not admins or hospitals)
+        if (!user.emailVerified && role !== 'admin' && role !== 'hospital') {
           // Email not verified for regular user - sign out and redirect to login
           const { signOut } = await import('firebase/auth');
           await signOut(getAuth());
@@ -226,6 +292,8 @@ export default function RootLayout() {
           // Coming from login/register page
           if (role === 'admin') {
             router.replace('/admin-dashboard');
+          } else if (role === 'hospital') {
+            router.replace('/hospital-dashboard');
           } else {
             router.replace('/dashboard');
           }
@@ -236,8 +304,11 @@ export default function RootLayout() {
           if (role === 'admin' && currentPage === 'dashboard') {
             // Admin on user dashboard - redirect to admin dashboard
             router.replace('/admin-dashboard');
-          } else if (role !== 'admin' && (currentPage === 'admin-dashboard' || currentPage?.startsWith('admin-'))) {
-            // Regular user on any admin page - redirect to user dashboard
+          } else if (role === 'hospital' && (currentPage === 'dashboard' || currentPage === 'admin-dashboard')) {
+            // Hospital on wrong dashboard - redirect to hospital dashboard
+            router.replace('/hospital-dashboard');
+          } else if (role !== 'admin' && role !== 'hospital' && (currentPage === 'admin-dashboard' || currentPage?.startsWith('admin-') || currentPage === 'hospital-dashboard' || currentPage?.startsWith('hospital-'))) {
+            // Regular user on any admin or hospital page - redirect to user dashboard
             router.replace('/dashboard');
           }
           // Don't redirect for other pages - let users navigate freely

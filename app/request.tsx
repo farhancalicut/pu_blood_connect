@@ -1,14 +1,22 @@
-import React, { useState, useEffect } from 'react';
-import {
-  View, Text, StyleSheet, TextInput, TouchableOpacity, Alert,
-  ActivityIndicator, KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, Switch, Dimensions
-} from 'react-native';
-import { useRouter } from 'expo-router';
-import { getAuth } from 'firebase/auth';
-import { collection, addDoc, serverTimestamp, doc, getDoc } from 'firebase/firestore';
-import { db } from '../firebase';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Picker } from '@react-native-picker/picker';
+import { useRouter } from 'expo-router';
+import { getAuth } from 'firebase/auth';
+import { addDoc, collection, doc, getDoc, serverTimestamp } from 'firebase/firestore';
+import React, { useEffect, useState } from 'react';
+import {
+    ActivityIndicator,
+    Alert,
+    Dimensions,
+    KeyboardAvoidingView, Platform, SafeAreaView, ScrollView,
+    StyleSheet,
+    Switch,
+    Text,
+    TextInput, TouchableOpacity,
+    View
+} from 'react-native';
+import { db } from '../firebase';
+import { notifyUsersAboutBloodRequest } from '../utils/notifications';
 
 const { width: screenWidth } = Dimensions.get('window');
 const guidelineBaseWidth = 375;
@@ -70,6 +78,20 @@ export default function RequestScreen() {
                 status: 'pending',
                 createdAt: serverTimestamp(),
             });
+            
+            // Send push notifications to users with matching blood group
+            try {
+                await notifyUsersAboutBloodRequest(
+                    bloodGroup,
+                    patientName,
+                    hospital,
+                    isCritical
+                );
+            } catch (notifError) {
+                console.error('Error sending notifications:', notifError);
+                // Don't fail the request submission if notifications fail
+            }
+            
             Alert.alert('Success', 'Your blood request has been sent.');
             router.back();
         } catch (error) {

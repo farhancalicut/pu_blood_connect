@@ -1,25 +1,27 @@
-import React, { useState, useRef, useEffect } from 'react';
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  Alert,
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  Animated,
-  TextInput,
-  Dimensions, 
-  TextStyle,
-  Modal,
-  SafeAreaView,
-} from 'react-native';
-import { db } from '../firebase';
-import { signInWithEmailAndPassword, signOut, getAuth, sendPasswordResetEmail } from 'firebase/auth';
+import * as Device from 'expo-device';
+import * as Notifications from 'expo-notifications';
 import { useRouter } from 'expo-router';
 import { FirebaseError } from 'firebase/app';
-import { getDoc, doc } from 'firebase/firestore';
+import { getAuth, sendPasswordResetEmail, signInWithEmailAndPassword, signOut } from 'firebase/auth';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import React, { useEffect, useRef, useState } from 'react';
+import {
+    ActivityIndicator,
+    Alert,
+    Animated,
+    Dimensions,
+    KeyboardAvoidingView,
+    Modal,
+    Platform,
+    SafeAreaView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TextStyle,
+    TouchableOpacity,
+    View,
+} from 'react-native';
+import { db } from '../firebase';
 
 const { width: screenWidth } = Dimensions.get('window');
 const guidelineBaseWidth = 375; 
@@ -108,36 +110,69 @@ export default function LoginScreen() {
     const userCredential = await signInWithEmailAndPassword(getAuth(), email.trim(), password);
     const user = userCredential.user;
 
+    // Get/Update push notification token
+    let pushToken = null;
+    if (Device.isDevice) {
+      try {
+        const { status: existingStatus } = await Notifications.getPermissionsAsync();
+        let finalStatus = existingStatus;
+        if (existingStatus !== 'granted') {
+          const { status } = await Notifications.requestPermissionsAsync();
+          finalStatus = status;
+        }
+        if (finalStatus === 'granted') {
+          pushToken = (await Notifications.getExpoPushTokenAsync({
+            projectId: 'aab4fc2c-6891-4e42-a8c3-6207ef8a7683',
+          })).data;
+        }
+      } catch (error) {
+        console.log('Error getting push token:', error);
+      }
+    }
+
     const userDocRef = doc(db, 'users', user.uid);
     const userDoc = await getDoc(userDocRef);
 
     if (userDoc.exists()) {
       const userData = userDoc.data();
-      const isAdmin = userData.role === 'admin';
       
-      if (isAdmin) {
+      // Update push token if available
+      if (pushToken) {
+        await updateDoc(userDocRef, { pushToken });
+      }
+      
+      const userRole = userData.role;
+      
+      if (userRole === 'admin') {
         // Admin user - allow login without email verification
         const firstName = userData.firstName || '';
         const lastName = userData.lastName || '';
-        Alert.alert('Success', `Welcome ${firstName} ${lastName}`.trim());
-        router.replace('/admin-dashboard');
+        Alert.alert('Success', `Welcome ${firstName} ${lastName}`.trim(), [
+          { text: 'OK', onPress: () => router.replace('/admin-dashboard') }
+        ]);
+      } else if (userRole === 'hospital') {
+        // Hospital user - redirect to hospital dashboard
+        const hospitalName = userData.hospitalName || 'Hospital';
+        Alert.alert('Success', `Welcome ${hospitalName}`, [
+          { text: 'OK', onPress: () => router.replace('/hospital-dashboard') }
+        ]);
       } else {
-        // Regular user - check email verification
+        // Regular student user - check email verification
         if (user.emailVerified) {
           const firstName = userData.firstName || '';
           const lastName = userData.lastName || '';
-          Alert.alert('Success', `Welcome ${firstName} ${lastName}`.trim());
-          router.replace('/dashboard');
+          Alert.alert('Success', `Welcome back, ${firstName} ${lastName}`.trim(), [
+            { text: 'OK', onPress: () => router.replace('/dashboard') }
+          ]);
         } else {
+          // Sign out unverified user
+          await signOut(getAuth());
           Alert.alert(
             'Email Verification Required',
             'Please check your email and click the verification link before logging in. If you haven\'t received the email, please check your spam folder.',
             [
               {
-                text: 'OK',
-                onPress: async () => {
-                  await signOut(getAuth());
-                }
+                text: 'OK'
               }
             ]
           );

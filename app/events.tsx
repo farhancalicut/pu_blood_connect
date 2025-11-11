@@ -1,10 +1,9 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Image, SafeAreaView, StyleSheet, Text, TouchableOpacity, View, Dimensions, Modal, ScrollView } from 'react-native';
-import { useFocusEffect, useNavigation, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { collection, deleteDoc, doc, getDoc, getDocs, orderBy, query, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
-import { deleteObject, ref } from 'firebase/storage';
+import { useFocusEffect, useNavigation, useRouter } from 'expo-router';
 import { getAuth } from 'firebase/auth';
+import { arrayRemove, arrayUnion, collection, deleteDoc, doc, getDoc, getDocs, orderBy, query, updateDoc } from 'firebase/firestore';
+import React, { useCallback, useEffect, useState } from 'react';
+import { ActivityIndicator, Alert, Dimensions, FlatList, Image, Modal, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { db, /*storage*/ } from '../firebase';
 
 const { width: screenWidth } = Dimensions.get('window');
@@ -24,7 +23,6 @@ type Event = {
     organizer?: string;
     contactNumber?: string;
     time?: string;
-    maxParticipants?: number;
     currentParticipants?: number;
     status?: string;
 };
@@ -346,10 +344,10 @@ export default function EventsScreen() {
                         {/* Modal Header */}
                         <View style={styles.modalHeader}>
                             <TouchableOpacity onPress={closeDetailModal} style={styles.closeButton}>
-                                <Ionicons name="close" size={28} color={palette.darkText} />
+                                <Ionicons name="close" size={24} color={palette.darkText} />
                             </TouchableOpacity>
                             <Text style={styles.modalHeaderTitle}>Event Details</Text>
-                            <View style={{ width: 28 }} />
+                            <View style={{ width: 36 }} />
                         </View>
 
                         {/* Modal Content */}
@@ -593,11 +591,11 @@ const styles = StyleSheet.create({
         backgroundColor: palette.white,
     },
     closeButton: {
-        padding: scale(10),
+        padding: scale(4),
         backgroundColor: '#f0f0f0',
         borderRadius: scale(20),
-        width: scale(40),
-        height: scale(40),
+        width: scale(36),
+        height: scale(36),
         justifyContent: 'center',
         alignItems: 'center',
     },
@@ -607,7 +605,7 @@ const styles = StyleSheet.create({
         color: palette.primaryRed,
         flex: 1,
         textAlign: 'center',
-        marginRight: scale(40), // Balance the close button
+        marginRight: scale(36), // Balance the close button
     },
     modalContent: {
         flex: 1,

@@ -1,32 +1,32 @@
-import React, { useState, useCallback, useEffect } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  SafeAreaView,
-  ScrollView,
-  TouchableOpacity,
-  Alert,
-  Dimensions,
-  ActivityIndicator,
-  FlatList,
-  RefreshControl
-} from 'react-native';
-import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { Picker } from '@react-native-picker/picker';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { getAuth } from 'firebase/auth';
 import {
-  doc,
-  getDoc,
-  collection,
-  getDocs,
-  query,
-  orderBy,
-  where,
-  updateDoc
+    collection,
+    doc,
+    getDoc,
+    getDocs,
+    orderBy,
+    query,
+    updateDoc,
+    where
 } from 'firebase/firestore';
+import React, { useCallback, useState } from 'react';
+import {
+    ActivityIndicator,
+    Alert,
+    Dimensions,
+    FlatList,
+    RefreshControl,
+    SafeAreaView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View
+} from 'react-native';
 import { db } from '../firebase';
-import { Picker } from '@react-native-picker/picker';
+import { notifyNSSApproval } from '../utils/notifications';
 
 const { width: screenWidth } = Dimensions.get('window');
 const guidelineBaseWidth = 375;
@@ -147,9 +147,23 @@ export default function AdminNSSScreen() {
   const handleApprove = async (studentId: string) => {
     setProcessingIds(prev => new Set(prev).add(studentId));
     try {
+      // Get student data first
+      const studentDoc = await getDoc(doc(db, 'users', studentId));
+      const studentData = studentDoc.data();
+      
       await updateDoc(doc(db, 'users', studentId), {
         nssStatus: 'approved'
       });
+      
+      // Send notification to student
+      if (studentData?.pushToken) {
+        try {
+          const studentName = studentData.firstName || 'Student';
+          await notifyNSSApproval(studentData.pushToken, studentId, studentName, true);
+        } catch (notifError) {
+          console.error('Error sending NSS approval notification:', notifError);
+        }
+      }
       
       Alert.alert('Success', 'Student approved successfully!');
       await fetchNSSStudents();
@@ -177,9 +191,23 @@ export default function AdminNSSScreen() {
           onPress: async () => {
             setProcessingIds(prev => new Set(prev).add(studentId));
             try {
+              // Get student data first
+              const studentDoc = await getDoc(doc(db, 'users', studentId));
+              const studentData = studentDoc.data();
+              
               await updateDoc(doc(db, 'users', studentId), {
                 nssStatus: 'rejected'
               });
+              
+              // Send notification to student
+              if (studentData?.pushToken) {
+                try {
+                  const studentName = studentData.firstName || 'Student';
+                  await notifyNSSApproval(studentData.pushToken, studentId, studentName, false);
+                } catch (notifError) {
+                  console.error('Error sending NSS rejection notification:', notifError);
+                }
+              }
               
               Alert.alert('Success', 'Student application rejected.');
               await fetchNSSStudents();
