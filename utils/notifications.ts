@@ -29,7 +29,6 @@ export async function sendPushNotification(expoPushTokens: string[], title: stri
         });
 
         const result = await response.json();
-        console.log('Push notification sent:', result);
         return result;
     } catch (error) {
         console.error('Error sending push notification:', error);
@@ -137,8 +136,6 @@ export async function notifyUsersAboutBloodRequest(
             hospital,
             isCritical
         });
-
-        console.log(`Sent blood request notification to ${tokens.length} users`);
     } catch (error) {
         console.error('Error notifying users about blood request:', error);
     }
@@ -166,8 +163,6 @@ export async function notifyUsersAboutNewEvent(
             eventDate,
             location
         });
-
-        console.log(`Sent event notification to ${tokens.length} users`);
     } catch (error) {
         console.error('Error notifying users about event:', error);
     }
@@ -221,8 +216,6 @@ export async function sendEventReminder(
             location,
             eventId
         });
-
-        console.log(`Sent event reminder to ${tokens.length} users`);
     } catch (error) {
         console.error('Error sending event reminder:', error);
     }

@@ -1,0 +1,16 @@
+⚠️ IMPORTANT: DO NOT CREATE index.html IN THIS FOLDER ⚠️
+
+Expo automatically generates index.html with proper script tags for the React Native web bundle.
+
+If you create a custom index.html file, it will NOT have the required <script> tags,
+causing a WHITE SCREEN issue.
+
+✅ SOLUTION: Let Expo auto-generate index.html
+❌ DO NOT: Manually create or edit public/index.html
+
+If index.html appears and causes white screen:
+1. Delete it: Remove-Item "public\index.html" -Force
+2. Clear browser cache: Ctrl+Shift+Delete
+3. Hard refresh: Ctrl+F5
+
+The app will work correctly without a custom index.html file.

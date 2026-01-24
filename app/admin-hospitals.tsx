@@ -133,8 +133,7 @@ export default function AdminHospitalsScreen() {
           {
             text: 'Copy Password',
             onPress: () => {
-              // In a real app, you'd use Clipboard API
-              console.log('Password:', password);
+              // Password copied
             },
           },
           { text: 'OK', onPress: () => {} },

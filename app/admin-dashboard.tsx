@@ -1,43 +1,44 @@
-import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect, useRouter } from 'expo-router';
-import { getAuth, signOut } from 'firebase/auth';
+import { Ionicons } from "@expo/vector-icons";
+import { useFocusEffect, useRouter } from "expo-router";
+import { getAuth, signOut } from "firebase/auth";
 import {
     collection,
     doc,
     getDoc,
     getDocs,
     query,
-    where
-} from 'firebase/firestore';
-import React, { useCallback, useState } from 'react';
+    where,
+} from "firebase/firestore";
+import React, { useCallback, useState } from "react";
 import {
     ActivityIndicator,
     Alert,
     Dimensions,
+    Platform,
     SafeAreaView,
     ScrollView,
     StatusBar,
     StyleSheet,
     Text,
     TouchableOpacity,
-    View
-} from 'react-native';
-import { db } from '../firebase';
+    View,
+} from "react-native";
+import { db } from "../firebase";
 
-const { width: screenWidth } = Dimensions.get('window');
+const { width: screenWidth } = Dimensions.get("window");
 const guidelineBaseWidth = 375;
 const scale = (size: number) => (screenWidth / guidelineBaseWidth) * size;
 
 const palette = {
-  primary: '#9B0000',
-  secondary: '#F8FAFC',
-  white: '#FFFFFF',
-  text: '#333333',
-  lightText: '#8A8A8A',
-  border: '#EAEAEA',
-  success: '#28a745',
-  warning: '#ffc107',
-  background: '#F7F7F7'
+  primary: "#9B0000",
+  secondary: "#F8FAFC",
+  white: "#FFFFFF",
+  text: "#333333",
+  lightText: "#8A8A8A",
+  border: "#EAEAEA",
+  success: "#28a745",
+  warning: "#ffc107",
+  background: "#F7F7F7",
 };
 
 type DashboardStats = {
@@ -51,21 +52,61 @@ type DashboardStats = {
 };
 
 type QuickActionItem = {
-  icon: React.ComponentProps<typeof Ionicons>['name'];
+  icon: React.ComponentProps<typeof Ionicons>["name"];
   title: string;
   route: string;
   color: string;
 };
 
 const quickActions: QuickActionItem[] = [
-  { icon: 'people-outline', title: 'Manage Users', route: '/admin-users', color: '#4A90E2' },
-  { icon: 'checkmark-circle-outline', title: 'Pending Approvals', route: '/admin', color: '#F5A623' },
-  { icon: 'shield-outline', title: 'NSS Management', route: '/admin-nss', color: '#8E44AD' },
-  { icon: 'calendar-outline', title: 'Manage Events', route: '/admin-events', color: '#7ED321' },
-  { icon: 'business-outline', title: 'Manage Hospitals', route: '/admin-hospitals', color: '#E91E63' },
-  { icon: 'location-outline', title: 'Blood Banks', route: '/admin-blood-banks', color: '#D0021B' },
-  { icon: 'document-text-outline', title: 'Donations', route: '/admin-donations', color: '#9013FE' },
-  { icon: 'chatbox-ellipses-outline', title: 'Feedback', route: '/admin-feedback', color: '#50E3C2' }
+  {
+    icon: "people-outline",
+    title: "Manage Users",
+    route: "/admin-users",
+    color: "#4A90E2",
+  },
+  {
+    icon: "checkmark-circle-outline",
+    title: "Pending Approvals",
+    route: "/admin",
+    color: "#F5A623",
+  },
+  {
+    icon: "shield-outline",
+    title: "NSS Management",
+    route: "/admin-nss",
+    color: "#8E44AD",
+  },
+  {
+    icon: "calendar-outline",
+    title: "Manage Events",
+    route: "/admin-events",
+    color: "#7ED321",
+  },
+  {
+    icon: "business-outline",
+    title: "Manage Hospitals",
+    route: "/admin-hospitals",
+    color: "#E91E63",
+  },
+  {
+    icon: "location-outline",
+    title: "Blood Banks",
+    route: "/admin-blood-banks",
+    color: "#D0021B",
+  },
+  {
+    icon: "document-text-outline",
+    title: "Donations",
+    route: "/admin-donations",
+    color: "#9013FE",
+  },
+  {
+    icon: "chatbox-ellipses-outline",
+    title: "Feedback",
+    route: "/admin-feedback",
+    color: "#50E3C2",
+  },
 ];
 
 export default function AdminDashboardScreen() {
@@ -79,55 +120,69 @@ export default function AdminDashboardScreen() {
     pendingApprovals: 0,
     recentDonors: 0,
     pendingNSS: 0,
-    approvedNSS: 0
+    approvedNSS: 0,
   });
-  const [adminName, setAdminName] = useState('');
+  const [adminName, setAdminName] = useState("");
 
   const checkAdminAndFetchStats = useCallback(async () => {
     setIsLoading(true);
     try {
       const auth = getAuth();
       const user = auth.currentUser;
-      
+
       if (!user) {
-        router.replace('/login');
+        router.replace("/login");
         return;
       }
 
       // Check if user is admin
-      const userDocRef = doc(db, 'users', user.uid);
+      const userDocRef = doc(db, "users", user.uid);
       const userDoc = await getDoc(userDocRef);
-      
-      if (!userDoc.exists() || userDoc.data()?.role !== 'admin') {
+
+      if (!userDoc.exists() || userDoc.data()?.role !== "admin") {
         Alert.alert("Access Denied", "You do not have admin privileges.");
-        router.replace('/dashboard');
+        router.replace("/dashboard");
         return;
       }
 
       setIsAdmin(true);
       const userData = userDoc.data();
-      setAdminName(`${userData.firstName || ''} ${userData.lastName || ''}`.trim() || 'Admin');
+      setAdminName(
+        `${userData.firstName || ""} ${userData.lastName || ""}`.trim() ||
+          "Admin",
+      );
 
       // Fetch dashboard statistics
-      const [usersSnap, donationsSnap, eventsSnap, pendingSnap, nssUsersSnap] = await Promise.all([
-        getDocs(collection(db, 'users')),
-        getDocs(collection(db, 'donations')),
-        getDocs(collection(db, 'events')),
-        getDocs(query(collection(db, 'donationOffers'), where('status', '==', 'credentials_submitted'))),
-        getDocs(query(collection(db, 'users'), where('isNssVolunteer', '==', 'Yes')))
-      ]);
+      const [usersSnap, donationsSnap, eventsSnap, pendingSnap, nssUsersSnap] =
+        await Promise.all([
+          getDocs(collection(db, "users")),
+          getDocs(collection(db, "donations")),
+          getDocs(collection(db, "events")),
+          getDocs(
+            query(
+              collection(db, "donationOffers"),
+              where("status", "==", "credentials_submitted"),
+            ),
+          ),
+          getDocs(
+            query(
+              collection(db, "users"),
+              where("isNssVolunteer", "==", "Yes"),
+            ),
+          ),
+        ]);
 
       const totalDonationsCount = donationsSnap.docs.reduce((sum, doc) => {
         return sum + (doc.data().units || 0);
       }, 0);
 
       // Count NSS students by status
-      const nssStudents = nssUsersSnap.docs.map(doc => doc.data());
-      const pendingNSSCount = nssStudents.filter(student => 
-        student.nssStatus === 'pending' || !student.nssStatus
+      const nssStudents = nssUsersSnap.docs.map((doc) => doc.data());
+      const pendingNSSCount = nssStudents.filter(
+        (student) => student.nssStatus === "pending" || !student.nssStatus,
       ).length;
-      const approvedNSSCount = nssStudents.filter(student => 
-        student.nssStatus === 'approved'
+      const approvedNSSCount = nssStudents.filter(
+        (student) => student.nssStatus === "approved",
       ).length;
 
       setStats({
@@ -137,12 +192,11 @@ export default function AdminDashboardScreen() {
         pendingApprovals: pendingSnap.size,
         recentDonors: donationsSnap.size,
         pendingNSS: pendingNSSCount,
-        approvedNSS: approvedNSSCount
+        approvedNSS: approvedNSSCount,
       });
-
     } catch (error) {
-      console.error('Error fetching admin data:', error);
-      Alert.alert('Error', 'Failed to load admin dashboard.');
+      console.error("Error fetching admin data:", error);
+      Alert.alert("Error", "Failed to load admin dashboard.");
     } finally {
       setIsLoading(false);
     }
@@ -151,25 +205,39 @@ export default function AdminDashboardScreen() {
   useFocusEffect(
     useCallback(() => {
       checkAdminAndFetchStats();
-    }, [checkAdminAndFetchStats])
+    }, [checkAdminAndFetchStats]),
   );
 
   const handleLogout = async () => {
-    Alert.alert(
-      'Logout',
-      'Are you sure you want to logout?',
-      [
-        { text: 'Cancel', style: 'cancel' },
+    if (Platform.OS === "web") {
+      // Use window.confirm for web
+      const confirmed = window.confirm("Are you sure you want to logout?");
+      if (confirmed) {
+        try {
+          await signOut(getAuth());
+          // Use window.location for more reliable navigation on web
+          if (Platform.OS === "web") {
+            window.location.href = "/login";
+          } else {
+            router.replace("/login");
+          }
+        } catch (error) {
+          console.error("Logout error:", error);
+        }
+      }
+    } else {
+      Alert.alert("Logout", "Are you sure you want to logout?", [
+        { text: "Cancel", style: "cancel" },
         {
-          text: 'Logout',
-          style: 'destructive',
+          text: "Logout",
+          style: "destructive",
           onPress: async () => {
             await signOut(getAuth());
-            router.replace('/login');
-          }
-        }
-      ]
-    );
+            router.replace("/login");
+          },
+        },
+      ]);
+    }
   };
 
   const handleQuickAction = (route: string) => {
@@ -179,9 +247,9 @@ export default function AdminDashboardScreen() {
   if (isLoading) {
     return (
       <View style={styles.container}>
-        <StatusBar 
-          barStyle="dark-content" 
-          backgroundColor={palette.white} 
+        <StatusBar
+          barStyle="dark-content"
+          backgroundColor={palette.white}
           translucent={false}
         />
         <SafeAreaView style={styles.safeArea}>
@@ -200,9 +268,9 @@ export default function AdminDashboardScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar 
-        barStyle="dark-content" 
-        backgroundColor={palette.white} 
+      <StatusBar
+        barStyle="dark-content"
+        backgroundColor={palette.white}
         translucent={false}
       />
       <SafeAreaView style={styles.safeArea}>
@@ -213,108 +281,120 @@ export default function AdminDashboardScreen() {
             <Text style={styles.adminName}>{adminName}</Text>
           </View>
           <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
-            <Ionicons name="log-out-outline" size={scale(24)} color={palette.primary} />
+            <Ionicons
+              name="log-out-outline"
+              size={scale(24)}
+              color={palette.primary}
+            />
           </TouchableOpacity>
         </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Statistics Cards */}
-        <View style={styles.statsContainer}>
-          <View style={styles.statsGrid}>
-            <View style={styles.statCard}>
-              <Ionicons name="people" size={scale(24)} color={palette.primary} />
-              <Text style={styles.statNumber}>{stats.totalUsers}</Text>
-              <Text style={styles.statLabel}>Total Users</Text>
-            </View>
-            
-            <View style={styles.statCard}>
-              <Ionicons name="water" size={scale(24)} color={palette.success} />
-              <Text style={styles.statNumber}>{stats.totalDonations}</Text>
-              <Text style={styles.statLabel}>Total Donations</Text>
-            </View>
-            
-            <View style={styles.statCard}>
-              <Ionicons name="calendar" size={scale(24)} color={palette.warning} />
-              <Text style={styles.statNumber}>{stats.totalEvents}</Text>
-              <Text style={styles.statLabel}>Events</Text>
-            </View>
-            
-            <View style={styles.statCard}>
-              <Ionicons name="time" size={scale(24)} color="#FF6B6B" />
-              <Text style={styles.statNumber}>{stats.pendingApprovals}</Text>
-              <Text style={styles.statLabel}>Pending Approvals</Text>
-            </View>
-            
-            <View style={styles.statCard}>
-              <Ionicons name="shield" size={scale(24)} color="#8E44AD" />
-              <Text style={styles.statNumber}>{stats.pendingNSS}</Text>
-              <Text style={styles.statLabel}>Pending NSS</Text>
-            </View>
-            
-            <View style={styles.statCard}>
-              <Ionicons name="shield-checkmark" size={scale(24)} color="#27AE60" />
-              <Text style={styles.statNumber}>{stats.approvedNSS}</Text>
-              <Text style={styles.statLabel}>Approved NSS</Text>
-            </View>
-          </View>
-        </View>
+        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+          {/* Statistics Cards */}
+          <View style={styles.statsContainer}>
+            <View style={styles.statsGrid}>
+              <View style={styles.statCard}>
+                <Ionicons
+                  name="people"
+                  size={scale(24)}
+                  color={palette.primary}
+                />
+                <Text style={styles.statNumber}>{stats.totalUsers}</Text>
+                <Text style={styles.statLabel}>Total Users</Text>
+              </View>
 
-        {/* Quick Actions */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Quick Actions</Text>
-          <View style={styles.quickActionsGrid}>
-            {quickActions.map((action, index) => (
-              <TouchableOpacity
-                key={index}
-                style={[styles.quickActionCard, { borderLeftColor: action.color }]}
-                onPress={() => handleQuickAction(action.route)}
-              >
-                <Ionicons name={action.icon} size={scale(24)} color={action.color} />
-                <Text style={styles.quickActionText}>{action.title}</Text>
-                <Ionicons name="chevron-forward" size={scale(16)} color={palette.lightText} />
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
+              <View style={styles.statCard}>
+                <Ionicons
+                  name="water"
+                  size={scale(24)}
+                  color={palette.success}
+                />
+                <Text style={styles.statNumber}>{stats.totalDonations}</Text>
+                <Text style={styles.statLabel}>Total Donations</Text>
+              </View>
 
-        {/* System Status */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>System Status</Text>
-          <View style={styles.statusCard}>
-            <View style={styles.statusItem}>
-              <View style={[styles.statusIndicator, { backgroundColor: palette.success }]} />
-              <Text style={styles.statusText}>Database Connected</Text>
-            </View>
-            <View style={styles.statusItem}>
-              <View style={[styles.statusIndicator, { backgroundColor: palette.success }]} />
-              <Text style={styles.statusText}>Authentication Service</Text>
-            </View>
-            <View style={styles.statusItem}>
-              <View style={[styles.statusIndicator, { backgroundColor: palette.success }]} />
-              <Text style={styles.statusText}>Push Notifications</Text>
-            </View>
-          </View>
-        </View>
+              <View style={styles.statCard}>
+                <Ionicons
+                  name="calendar"
+                  size={scale(24)}
+                  color={palette.warning}
+                />
+                <Text style={styles.statNumber}>{stats.totalEvents}</Text>
+                <Text style={styles.statLabel}>Events</Text>
+              </View>
 
-        {/* Recent Activity Summary */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Quick Overview</Text>
-          <View style={styles.overviewCard}>
-            <Text style={styles.overviewText}>
-              • {stats.recentDonors} total donations recorded
-            </Text>
-            <Text style={styles.overviewText}>
-              • {stats.pendingApprovals} donations awaiting approval
-            </Text>
-            <Text style={styles.overviewText}>
-              • {stats.totalEvents} events scheduled
-            </Text>
-            <Text style={styles.overviewText}>
-              • {stats.totalUsers} registered users
-            </Text>
+              <View style={styles.statCard}>
+                <Ionicons name="time" size={scale(24)} color="#FF6B6B" />
+                <Text style={styles.statNumber}>{stats.pendingApprovals}</Text>
+                <Text style={styles.statLabel}>Pending Approvals</Text>
+              </View>
+
+              <View style={styles.statCard}>
+                <Ionicons name="shield" size={scale(24)} color="#8E44AD" />
+                <Text style={styles.statNumber}>{stats.pendingNSS}</Text>
+                <Text style={styles.statLabel}>Pending NSS</Text>
+              </View>
+
+              <View style={styles.statCard}>
+                <Ionicons
+                  name="shield-checkmark"
+                  size={scale(24)}
+                  color="#27AE60"
+                />
+                <Text style={styles.statNumber}>{stats.approvedNSS}</Text>
+                <Text style={styles.statLabel}>Approved NSS</Text>
+              </View>
+            </View>
           </View>
-        </View>
-      </ScrollView>
+
+          {/* Quick Actions */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Quick Actions</Text>
+            <View style={styles.quickActionsGrid}>
+              {quickActions.map((action, index) => (
+                <TouchableOpacity
+                  key={index}
+                  style={[
+                    styles.quickActionCard,
+                    { borderLeftColor: action.color },
+                  ]}
+                  onPress={() => handleQuickAction(action.route)}
+                >
+                  <Ionicons
+                    name={action.icon}
+                    size={scale(24)}
+                    color={action.color}
+                  />
+                  <Text style={styles.quickActionText}>{action.title}</Text>
+                  <Ionicons
+                    name="chevron-forward"
+                    size={scale(16)}
+                    color={palette.lightText}
+                  />
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+
+          {/* Recent Activity Summary */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Quick Overview</Text>
+            <View style={styles.overviewCard}>
+              <Text style={styles.overviewText}>
+                • {stats.recentDonors} total donations recorded
+              </Text>
+              <Text style={styles.overviewText}>
+                • {stats.pendingApprovals} donations awaiting approval
+              </Text>
+              <Text style={styles.overviewText}>
+                • {stats.totalEvents} events scheduled
+              </Text>
+              <Text style={styles.overviewText}>
+                • {stats.totalUsers} registered users
+              </Text>
+            </View>
+          </View>
+        </ScrollView>
       </SafeAreaView>
     </View>
   );
@@ -330,8 +410,8 @@ const styles = StyleSheet.create({
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   loadingText: {
     marginTop: scale(16),
@@ -339,9 +419,9 @@ const styles = StyleSheet.create({
     color: palette.text,
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingHorizontal: scale(20),
     paddingVertical: scale(16),
     backgroundColor: palette.white,
@@ -354,7 +434,7 @@ const styles = StyleSheet.create({
   },
   adminName: {
     fontSize: scale(20),
-    fontWeight: 'bold',
+    fontWeight: "bold",
     color: palette.text,
   },
   logoutButton: {
@@ -368,18 +448,18 @@ const styles = StyleSheet.create({
     paddingTop: scale(20),
   },
   statsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
   },
   statCard: {
-    width: '48%',
+    width: "48%",
     backgroundColor: palette.white,
     padding: scale(16),
     borderRadius: scale(12),
-    alignItems: 'center',
+    alignItems: "center",
     marginBottom: scale(16),
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -387,7 +467,7 @@ const styles = StyleSheet.create({
   },
   statNumber: {
     fontSize: scale(24),
-    fontWeight: 'bold',
+    fontWeight: "bold",
     color: palette.text,
     marginTop: scale(8),
   },
@@ -395,7 +475,7 @@ const styles = StyleSheet.create({
     fontSize: scale(12),
     color: palette.lightText,
     marginTop: scale(4),
-    textAlign: 'center',
+    textAlign: "center",
   },
   section: {
     paddingHorizontal: scale(20),
@@ -403,7 +483,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: scale(18),
-    fontWeight: 'bold',
+    fontWeight: "bold",
     color: palette.text,
     marginBottom: scale(16),
   },
@@ -411,13 +491,13 @@ const styles = StyleSheet.create({
     gap: scale(12),
   },
   quickActionCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     backgroundColor: palette.white,
     padding: scale(16),
     borderRadius: scale(12),
     borderLeftWidth: scale(4),
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -428,38 +508,13 @@ const styles = StyleSheet.create({
     fontSize: scale(16),
     color: palette.text,
     marginLeft: scale(12),
-    fontWeight: '500',
-  },
-  statusCard: {
-    backgroundColor: palette.white,
-    padding: scale(16),
-    borderRadius: scale(12),
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  statusItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: scale(8),
-  },
-  statusIndicator: {
-    width: scale(8),
-    height: scale(8),
-    borderRadius: scale(4),
-    marginRight: scale(12),
-  },
-  statusText: {
-    fontSize: scale(14),
-    color: palette.text,
+    fontWeight: "500",
   },
   overviewCard: {
     backgroundColor: palette.white,
     padding: scale(16),
     borderRadius: scale(12),
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,

@@ -177,7 +177,6 @@ export default function ProfileScreen() {
             );
             const querySnapshot = await getDocs(donationsQuery);
             setDonationCount(querySnapshot.size);
-            console.log(`User has ${querySnapshot.size} approved donations`);
         } catch (error) {
             console.error('Error fetching donation count:', error);
         }

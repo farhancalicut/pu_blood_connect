@@ -113,7 +113,6 @@ export default function NotificationsScreen() {
                     batch.update(notificationDoc.ref, { read: true });
                 });
                 await batch.commit();
-                console.log(`Marked ${unreadNotifications.length} notifications as read`);
             }
         } catch (error) {
             console.error("Error fetching notifications:", error);

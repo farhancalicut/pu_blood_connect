@@ -322,6 +322,18 @@ export default function AdminNSSScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity 
+          style={styles.backButton}
+          onPress={() => router.push('/admin-dashboard')}
+        >
+          <Ionicons name="arrow-back" size={24} color={palette.primary} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>NSS Management</Text>
+        <View style={styles.headerSpacer} />
+      </View>
+
       {/* Tabs */}
       <View style={styles.tabContainer}>
         <TouchableOpacity
@@ -394,6 +406,27 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: palette.background,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: scale(20),
+    paddingVertical: scale(15),
+    backgroundColor: palette.white,
+    borderBottomWidth: 1,
+    borderBottomColor: palette.border,
+  },
+  backButton: {
+    padding: scale(5),
+  },
+  headerTitle: {
+    fontSize: scale(18),
+    fontWeight: '600',
+    color: palette.text,
+  },
+  headerSpacer: {
+    width: scale(34), // Same width as back button to center title
   },
   loadingContainer: {
     flex: 1,

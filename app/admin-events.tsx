@@ -2,37 +2,35 @@ import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
-import * as Sharing from 'expo-sharing';
 import { getAuth, onAuthStateChanged, User } from 'firebase/auth';
 import {
-    addDoc,
-    collection,
-    deleteDoc,
-    doc,
-    getDoc,
-    getDocs,
-    orderBy,
-    query,
-    serverTimestamp,
-    updateDoc
+  addDoc,
+  collection,
+  deleteDoc,
+  doc,
+  getDoc,
+  getDocs,
+  orderBy,
+  query,
+  serverTimestamp,
+  updateDoc
 } from 'firebase/firestore';
+import * as htmlToImage from 'html-to-image';
+import { QRCodeSVG } from 'qrcode.react';
 import React, { useEffect, useRef, useState } from 'react';
 import {
-    Alert,
-    Image,
-    Modal,
-    Platform,
-    RefreshControl,
-    ScrollView,
-    Share,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View
+  Alert,
+  Image,
+  Modal,
+  Platform,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from 'react-native';
-import QRCode from 'react-native-qrcode-svg';
-import ViewShot from 'react-native-view-shot';
 import { db } from '../firebase';
 import { uploadImageToCloudinary } from '../utils/cloudinary';
 import { notifyUsersAboutNewEvent } from '../utils/notifications';
@@ -65,7 +63,7 @@ const AdminEvents: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [showEventModal, setShowEventModal] = useState(false);
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
-  
+
   const [eventForm, setEventForm] = useState({
     title: '',
     description: '',
@@ -81,11 +79,11 @@ const AdminEvents: React.FC = () => {
   const [selectedTime, setSelectedTime] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
-  
+
   // Image Picker States
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
-  
+
   // QR Code States
   const [showQRModal, setShowQRModal] = useState(false);
   const [selectedEventForQR, setSelectedEventForQR] = useState<Event | null>(null);
@@ -93,7 +91,7 @@ const AdminEvents: React.FC = () => {
     joinedStudents: any[];
     attendedStudents: any[];
   }>({ joinedStudents: [], attendedStudents: [] });
-  const qrRef = useRef<ViewShot>(null);
+  const qrRef = useRef<any>(null);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(getAuth(), (user) => {
@@ -112,13 +110,13 @@ const AdminEvents: React.FC = () => {
     try {
       const userDocRef = doc(db, 'users', user.uid);
       const userDoc = await getDoc(userDocRef);
-      
+
       if (!userDoc.exists() || userDoc.data()?.role !== 'admin') {
         Alert.alert('Access Denied', 'You do not have admin privileges.');
         router.replace('/dashboard');
         return;
       }
-      
+
       setIsAdmin(true);
       fetchEvents();
     } catch (error) {
@@ -131,7 +129,7 @@ const AdminEvents: React.FC = () => {
     try {
       const eventsQuery = query(collection(db, 'events'), orderBy('createdAt', 'desc'));
       const eventsSnapshot = await getDocs(eventsQuery);
-      
+
       const eventsData = eventsSnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
@@ -162,7 +160,7 @@ const AdminEvents: React.FC = () => {
 
           if (eventDate) {
             eventDate.setHours(0, 0, 0, 0); // Set to start of day for comparison
-            
+
             // If event date is before today (past event), mark as completed
             if (eventDate < today) {
               try {
@@ -217,10 +215,10 @@ const AdminEvents: React.FC = () => {
   const resetEventForm = () => {
     const today = new Date();
     const formattedDate = today.toLocaleDateString('en-GB'); // DD/MM/YYYY format
-    const formattedTime = today.toLocaleTimeString('en-US', { 
-      hour: 'numeric', 
-      minute: '2-digit', 
-      hour12: true 
+    const formattedTime = today.toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
     });
 
     setEventForm({
@@ -243,7 +241,7 @@ const AdminEvents: React.FC = () => {
     if (date) {
       setSelectedDate(date);
       const formattedDate = date.toLocaleDateString('en-GB'); // DD/MM/YYYY format
-      setEventForm({...eventForm, date: formattedDate});
+      setEventForm({ ...eventForm, date: formattedDate });
     }
   };
 
@@ -251,18 +249,18 @@ const AdminEvents: React.FC = () => {
     setShowTimePicker(Platform.OS === 'ios');
     if (time) {
       setSelectedTime(time);
-      const formattedTime = time.toLocaleTimeString('en-US', { 
-        hour: 'numeric', 
-        minute: '2-digit', 
-        hour12: true 
+      const formattedTime = time.toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
       });
-      setEventForm({...eventForm, time: formattedTime});
+      setEventForm({ ...eventForm, time: formattedTime });
     }
   };
 
   const handleImagePicker = async () => {
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    
+
     if (permissionResult.granted === false) {
       Alert.alert('Permission Required', 'Please allow access to your photo library to select a poster image.');
       return;
@@ -293,40 +291,37 @@ const AdminEvents: React.FC = () => {
     try {
       // Upload poster image to Cloudinary if one is selected
       let posterImageUrl = editingEvent?.posterImageUrl || null;
-      
+
       if (selectedImage && selectedImage !== editingEvent?.posterImageUrl) {
         const uploadResult = await uploadImageToCloudinary(selectedImage, 'event_posters');
-        
+
         if (!uploadResult.success) {
           Alert.alert('Upload Error', uploadResult.error || 'Failed to upload poster image');
           return;
         }
-        
+
         posterImageUrl = uploadResult.url || null;
       }
 
       // Convert date string to proper Date object for consistency with dashboard
       let eventDate;
-      
+
       if (eventForm.date && eventForm.date.includes('/')) {
         // Handle DD/MM/YYYY format
         const [day, month, year] = eventForm.date.split('/');
         const dayNum = parseInt(day, 10);
         const monthNum = parseInt(month, 10);
         const yearNum = parseInt(year, 10);
-        
-        console.log('Date components:', { day: dayNum, month: monthNum, year: yearNum });
-        
+
         // Validate date components
-        if (isNaN(dayNum) || isNaN(monthNum) || isNaN(yearNum) || 
-            dayNum < 1 || dayNum > 31 || monthNum < 1 || monthNum > 12 || yearNum < 2024) {
+        if (isNaN(dayNum) || isNaN(monthNum) || isNaN(yearNum) ||
+          dayNum < 1 || dayNum > 31 || monthNum < 1 || monthNum > 12 || yearNum < 2024) {
           Alert.alert('Error', 'Invalid date format. Please select a valid date.');
           return;
         }
-        
+
         eventDate = new Date(yearNum, monthNum - 1, dayNum);
-        console.log('Created eventDate:', eventDate);
-        
+
         // Check if the created date is valid
         if (isNaN(eventDate.getTime())) {
           Alert.alert('Error', 'Invalid date. Please select a valid date.');
@@ -335,9 +330,8 @@ const AdminEvents: React.FC = () => {
       } else {
         // Use selectedDate if no formatted date string
         eventDate = selectedDate;
-        console.log('Using selectedDate:', eventDate);
       }
-      
+
       const eventData = {
         ...eventForm,
         eventDate: eventDate, // Add eventDate field for dashboard compatibility
@@ -354,7 +348,7 @@ const AdminEvents: React.FC = () => {
       } else {
         await addDoc(collection(db, 'events'), eventData);
         Alert.alert('Success', 'Event created successfully!');
-        
+
         // Send push notifications to all users about new event
         try {
           const eventDateFormatted = eventForm.date || 'TBA';
@@ -440,18 +434,18 @@ const AdminEvents: React.FC = () => {
       // Fetch joined and attended students data
       const eventRef = doc(db, 'events', event.id);
       const eventDoc = await getDoc(eventRef);
-      
+
       if (eventDoc.exists()) {
         const eventData = eventDoc.data();
-        
+
         // Fetch joined students details
         const joinedStudentIds = eventData.joinedStudents || [];
         const attendedStudentIds = eventData.attendedStudents || [];
-        
+
         // Fetch user details for joined students
         const joinedStudentsDetails = [];
         const attendedStudentsDetails = [];
-        
+
         for (const studentId of joinedStudentIds) {
           try {
             const userDoc = await getDoc(doc(db, 'users', studentId));
@@ -462,7 +456,7 @@ const AdminEvents: React.FC = () => {
             console.error('Error fetching student details:', error);
           }
         }
-        
+
         for (const studentId of attendedStudentIds) {
           try {
             const userDoc = await getDoc(doc(db, 'users', studentId));
@@ -473,13 +467,13 @@ const AdminEvents: React.FC = () => {
             console.error('Error fetching attended student details:', error);
           }
         }
-        
+
         setAttendanceData({
           joinedStudents: joinedStudentsDetails,
           attendedStudents: attendedStudentsDetails,
         });
       }
-      
+
       setSelectedEventForQR(event);
       setShowQRModal(true);
     } catch (error) {
@@ -501,25 +495,29 @@ const AdminEvents: React.FC = () => {
 
   const shareQRCode = async () => {
     try {
-      if (selectedEventForQR && qrRef.current && qrRef.current.capture) {
+      if (selectedEventForQR && qrRef.current) {
         // Capture the QR code as an image
-        const uri = await qrRef.current.capture();
-        
-        // Check if sharing is available
-        const isAvailable = await Sharing.isAvailableAsync();
-        
-        if (isAvailable) {
-          // Use expo-sharing to share the image
-          await Sharing.shareAsync(uri, {
-            mimeType: 'image/png',
-            dialogTitle: `Attendance QR Code for ${selectedEventForQR.title}`,
-            UTI: 'public.png',
-          });
-        } else {
-          // Fallback to Share API with message only
-          await Share.share({
-            message: `Attendance QR Code for Event: ${selectedEventForQR.title}\n\nScan this QR code to mark your attendance.\n\nQR Code saved at: ${uri}`,
-          });
+        const dataUrl = await htmlToImage.toPng(qrRef.current);
+
+        // For web, we can trigger a download
+        const link = document.createElement('a');
+        link.download = `qrcode-${selectedEventForQR.id}.png`;
+        link.href = dataUrl;
+        link.click();
+
+        // Also try native share if available (mobile browsers)
+        if (navigator.share) {
+          try {
+            const blob = await (await fetch(dataUrl)).blob();
+            const file = new File([blob], 'qrcode.png', { type: 'image/png' });
+            await navigator.share({
+              title: `Attendance QR Code for ${selectedEventForQR.title}`,
+              text: 'Scan this QR code to mark your attendance.',
+              files: [file]
+            });
+          } catch (e) {
+            // Ignore share errors (user cancelled or not supported)
+          }
         }
       }
     } catch (error) {
@@ -568,14 +566,14 @@ const AdminEvents: React.FC = () => {
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.backButton}
           onPress={() => router.push('/admin-dashboard')}
         >
           <Ionicons name="arrow-back" size={24} color="#007AFF" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Manage Events</Text>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.addButton}
           onPress={() => {
             resetEventForm();
@@ -597,7 +595,7 @@ const AdminEvents: React.FC = () => {
             onChangeText={setSearchQuery}
           />
         </View>
-        
+
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterContainer}>
           {[
             { key: 'all', label: 'All' },
@@ -626,7 +624,7 @@ const AdminEvents: React.FC = () => {
       </View>
 
       {/* Events List */}
-      <ScrollView 
+      <ScrollView
         style={styles.eventsList}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
@@ -644,19 +642,19 @@ const AdminEvents: React.FC = () => {
                 <View style={styles.eventTitleContainer}>
                   <Text style={styles.eventTitle}>{event.title}</Text>
                   <View style={[styles.statusBadge, { backgroundColor: getStatusColor(event.status) }]}>
-                    <Ionicons 
-                      name={getStatusIcon(event.status) as any} 
-                      size={12} 
-                      color="white" 
-                      style={styles.statusIcon} 
+                    <Ionicons
+                      name={getStatusIcon(event.status) as any}
+                      size={12}
+                      color="white"
+                      style={styles.statusIcon}
                     />
                     <Text style={styles.statusText}>{event.status?.toUpperCase() || 'UNKNOWN'}</Text>
                   </View>
                 </View>
               </View>
-              
+
               <Text style={styles.eventDescription}>{event.description}</Text>
-              
+
               <View style={styles.eventDetails}>
                 <View style={styles.eventDetailRow}>
                   <Ionicons name="calendar-outline" size={16} color="#8E8E93" />
@@ -674,15 +672,15 @@ const AdminEvents: React.FC = () => {
 
               {/* Action Buttons */}
               <View style={styles.actionButtons}>
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={[styles.actionButton, styles.editButton]}
                   onPress={() => handleEditEvent(event)}
                 >
                   <Ionicons name="create-outline" size={16} color="#007AFF" />
                   <Text style={[styles.actionButtonText, { color: '#007AFF' }]}>Edit</Text>
                 </TouchableOpacity>
-                
-                <TouchableOpacity 
+
+                <TouchableOpacity
                   style={[styles.actionButton, styles.deleteButton]}
                   onPress={() => handleDeleteEvent(event.id)}
                 >
@@ -691,7 +689,7 @@ const AdminEvents: React.FC = () => {
                 </TouchableOpacity>
 
                 {(event.status === 'upcoming' || event.status === 'ongoing') && (
-                  <TouchableOpacity 
+                  <TouchableOpacity
                     style={[styles.actionButton, styles.qrButton]}
                     onPress={() => handleShowQRCode(event)}
                   >
@@ -731,7 +729,7 @@ const AdminEvents: React.FC = () => {
                 style={styles.formInput}
                 placeholder="Enter event title"
                 value={eventForm.title}
-                onChangeText={(text) => setEventForm({...eventForm, title: text})}
+                onChangeText={(text) => setEventForm({ ...eventForm, title: text })}
               />
             </View>
 
@@ -741,7 +739,7 @@ const AdminEvents: React.FC = () => {
                 style={[styles.formInput, styles.formTextArea]}
                 placeholder="Enter event description"
                 value={eventForm.description}
-                onChangeText={(text) => setEventForm({...eventForm, description: text})}
+                onChangeText={(text) => setEventForm({ ...eventForm, description: text })}
                 multiline
                 numberOfLines={3}
               />
@@ -753,7 +751,7 @@ const AdminEvents: React.FC = () => {
               {selectedImage ? (
                 <View style={styles.imageContainer}>
                   <Image source={{ uri: selectedImage }} style={styles.selectedImage} />
-                  <TouchableOpacity 
+                  <TouchableOpacity
                     style={styles.removeImageButton}
                     onPress={handleRemoveImage}
                   >
@@ -761,7 +759,7 @@ const AdminEvents: React.FC = () => {
                   </TouchableOpacity>
                 </View>
               ) : (
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={styles.imagePickerButton}
                   onPress={handleImagePicker}
                 >
@@ -775,7 +773,7 @@ const AdminEvents: React.FC = () => {
             <View style={styles.formRow}>
               <View style={[styles.formGroup, { flex: 1, marginRight: 10 }]}>
                 <Text style={styles.formLabel}>Date *</Text>
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={styles.dateTimeButton}
                   onPress={() => setShowDatePicker(true)}
                 >
@@ -787,7 +785,7 @@ const AdminEvents: React.FC = () => {
               </View>
               <View style={[styles.formGroup, { flex: 1, marginLeft: 10 }]}>
                 <Text style={styles.formLabel}>Time</Text>
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={styles.dateTimeButton}
                   onPress={() => setShowTimePicker(true)}
                 >
@@ -805,7 +803,7 @@ const AdminEvents: React.FC = () => {
                 style={styles.formInput}
                 placeholder="Enter event location"
                 value={eventForm.location}
-                onChangeText={(text) => setEventForm({...eventForm, location: text})}
+                onChangeText={(text) => setEventForm({ ...eventForm, location: text })}
               />
             </View>
 
@@ -815,7 +813,7 @@ const AdminEvents: React.FC = () => {
                 style={styles.formInput}
                 placeholder="Enter organizer name"
                 value={eventForm.organizer}
-                onChangeText={(text) => setEventForm({...eventForm, organizer: text})}
+                onChangeText={(text) => setEventForm({ ...eventForm, organizer: text })}
               />
             </View>
 
@@ -825,7 +823,7 @@ const AdminEvents: React.FC = () => {
                 style={styles.formInput}
                 placeholder="Enter contact number"
                 value={eventForm.contactNumber}
-                onChangeText={(text) => setEventForm({...eventForm, contactNumber: text})}
+                onChangeText={(text) => setEventForm({ ...eventForm, contactNumber: text })}
                 keyboardType="phone-pad"
               />
             </View>
@@ -833,11 +831,11 @@ const AdminEvents: React.FC = () => {
         </View>
       </Modal>
 
-      {/* QR Code Modal */}
       <Modal
         visible={showQRModal}
         animationType="slide"
         presentationStyle="pageSheet"
+        onRequestClose={() => setShowQRModal(false)}
       >
         <View style={styles.modalContainer}>
           <View style={styles.modalHeader}>
@@ -846,7 +844,7 @@ const AdminEvents: React.FC = () => {
             </TouchableOpacity>
             <Text style={styles.modalTitle}>Event Attendance</Text>
             <TouchableOpacity onPress={shareQRCode}>
-              <Text style={styles.modalSaveButton}>Share QR</Text>
+              <Ionicons name="share-outline" size={24} color="#007AFF" />
             </TouchableOpacity>
           </View>
 
@@ -856,29 +854,26 @@ const AdminEvents: React.FC = () => {
                 <View style={styles.qrSection}>
                   <Text style={styles.qrTitle}>{selectedEventForQR.title}</Text>
                   <Text style={styles.qrSubtitle}>Scan this QR code to mark attendance</Text>
-                  
+
                   {/* QR Code Display */}
-                  <ViewShot 
-                    ref={qrRef} 
-                    options={{ fileName: `event-qr-${selectedEventForQR.id}`, format: "png", quality: 0.9 }}
-                    style={styles.qrCodeContainer}
-                  >
-                    <View style={styles.qrCodeWrapper}>
-                      <QRCode
+                  <View style={styles.qrCodeContainer}>
+                    <View ref={qrRef} style={styles.qrCodeWrapper}>
+                      <QRCodeSVG
                         value={generateQRData(selectedEventForQR)}
                         size={200}
-                        color="black"
-                        backgroundColor="white"
-                        logo={require('../assets/images/logo_app.png')}
-                        logoSize={30}
-                        logoBackgroundColor="white"
-                        logoMargin={2}
+                        bgColor={"#ffffff"}
+                        fgColor={"#000000"}
+                        level={"L"}
+                        includeMargin={false}
                       />
                       <Text style={styles.qrDataText}>
                         Event: {selectedEventForQR.title}
                       </Text>
+                      <Text style={styles.qrDataText}>
+                        {selectedEventForQR.date}
+                      </Text>
                     </View>
-                  </ViewShot>
+                  </View>
                 </View>
 
                 <View style={styles.attendanceSection}>
@@ -897,12 +892,12 @@ const AdminEvents: React.FC = () => {
                     </View>
                     <View style={styles.statBox}>
                       <Text style={styles.statNumber}>
-                        {attendanceData.joinedStudents.length > 0 
+                        {attendanceData.joinedStudents.length > 0
                           ? Math.round((attendanceData.attendedStudents.length / attendanceData.joinedStudents.length) * 100)
                           : 0
                         }%
                       </Text>
-                      <Text style={styles.statLabel}>Attendance Rate</Text>
+                      <Text style={styles.statLabel}>Rate</Text>
                     </View>
                   </View>
 
@@ -923,14 +918,14 @@ const AdminEvents: React.FC = () => {
                           ? styles.attendedStatus
                           : styles.notAttendedStatus
                       ]}>
-                        <Ionicons 
+                        <Ionicons
                           name={attendanceData.attendedStudents.some((a: any) => a.id === student.id)
                             ? "checkmark-circle" : "time-outline"
-                          } 
-                          size={16} 
+                          }
+                          size={16}
                           color={attendanceData.attendedStudents.some((a: any) => a.id === student.id)
                             ? "#34C759" : "#FF9500"
-                          } 
+                          }
                         />
                         <Text style={[
                           styles.attendanceStatusText,
@@ -957,26 +952,30 @@ const AdminEvents: React.FC = () => {
       </Modal>
 
       {/* Date Picker */}
-      {showDatePicker && (
-        <DateTimePicker
-          value={selectedDate}
-          mode="date"
-          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-          onChange={handleDateChange}
-          minimumDate={new Date()}
-        />
-      )}
+      {
+        showDatePicker && (
+          <DateTimePicker
+            value={selectedDate}
+            mode="date"
+            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+            onChange={handleDateChange}
+            minimumDate={new Date()}
+          />
+        )
+      }
 
       {/* Time Picker */}
-      {showTimePicker && (
-        <DateTimePicker
-          value={selectedTime}
-          mode="time"
-          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-          onChange={handleTimeChange}
-        />
-      )}
-    </View>
+      {
+        showTimePicker && (
+          <DateTimePicker
+            value={selectedTime}
+            mode="time"
+            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+            onChange={handleTimeChange}
+          />
+        )
+      }
+    </View >
   );
 };
 

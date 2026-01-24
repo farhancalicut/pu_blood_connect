@@ -181,7 +181,6 @@ export default function HospitalAddRequestScreen() {
         };
 
         const docRef = await addDoc(collection(db, 'requests'), newRequestData);
-        console.log('Blood request created with ID:', docRef.id);
 
         // Send notifications to matching blood group users
         try {

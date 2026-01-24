@@ -282,7 +282,7 @@ export default function RegisterScreen() {
               })).data;
             }
           } catch (error) {
-            console.log('Error getting push token:', error);
+            // Error getting push token
           }
         }
 

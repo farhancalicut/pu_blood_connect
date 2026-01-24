@@ -1,9 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import { useFocusEffect } from 'expo-router';
-import * as Sharing from 'expo-sharing';
 import { getAuth } from 'firebase/auth';
 import { addDoc, collection, doc, getDoc, getDocs, orderBy, query, serverTimestamp, updateDoc, where } from 'firebase/firestore';
+import * as htmlToImage from 'html-to-image';
 import React, { FC, useCallback, useEffect, useRef, useState } from 'react';
 import {
     ActivityIndicator,
@@ -19,11 +19,10 @@ import {
     TouchableOpacity,
     View
 } from 'react-native';
-import ViewShot from 'react-native-view-shot';
 import { db } from '../firebase';
 
 const { width: screenWidth } = Dimensions.get('window');
-const guidelineBaseWidth = 375; 
+const guidelineBaseWidth = 375;
 
 const scale = (size: number) => (screenWidth / guidelineBaseWidth) * size;
 
@@ -37,7 +36,7 @@ type RequestCardProps = { item: Request; onViewDetails: (item: Request) => void;
 type DonorProfile = { uid: string; name: string; mobile: string; };
 
 const RequestDetailsModal: FC<RequestDetailsModalProps> = ({ visible, request, onClose }) => {
-    const viewShotRef = useRef<ViewShot>(null);
+    const detailsRef = useRef<View>(null);
     if (!request) return null;
 
     const handleCopy = async () => {
@@ -47,14 +46,31 @@ const RequestDetailsModal: FC<RequestDetailsModalProps> = ({ visible, request, o
     };
 
     const handleShareAsImage = async () => {
+        if (!detailsRef.current) return;
         try {
-            const uri = await viewShotRef.current?.capture?.();
-            if (!uri) throw new Error("Failed to capture view");
-            if (!(await Sharing.isAvailableAsync())) {
-                Alert.alert("Error", "Sharing is not available on this device.");
-                return;
+            const dataUrl = await htmlToImage.toPng(detailsRef.current as any);
+
+            // Check if Web Share API is available and supports files
+            if (navigator.share) {
+                const blob = await (await fetch(dataUrl)).blob();
+                const file = new File([blob], `request_${request.id}.png`, { type: 'image/png' });
+                if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                    await navigator.share({
+                        files: [file],
+                        title: 'Blood Request',
+                        text: 'Urgent Blood Request Details'
+                    });
+                    return;
+                }
             }
-            await Sharing.shareAsync(uri);
+
+            // Fallback to Download
+            const link = document.createElement('a');
+            link.download = `request_${request.id}.png`;
+            link.href = dataUrl;
+            link.click();
+            Alert.alert("Saved", "Image downloaded to your device.");
+
         } catch (error) {
             console.error("Error sharing image:", error);
             Alert.alert('Error', 'Could not share the details as an image.');
@@ -64,7 +80,7 @@ const RequestDetailsModal: FC<RequestDetailsModalProps> = ({ visible, request, o
     return (
         <Modal animationType="fade" transparent={true} visible={visible} onRequestClose={onClose}>
             <View style={styles.modalBackdrop}>
-                <ViewShot ref={viewShotRef} options={{ format: 'jpg', quality: 0.9 }}>
+                <View ref={detailsRef} collapsable={false} style={{ backgroundColor: palette.white }}>
                     <View style={styles.modalContent}>
                         <View style={styles.modalHeader}>
                             <Text style={styles.modalTitle}>Request for Blood</Text>
@@ -89,7 +105,7 @@ const RequestDetailsModal: FC<RequestDetailsModalProps> = ({ visible, request, o
                             <DetailRow label="Additional Notes/Purpose:" value={request.notes || 'N/A'} />
                         </View>
                     </View>
-                </ViewShot>
+                </View>
                 <TouchableOpacity onPress={onClose} style={styles.closeButton}>
                     <Ionicons name="close-circle" size={scale(32)} color={palette.white} />
                 </TouchableOpacity>
@@ -146,7 +162,7 @@ export default function DonateScreen() {
             // Fetch all requests (both student and hospital requests)
             // Hospital requests have hospitalId field, student requests have requesterId
             const q = query(
-                collection(db, 'requests'), 
+                collection(db, 'requests'),
                 where('status', 'in', ['pending', 'active']),
                 orderBy('createdAt', 'desc')
             );
@@ -217,9 +233,9 @@ export default function DonateScreen() {
             // or if there's no data yet
             const now = Date.now();
             const lastLoadTime = lastLoadTimeRef.current;
-            const shouldRefresh = !lastLoadTime || (now - lastLoadTime > 30000) || 
-                                allRequests.length === 0;
-            
+            const shouldRefresh = !lastLoadTime || (now - lastLoadTime > 30000) ||
+                allRequests.length === 0;
+
             if (shouldRefresh) {
                 fetchRequests();
             }
@@ -233,7 +249,7 @@ export default function DonateScreen() {
         }
         if (searchQuery.length > 0) {
             const lowercasedQuery = searchQuery.toLowerCase();
-            result = result.filter(req => 
+            result = result.filter(req =>
                 req.hospital.toLowerCase().includes(lowercasedQuery) ||
                 req.patientName.toLowerCase().includes(lowercasedQuery)
             );
@@ -246,13 +262,42 @@ export default function DonateScreen() {
             Alert.alert("Error", "Could not identify your user profile. Please try again.");
             return;
         }
+
+        // Check if user has already donated and if they need to wait
+        try {
+            const userDocRef = doc(db, 'users', donorProfile.uid);
+            const userDoc = await getDoc(userDocRef);
+
+            if (userDoc.exists()) {
+                const userData = userDoc.data();
+
+                if (userData.lastDonated) {
+                    const lastDonationDate = userData.lastDonated.toDate();
+                    const today = new Date();
+                    const daysSinceLastDonation = Math.floor((today.getTime() - lastDonationDate.getTime()) / (1000 * 60 * 60 * 24));
+                    const daysRemaining = 60 - daysSinceLastDonation;
+
+                    if (daysRemaining > 0) {
+                        Alert.alert(
+                            "Not Eligible Yet",
+                            `You donated blood ${daysSinceLastDonation} days ago. You need to wait ${daysRemaining} more days before your next donation.\n\nYou can donate again after ${new Date(lastDonationDate.getTime() + 60 * 24 * 60 * 60 * 1000).toLocaleDateString()}.`,
+                            [{ text: "OK" }]
+                        );
+                        return;
+                    }
+                }
+            }
+        } catch (error) {
+            console.error("Error checking donation eligibility:", error);
+        }
+
         Alert.alert(
             "Thank You for Your Offer!",
             `We will notify ${request.requesterName || 'the requester'} about your willingness to donate.`,
             [
                 { text: "Cancel", style: "cancel" },
-                { 
-                    text: "OK, Share", 
+                {
+                    text: "OK, Share",
                     onPress: async () => {
                         try {
                             const notificationPromise = addDoc(collection(db, "notifications"), {
@@ -263,8 +308,11 @@ export default function DonateScreen() {
                                 requestId: request.id,
                                 bloodGroup: request.bloodGroup,
                                 hospital: request.hospital,
+                                title: "🩸 Donor Available!",
+                                message: `${donorProfile.name} is willing to donate ${request.bloodGroup} blood at ${request.hospital}. Contact: ${donorProfile.mobile}`,
                                 status: "unread",
-                                type: "DONATION_OFFER",
+                                read: false,
+                                type: "donation",
                                 createdAt: serverTimestamp()
                             });
                             const offerPromise = addDoc(collection(db, "donationOffers"), {
@@ -278,20 +326,20 @@ export default function DonateScreen() {
                                 status: "offered",
                                 createdAt: serverTimestamp()
                             });
-                            
+
                             // Update acceptedDonors array in the request document
                             const requestRef = doc(db, 'requests', request.id);
                             const updatePromise = updateDoc(requestRef, {
                                 acceptedDonors: [...(request.acceptedDonors || []), donorProfile.uid]
                             });
-                            
+
                             await Promise.all([notificationPromise, offerPromise, updatePromise]);
                             Alert.alert("Sent!", `${request.requesterName} has been notified. Check your History page for next steps.`);
                         } catch (error) {
                             console.error("Error creating notification/offer: ", error);
                             Alert.alert("Error", "Could not send notification. Please try again.");
                         }
-                    } 
+                    }
                 }
             ]
         );
@@ -305,19 +353,19 @@ export default function DonateScreen() {
                     <TextInput placeholder="Search by hospital, patient..." style={styles.searchInput} value={searchQuery} onChangeText={setSearchQuery} />
                     <Ionicons name="mic" size={scale(20)} color={palette.lightText} style={{ marginRight: scale(10) }} />
                 </View>
-                <FlatList 
-                    data={BLOOD_GROUPS} 
-                    keyExtractor={item => item} 
-                    horizontal 
-                    showsHorizontalScrollIndicator={false} 
+                <FlatList
+                    data={BLOOD_GROUPS}
+                    keyExtractor={item => item}
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
                     renderItem={({ item }) => (
-                        <TouchableOpacity 
-                            style={[styles.bloodFilterButton, selectedBloodGroup === item && styles.selectedBloodFilter]} 
+                        <TouchableOpacity
+                            style={[styles.bloodFilterButton, selectedBloodGroup === item && styles.selectedBloodFilter]}
                             onPress={() => setSelectedBloodGroup(item)}>
                             <Text style={[styles.bloodFilterText, selectedBloodGroup === item && styles.selectedBloodFilterText]}>{item}</Text>
                         </TouchableOpacity>
-                    )} 
-                    contentContainerStyle={{ paddingHorizontal: scale(15), paddingVertical: scale(10) }} 
+                    )}
+                    contentContainerStyle={{ paddingHorizontal: scale(15), paddingVertical: scale(10) }}
                 />
             </View>
             {isLoading ? (

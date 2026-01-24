@@ -126,7 +126,7 @@ export default function LoginScreen() {
           })).data;
         }
       } catch (error) {
-        console.log('Error getting push token:', error);
+        // Error getting push token
       }
     }
 

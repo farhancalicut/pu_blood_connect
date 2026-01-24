@@ -1,10 +1,8 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { doc, getDoc } from 'firebase/firestore';
-import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { ActivityIndicator, Alert, ImageBackground, SafeAreaView, StyleSheet, Text, TouchableOpacity, View, Dimensions } from 'react-native';
-import ViewShot from 'react-native-view-shot';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Alert, Dimensions, ImageBackground, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { db } from '../firebase';
-import * as MediaLibrary from 'expo-media-library';
 
 const { width: screenWidth } = Dimensions.get('window');
 const guidelineBaseWidth = 375;
@@ -14,7 +12,7 @@ const scale = (size: number) => (screenWidth / guidelineBaseWidth) * size;
 const palette = { primaryRed: '#9B0000', darkText: '#333333', white: '#ffffff', certNameColor: '#000000ff', borderLight: '#EAEAEA' };
 
 const CERTIFICATE_ASPECT_RATIO = 1.4;
-const certificateWidth = screenWidth * 0.9; 
+const certificateWidth = screenWidth * 0.9;
 const certificateHeight = certificateWidth / CERTIFICATE_ASPECT_RATIO;
 
 
@@ -27,7 +25,7 @@ type DonationOffer = {
 export default function CertificateScreen() {
     const router = useRouter();
     const { offerId } = useLocalSearchParams<{ offerId: string }>();
-    const viewShotRef = useRef<ViewShot>(null);
+    const certificateRef = useRef<View>(null);
 
     const [offer, setOffer] = useState<DonationOffer | null>(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -59,23 +57,26 @@ export default function CertificateScreen() {
     }, [offerId, router]);
 
     const handleDownload = useCallback(async () => {
+        if (!certificateRef.current) return;
         try {
             setDownloading(true);
-            const { status } = await MediaLibrary.requestPermissionsAsync();
-            if (status !== 'granted') {
-                Alert.alert("Permission Denied", "We need permission to save photos to your device.");
-                return;
-            }
-            const uri = await viewShotRef.current?.capture?.();
-            if (!uri) throw new Error("Could not capture certificate.");
-            await MediaLibrary.saveToLibraryAsync(uri);
-            Alert.alert("Saved!", "Certificate saved to your photo gallery.");
+
+            // Web-compatible download
+            const dataUrl = await htmlToImage.toPng(certificateRef.current as unknown as HTMLElement);
+
+            const link = document.createElement('a');
+            link.download = `Certificate_${offer?.donorName || 'Donor'}.png`;
+            link.href = dataUrl;
+            link.click();
+
+            Alert.alert("Saved!", "Certificate downloaded successfully.");
         } catch (error) {
+            console.error(error);
             Alert.alert("Error", "Could not save certificate.");
         } finally {
             setDownloading(false);
         }
-    }, []);
+    }, [offer]);
 
     if (isLoading) {
         return <ActivityIndicator style={{ flex: 1 }} size="large" color={palette.primaryRed} />;
@@ -88,16 +89,16 @@ export default function CertificateScreen() {
     return (
         <SafeAreaView style={styles.safeArea}>
             <View style={styles.container}>
-                <ViewShot ref={viewShotRef} options={{ format: 'png', quality: 1.0 }}>
-                    <ImageBackground 
-                        source={require('../assets/images/certificate_template.png')} 
+                <View ref={certificateRef} collapsable={false}>
+                    <ImageBackground
+                        source={require('../assets/images/certificate_template.png')}
                         style={styles.certificateImage}
                         resizeMode="contain"
                     >
                         <Text style={styles.donorName}>{offer.donorName}</Text>
                         <Text style={styles.donationDate}>{offer.confirmedDate.toDate().toLocaleDateString()}</Text>
                     </ImageBackground>
-                </ViewShot>
+                </View>
                 <TouchableOpacity
                     style={[styles.downloadButton, downloading && { opacity: 0.7 }]}
                     onPress={handleDownload}
@@ -112,30 +113,30 @@ export default function CertificateScreen() {
 }
 const styles = StyleSheet.create({
     safeArea: { flex: 1, backgroundColor: palette.white },
-    container: { 
-        flex: 1, 
-        justifyContent: 'center', 
-        alignItems: 'center', 
-        padding: scale(20), 
-        backgroundColor: '#f0f0f0' 
+    container: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: scale(20),
+        backgroundColor: '#f0f0f0'
     },
     certificateImage: {
         width: certificateWidth,
-        height: certificateHeight, 
+        height: certificateHeight,
         justifyContent: 'center',
         alignItems: 'center',
     },
     donorName: {
         position: 'absolute',
         top: '42%',
-        fontSize: scale(18), 
+        fontSize: scale(18),
         color: palette.certNameColor,
     },
     donationDate: {
         position: 'absolute',
-        top: '79%', 
-        left: '17%', 
-        fontSize: scale(12), 
+        top: '79%',
+        left: '17%',
+        fontSize: scale(12),
         color: palette.darkText,
     },
     downloadButton: {

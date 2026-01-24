@@ -96,7 +96,6 @@ export const deleteImageFromCloudinary = async (publicId: string): Promise<boole
   try {
     // Note: Deletion requires authentication, so you might need to implement this via your backend
     // For now, we'll just return true as deletion is optional
-    console.log('Delete image:', publicId);
     return true;
   } catch (error) {
     console.error('Cloudinary delete error:', error);

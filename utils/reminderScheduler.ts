@@ -37,7 +37,6 @@ export async function checkAndSendEventReminders() {
                     event.location || 'TBA',
                     eventDoc.id
                 );
-                console.log(`Sent reminder for event: ${event.title}`);
             }
         }
     } catch (error) {
@@ -77,7 +76,6 @@ export async function checkAndSendEligibilityReminders() {
             if (daysSinceLastDonation === 60) {
                 const userName = userData.firstName || userData.name || 'Donor';
                 await sendDonationEligibilityReminder(userData.pushToken, userId, userName);
-                console.log(`Sent eligibility reminder to: ${userName}`);
             }
         }
     } catch (error) {
@@ -87,10 +85,8 @@ export async function checkAndSendEligibilityReminders() {
 
 // Main scheduler function to run all reminder checks
 export async function runReminderScheduler() {
-    console.log('Running reminder scheduler...');
     await Promise.all([
         checkAndSendEventReminders(),
         checkAndSendEligibilityReminders()
     ]);
-    console.log('Reminder scheduler completed');
 }
