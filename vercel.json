@@ -1,0 +1,8 @@
+{
+  "buildCommand": "npm run web:build",
+  "outputDirectory": "dist",
+  "devCommand": "npm run web",
+  "installCommand": "npm install",
+  "framework": null,
+  "regions": ["pdx1"]
+}
