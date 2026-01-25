@@ -1,10 +1,18 @@
 #!/usr/bin/env node
 
 const { execSync } = require('child_process');
+const fs = require('fs');
+const path = require('path');
 
 try {
-  // Run expo export using npx which handles the path resolution
-  execSync('npx --yes expo export --platform web', {
+  // Set execute permissions on the expo binary
+  const expoBin = path.join(__dirname, 'node_modules', '.bin', 'expo');
+  if (fs.existsSync(expoBin)) {
+    fs.chmodSync(expoBin, '755');
+  }
+  
+  // Run expo export
+  execSync('npx expo export --platform web', {
     stdio: 'inherit',
     cwd: __dirname
   });
