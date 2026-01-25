@@ -1,53 +1,100 @@
 {
   "expo": {
-    "name": "PU NSS CONNECT",
-    "slug": "PU_Blood_Connect",
+    "name": "PU NSS Connect",
+    "slug": "pu-nss-connect",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/logo_app.png",
-    "scheme": "punssconnect",
-    "userInterfaceStyle": "automatic",
+    "icon": "./assets/images/icon.png",
+    "scheme": "pu-nss-connect",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/images/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#EF4444"
+    },
+    "assetBundlePatterns": ["**/*"],
     "ios": {
-      "supportsTablet": true,
+      "supportsTablet": false,
       "bundleIdentifier": "com.farhankoolimad.PUNSSConnect",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
-      },
-      "runtimeVersion": {
-        "policy": "appVersion"
+        "NSCameraUsageDescription": "This app needs camera access to scan QR codes for event attendance.",
+        "NSPhotoLibraryUsageDescription": "This app needs photo library access to upload profile pictures and certificates."
       }
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/logo_app.png"
+        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "backgroundColor": "#EF4444"
       },
       "package": "com.farhankoolimad.PUNSSConnect",
-      "runtimeVersion": "1.0.0"
+      "permissions": [
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "NOTIFICATIONS"
+      ]
     },
     "web": {
       "bundler": "metro",
+      "favicon": "./assets/images/favicon.png",
       "output": "static",
-      "favicon": "./assets/images/logo_app.png"
+      "lang": "en",
+      "name": "PU NSS Connect - Blood Donation & Volunteer Management",
+      "shortName": "PU NSS Connect",
+      "description": "Connect with NSS volunteers, donate blood, manage events, and make a difference in the community.",
+      "themeColor": "#EF4444",
+      "backgroundColor": "#ffffff",
+      "startUrl": "/",
+      "display": "standalone",
+      "orientation": "portrait",
+      "dir": "ltr",
+      "scope": "/",
+      "crossorigin": "anonymous",
+      "build": {
+        "babel": {
+          "include": [
+            "@react-native-async-storage/async-storage",
+            "react-native-vector-icons"
+          ]
+        }
+      },
+      "meta": {
+        "apple-mobile-web-app-capable": "yes",
+        "mobile-web-app-capable": "yes",
+        "apple-mobile-web-app-status-bar-style": "black-translucent"
+      },
+      "config": {
+        "firebase": {
+          "apiKey": "YOUR_FIREBASE_API_KEY",
+          "authDomain": "YOUR_FIREBASE_AUTH_DOMAIN",
+          "projectId": "YOUR_FIREBASE_PROJECT_ID",
+          "storageBucket": "YOUR_FIREBASE_STORAGE_BUCKET",
+          "messagingSenderId": "YOUR_FIREBASE_MESSAGING_SENDER_ID",
+          "appId": "YOUR_FIREBASE_APP_ID",
+          "measurementId": "YOUR_FIREBASE_MEASUREMENT_ID"
+        }
+      }
     },
     "plugins": [
       "expo-router",
-        [
-        "expo-splash-screen",
+      [
+        "expo-notifications",
         {
-          "image": "./assets/images/logo_app.png",
-          "resizeMode": "contain",
-          "backgroundColor": "#FFFFFF",
-          "imageWidth": 200,
-          "dark": {
-            "image": "./assets/images/logo_app.png",
-            "backgroundColor": "#FFFFFF"
-          }
+          "icon": "./assets/images/notification-icon.png",
+          "color": "#EF4444",
+          "sounds": []
         }
       ],
       [
         "expo-camera",
         {
-          "cameraPermission": "Allow PU NSS Connect to access your camera to scan QR codes for event attendance."
+          "cameraPermission": "Allow PU NSS Connect to access your camera to scan QR codes."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "The app needs access to your photos to upload profile pictures and certificates."
         }
       ]
     ],
@@ -55,13 +102,12 @@
       "typedRoutes": true
     },
     "extra": {
-      "router": {},
+      "router": {
+        "origin": false
+      },
       "eas": {
-        "projectId": "aab4fc2c-6891-4e42-a8c3-6207ef8a7683"
+        "projectId": "your-project-id"
       }
-    },
-    "updates": {
-      "url": "https://u.expo.dev/aab4fc2c-6891-4e42-a8c3-6207ef8a7683"
     }
   }
 }

@@ -1,11 +1,11 @@
 // firebase.js
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { initializeApp } from "firebase/app";
 import {
-    browserLocalPersistence,
-    getAuth,
-    getReactNativePersistence,
-    initializeAuth,
+  browserLocalPersistence,
+  getAuth,
+  getReactNativePersistence,
+  initializeAuth,
+  inMemoryPersistence,
 } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { getMessaging, isSupported } from "firebase/messaging";
@@ -24,13 +24,24 @@ const app = initializeApp(firebaseConfig);
 
 // Initialize Firebase Auth with platform-specific persistence
 let auth;
+
 try {
   if (Platform.OS === "web") {
-    // Use browser local storage for web
-    auth = initializeAuth(app, {
-      persistence: browserLocalPersistence,
-    });
+    if (typeof window !== "undefined") {
+      // Use browser local storage for web client
+      auth = initializeAuth(app, {
+        persistence: browserLocalPersistence,
+      });
+    } else {
+      // Use in-memory persistence for server-side/build time
+      auth = initializeAuth(app, {
+        persistence: inMemoryPersistence,
+      });
+    }
   } else {
+    // Lazy load AsyncStorage to avoid issues in Node.js environment
+    const AsyncStorage = require("@react-native-async-storage/async-storage")
+      .default;
     // Use AsyncStorage for mobile
     auth = initializeAuth(app, {
       persistence: getReactNativePersistence(AsyncStorage),
@@ -38,17 +49,29 @@ try {
   }
 } catch (error) {
   // If auth is already initialized, get the existing instance
-  auth = getAuth(app);
+  console.log("Firebase Auth initialization error or already initialized:", error.message);
+  try {
+    auth = getAuth(app);
+  } catch (e) {
+    console.error("Failed to get existing Auth instance:", e);
+  }
 }
 
 // Initialize Firebase Messaging for web push notifications
 let messaging = null;
 if (Platform.OS === "web") {
-  isSupported().then((supported) => {
-    if (supported) {
-      messaging = getMessaging(app);
-    }
-  });
+  // Check if we are in a browser environment before calling isSupported
+  if (typeof window !== "undefined") {
+    isSupported()
+      .then((supported) => {
+        if (supported) {
+          messaging = getMessaging(app);
+        }
+      })
+      .catch((err) => {
+        console.log("Firebase Messaging not supported:", err);
+      });
+  }
 }
 
 export { auth, messaging };
