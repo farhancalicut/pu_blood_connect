@@ -5,6 +5,9 @@
 expo-env.d.ts
 # @end expo-cli
 
+# Dependencies
+node_modules/
+
 # Environment variables
 .env
 .env.local
