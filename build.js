@@ -1,17 +1,13 @@
 #!/usr/bin/env node
 
-const { spawn } = require('child_process');
-const path = require('path');
+const { execSync } = require('child_process');
 
-// Path to the expo CLI
-const expoCliPath = path.join(__dirname, 'node_modules', 'expo', 'bin', 'cli.js');
-
-// Run expo export
-const child = spawn('node', [expoCliPath, 'export', '--platform', 'web'], {
-  stdio: 'inherit',
-  cwd: __dirname
-});
-
-child.on('exit', (code) => {
-  process.exit(code);
-});
+try {
+  // Run expo export using npx which handles the path resolution
+  execSync('npx --yes expo export --platform web', {
+    stdio: 'inherit',
+    cwd: __dirname
+  });
+} catch (error) {
+  process.exit(error.status || 1);
+}
