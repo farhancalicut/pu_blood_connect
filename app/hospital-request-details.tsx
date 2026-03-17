@@ -1,9 +1,10 @@
-import { Ionicons } from '@expo/vector-icons';
+import { ChevronLeft, User, AlertCircle, Clock, Phone, Users, Droplet } from 'lucide-react-native';
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { collection, doc, getDoc, getDocs, query, where } from 'firebase/firestore';
 import React, { useCallback, useState } from 'react';
-import { ActivityIndicator, Alert, Dimensions, Linking, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Dimensions, Linking, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { db } from '../firebase';
+import { showAlert } from '../utils/alert';
 import { AcceptedDonor, BloodRequest } from '../types/env';
 
 const { width: screenWidth } = Dimensions.get('window');
@@ -33,7 +34,7 @@ export default function HospitalRequestDetailsScreen() {
 
   const fetchRequestDetails = useCallback(async () => {
     if (!requestId) {
-      Alert.alert('Error', 'Request ID not found');
+      showAlert('Error', 'Request ID not found');
       router.back();
       return;
     }
@@ -45,7 +46,7 @@ export default function HospitalRequestDetailsScreen() {
       const requestSnap = await getDoc(requestRef);
 
       if (!requestSnap.exists()) {
-        Alert.alert('Error', 'Request not found');
+        showAlert('Error', 'Request not found');
         router.back();
         return;
       }
@@ -88,7 +89,7 @@ export default function HospitalRequestDetailsScreen() {
       }
     } catch (error) {
       console.error('Error fetching request details:', error);
-      Alert.alert('Error', 'Failed to load request details');
+      showAlert('Error', 'Failed to load request details');
     } finally {
       setIsLoading(false);
     }
@@ -105,12 +106,12 @@ export default function HospitalRequestDetailsScreen() {
         if (supported) {
           Linking.openURL(url);
         } else {
-          Alert.alert('Error', 'Unable to make phone call');
+          showAlert('Error', 'Unable to make phone call');
         }
       })
       .catch((error) => {
         console.error('Error opening phone dialer:', error);
-        Alert.alert('Error', 'Failed to open phone dialer');
+        showAlert('Error', 'Failed to open phone dialer');
       });
   };
 
@@ -158,7 +159,7 @@ export default function HospitalRequestDetailsScreen() {
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <Ionicons name="chevron-back" size={24} color={palette.darkText} />
+            <ChevronLeft size={24} color={palette.darkText} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Request Details</Text>
           <View style={styles.headerSpacer} />
@@ -169,7 +170,7 @@ export default function HospitalRequestDetailsScreen() {
           <View style={styles.requestCard}>
             <View style={styles.requestHeader}>
               <View style={[styles.bloodGroupBadge, { backgroundColor: getUrgencyColor(request.urgency) + '15' }]}>
-                <Ionicons name="water" size={20} color={getUrgencyColor(request.urgency)} />
+                <Droplet size={20} color={getUrgencyColor(request.urgency)} />
                 <Text style={[styles.bloodGroupText, { color: getUrgencyColor(request.urgency) }]}>
                   {request.bloodGroup}
                 </Text>
@@ -183,13 +184,13 @@ export default function HospitalRequestDetailsScreen() {
 
             <Text style={styles.sectionTitle}>Patient Information</Text>
             <View style={styles.infoRow}>
-              <Ionicons name="person-outline" size={20} color={palette.lightText} />
+              <User size={20} color={palette.lightText} />
               <Text style={styles.infoLabel}>Patient Name:</Text>
               <Text style={styles.infoValue}>{request.patientName}</Text>
             </View>
 
             <View style={styles.infoRow}>
-              <Ionicons name="water-outline" size={20} color={palette.lightText} />
+              <Droplet size={20} color={palette.lightText} />
               <Text style={styles.infoLabel}>Units Needed:</Text>
               <Text style={styles.infoValue}>
                 {request.unitsNeeded} {request.unitsNeeded === 1 ? 'unit' : 'units'}
@@ -197,7 +198,7 @@ export default function HospitalRequestDetailsScreen() {
             </View>
 
             <View style={styles.infoRow}>
-              <Ionicons name="alert-circle-outline" size={20} color={getUrgencyColor(request.urgency)} />
+              <AlertCircle size={20} color={getUrgencyColor(request.urgency)} />
               <Text style={styles.infoLabel}>Urgency:</Text>
               <Text style={[styles.infoValue, { color: getUrgencyColor(request.urgency), fontWeight: '600' }]}>
                 {request.urgency.charAt(0).toUpperCase() + request.urgency.slice(1)}
@@ -205,7 +206,7 @@ export default function HospitalRequestDetailsScreen() {
             </View>
 
             <View style={styles.infoRow}>
-              <Ionicons name="time-outline" size={20} color={palette.lightText} />
+              <Clock size={20} color={palette.lightText} />
               <Text style={styles.infoLabel}>Required By:</Text>
               <Text style={styles.infoValue}>
                 {requiredByDate.toLocaleDateString()} at {requiredByDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -213,7 +214,7 @@ export default function HospitalRequestDetailsScreen() {
             </View>
 
             <View style={styles.infoRow}>
-              <Ionicons name="call-outline" size={20} color={palette.lightText} />
+              <Phone size={20} color={palette.lightText} />
               <Text style={styles.infoLabel}>Contact:</Text>
               <TouchableOpacity onPress={() => handleCall(request.contactNumber)}>
                 <Text style={[styles.infoValue, styles.linkText]}>{request.contactNumber}</Text>
@@ -231,7 +232,7 @@ export default function HospitalRequestDetailsScreen() {
           {/* Accepted Donors */}
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <Ionicons name="people" size={24} color={palette.primaryRed} />
+              <Users size={24} color={palette.primaryRed} />
               <Text style={styles.sectionTitle}>
                 Accepted Donors ({donors.length})
               </Text>
@@ -239,7 +240,7 @@ export default function HospitalRequestDetailsScreen() {
 
             {donors.length === 0 ? (
               <View style={styles.emptyDonors}>
-                <Ionicons name="people-outline" size={48} color={palette.lightText} />
+                <Users size={48} color={palette.lightText} />
                 <Text style={styles.emptyText}>No donors yet</Text>
                 <Text style={styles.emptySubtext}>Waiting for donors to accept this request</Text>
               </View>
@@ -248,7 +249,7 @@ export default function HospitalRequestDetailsScreen() {
                 <View key={donor.userId} style={styles.donorCard}>
                   <View style={styles.donorHeader}>
                     <View style={styles.donorAvatar}>
-                      <Ionicons name="person" size={24} color={palette.white} />
+                      <User size={24} color={palette.white} />
                     </View>
                     <View style={styles.donorInfo}>
                       <Text style={styles.donorName}>{donor.userName}</Text>
@@ -266,7 +267,7 @@ export default function HospitalRequestDetailsScreen() {
                       style={styles.callButton}
                       onPress={() => handleCall(donor.contactNumber)}
                     >
-                      <Ionicons name="call" size={18} color={palette.white} />
+                      <Phone size={18} color={palette.white} />
                       <Text style={styles.callButtonText}>Call {donor.contactNumber}</Text>
                     </TouchableOpacity>
                   </View>
@@ -488,3 +489,4 @@ const styles = StyleSheet.create({
     color: palette.white,
   },
 });
+

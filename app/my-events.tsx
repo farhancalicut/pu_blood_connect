@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, SafeAreaView, ActivityIndicator, FlatList, Image, TouchableOpacity } from 'react-native';
 import { useRouter, useFocusEffect, Stack } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import { CheckCircle, Calendar, MapPin, ChevronLeft } from 'lucide-react-native';
 import { getAuth } from 'firebase/auth';
 import { collection, query, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
@@ -80,18 +80,18 @@ export default function MyEventsScreen() {
                 <Image source={{ uri: item.posterImageUrl }} style={styles.eventPoster} />
             ) : (
                 <View style={styles.eventPosterPlaceholder}>
-                    <Ionicons name="calendar-outline" size={40} color={palette.lightText} />
+                    <Calendar size={40} color={palette.lightText} />
                     <Text style={styles.placeholderText}>Image is not uploaded</Text>
                 </View>
             )}
             <View style={styles.eventInfo}>
                 <Text style={styles.eventTitle} numberOfLines={2}>{item.title}</Text>
                 <View style={styles.eventDetails}>
-                    <Ionicons name="location-outline" size={16} color={palette.lightText} />
+                    <MapPin size={16} color={palette.lightText} />
                     <Text style={styles.eventLocation} numberOfLines={1}>{item.location}</Text>
                 </View>
                 <View style={styles.eventDetails}>
-                    <Ionicons name="calendar-outline" size={16} color={palette.lightText} />
+                    <Calendar size={16} color={palette.lightText} />
                     <Text style={styles.eventDate}>
                         {item.eventDate.toDate().toLocaleDateString('en-GB', {
                             day: 'numeric',
@@ -102,7 +102,7 @@ export default function MyEventsScreen() {
                 </View>
             </View>
             <View style={styles.attendedBadge}>
-                <Ionicons name="checkmark-circle" size={20} color="#10B981" />
+                <CheckCircle size={20} color="#10B981" />
                 <Text style={styles.attendedText}>Attended</Text>
             </View>
         </View>
@@ -130,7 +130,7 @@ export default function MyEventsScreen() {
                 {/* Custom Header */}
                 <View style={styles.header}>
                     <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-                        <Ionicons name="chevron-back" size={24} color={palette.darkText} />
+                        <ChevronLeft size={24} color={palette.darkText} />
                     </TouchableOpacity>
                     <Text style={styles.headerTitle}>My Events</Text>
                     <View style={styles.headerSpacer} />
@@ -147,7 +147,7 @@ export default function MyEventsScreen() {
                         />
                     ) : (
                         <View style={styles.emptyState}>
-                            <Ionicons name="calendar-outline" size={80} color={palette.lightText} />
+                            <Calendar size={80} color={palette.lightText} />
                             <Text style={styles.emptyStateTitle}>No Events Yet</Text>
                             <Text style={styles.emptyStateText}>
                                 You haven't participated in any events yet. Join events and mark your attendance to see them here!

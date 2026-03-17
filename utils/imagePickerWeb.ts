@@ -5,7 +5,10 @@ import { Platform } from "react-native";
  * Image Picker utilities with web support
  */
 
-export const requestMediaLibraryPermissionsAsync = async () => {
+// Re-export MediaTypeOptions for convenience
+export const MediaTypeOptions = ExpoImagePicker.MediaTypeOptions;
+
+export const requestMediaLibraryPermissionsAsync = async (): Promise<{ status: string; granted: boolean }> => {
   if (Platform.OS === "web") {
     // Web doesn't need permissions for file input
     return { status: "granted", granted: true };
@@ -14,7 +17,7 @@ export const requestMediaLibraryPermissionsAsync = async () => {
   return ExpoImagePicker.requestMediaLibraryPermissionsAsync();
 };
 
-export const launchImageLibraryAsync = async (options?: any) => {
+export const launchImageLibraryAsync = async (options?: any): Promise<ExpoImagePicker.ImagePickerResult> => {
   if (Platform.OS === "web") {
     // Use web file input
     return new Promise((resolve) => {
@@ -38,11 +41,11 @@ export const launchImageLibraryAsync = async (options?: any) => {
                   fileSize: file.size,
                 },
               ],
-            });
+            } as ExpoImagePicker.ImagePickerResult);
           };
           reader.readAsDataURL(file);
         } else {
-          resolve({ canceled: true });
+          resolve({ canceled: true } as ExpoImagePicker.ImagePickerResult);
         }
       };
       input.click();
@@ -52,7 +55,7 @@ export const launchImageLibraryAsync = async (options?: any) => {
   return ExpoImagePicker.launchImageLibraryAsync(options);
 };
 
-export const launchCameraAsync = async (options?: any) => {
+export const launchCameraAsync = async (options?: any): Promise<ExpoImagePicker.ImagePickerResult> => {
   if (Platform.OS === "web") {
     // Use web camera input
     return new Promise((resolve) => {
@@ -77,11 +80,11 @@ export const launchCameraAsync = async (options?: any) => {
                   fileSize: file.size,
                 },
               ],
-            });
+            } as ExpoImagePicker.ImagePickerResult);
           };
           reader.readAsDataURL(file);
         } else {
-          resolve({ canceled: true });
+          resolve({ canceled: true } as ExpoImagePicker.ImagePickerResult);
         }
       };
       input.click();

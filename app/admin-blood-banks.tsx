@@ -6,13 +6,12 @@ import {
   ScrollView,
   TouchableOpacity,
   TextInput,
-  Alert,
   Modal,
   Platform,
   RefreshControl,
   Linking,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { ArrowLeft, Plus, Search, Building2, MapPin, Phone, Mail, Globe, Clock, User as UserIcon, Edit2, Trash2 } from 'lucide-react-native';
 import { router } from 'expo-router';
 import { 
   collection, 
@@ -28,6 +27,7 @@ import {
   serverTimestamp 
 } from 'firebase/firestore';
 import { db } from '../firebase';
+import { showAlert } from '../utils/alert';
 import { onAuthStateChanged, User, getAuth } from 'firebase/auth';
 
 interface BloodBank {
@@ -104,7 +104,7 @@ const AdminBloodBanks: React.FC = () => {
       const userDoc = await getDoc(userDocRef);
       
       if (!userDoc.exists() || userDoc.data()?.role !== 'admin') {
-        Alert.alert('Access Denied', 'You do not have admin privileges.');
+        showAlert('Access Denied', 'You do not have admin privileges.');
         router.replace('/dashboard');
         return;
       }
@@ -113,7 +113,7 @@ const AdminBloodBanks: React.FC = () => {
       fetchBloodBanks();
     } catch (error) {
       console.error('Error checking admin status:', error);
-      Alert.alert('Error', 'Failed to verify admin status.');
+      showAlert('Error', 'Failed to verify admin status.');
     }
   };
 
@@ -137,7 +137,7 @@ const AdminBloodBanks: React.FC = () => {
       setLoading(false);
     } catch (error) {
       console.error('Error fetching blood banks:', error);
-      Alert.alert('Error', 'Failed to fetch blood banks.');
+      showAlert('Error', 'Failed to fetch blood banks.');
       setLoading(false);
     }
   };
@@ -196,7 +196,7 @@ const AdminBloodBanks: React.FC = () => {
 
   const handleSaveBloodBank = async () => {
     if (!bloodBankForm.name || !bloodBankForm.address || !bloodBankForm.phoneNumber) {
-      Alert.alert('Error', 'Please fill in all required fields.');
+      showAlert('Error', 'Please fill in all required fields.');
       return;
     }
 
@@ -212,10 +212,10 @@ const AdminBloodBanks: React.FC = () => {
 
       if (editingBloodBank) {
         await updateDoc(doc(db, 'bloodBanks', editingBloodBank.id), bloodBankData);
-        Alert.alert('Success', 'Blood bank updated successfully!');
+        showAlert('Success', 'Blood bank updated successfully!');
       } else {
         await addDoc(collection(db, 'bloodBanks'), bloodBankData);
-        Alert.alert('Success', 'Blood bank added successfully!');
+        showAlert('Success', 'Blood bank added successfully!');
       }
 
       setShowBloodBankModal(false);
@@ -223,7 +223,7 @@ const AdminBloodBanks: React.FC = () => {
       fetchBloodBanks();
     } catch (error) {
       console.error('Error saving blood bank:', error);
-      Alert.alert('Error', 'Failed to save blood bank.');
+      showAlert('Error', 'Failed to save blood bank.');
     }
   };
 
@@ -250,7 +250,7 @@ const AdminBloodBanks: React.FC = () => {
   };
 
   const handleDeleteBloodBank = (bloodBankId: string) => {
-    Alert.alert(
+    showAlert(
       'Delete Blood Bank',
       'Are you sure you want to delete this blood bank? This action cannot be undone.',
       [
@@ -261,11 +261,11 @@ const AdminBloodBanks: React.FC = () => {
           onPress: async () => {
             try {
               await deleteDoc(doc(db, 'bloodBanks', bloodBankId));
-              Alert.alert('Success', 'Blood bank deleted successfully!');
+              showAlert('Success', 'Blood bank deleted successfully!');
               fetchBloodBanks();
             } catch (error) {
               console.error('Error deleting blood bank:', error);
-              Alert.alert('Error', 'Failed to delete blood bank.');
+              showAlert('Error', 'Failed to delete blood bank.');
             }
           }
         }
@@ -333,7 +333,7 @@ const AdminBloodBanks: React.FC = () => {
           style={styles.backButton}
           onPress={() => router.push('/admin-dashboard')}
         >
-          <Ionicons name="arrow-back" size={24} color="#007AFF" />
+          <ArrowLeft size={22} color="#9B0000" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Blood Banks</Text>
         <TouchableOpacity 
@@ -343,14 +343,14 @@ const AdminBloodBanks: React.FC = () => {
             setShowBloodBankModal(true);
           }}
         >
-          <Ionicons name="add" size={24} color="#007AFF" />
+          <Plus size={22} color="#9B0000" />
         </TouchableOpacity>
       </View>
 
       {/* Search and Filter */}
       <View style={styles.searchContainer}>
         <View style={styles.searchInputContainer}>
-          <Ionicons name="search" size={20} color="#8E8E93" style={styles.searchIcon} />
+          <Search size={20} color="#8E8E93" style={styles.searchIcon} />
           <TextInput
             style={styles.searchInput}
             placeholder="Search blood banks..."
@@ -398,13 +398,14 @@ const AdminBloodBanks: React.FC = () => {
       {/* Blood Banks List */}
       <ScrollView 
         style={styles.bloodBanksList}
+        showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
         {filteredBloodBanks.length === 0 ? (
           <View style={styles.emptyContainer}>
-            <Ionicons name="business-outline" size={64} color="#8E8E93" />
+            <Building2 size={64} color="#8E8E93" />
             <Text style={styles.emptyText}>No blood banks found</Text>
           </View>
         ) : (
@@ -416,42 +417,42 @@ const AdminBloodBanks: React.FC = () => {
               
               <View style={styles.bloodBankDetails}>
                 <View style={styles.detailRow}>
-                  <Ionicons name="location-outline" size={16} color="#8E8E93" />
+                  <MapPin size={16} color="#8E8E93" />
                   <Text style={styles.detailText}>{bloodBank.address}</Text>
                 </View>
                 <View style={styles.detailRow}>
-                  <Ionicons name="business-outline" size={16} color="#8E8E93" />
+                  <Building2 size={16} color="#8E8E93" />
                   <Text style={styles.detailText}>{bloodBank.city}, {bloodBank.state} - {bloodBank.pincode}</Text>
                 </View>
                 <View style={styles.detailRow}>
-                  <Ionicons name="call-outline" size={16} color="#8E8E93" />
+                  <Phone size={16} color="#8E8E93" />
                   <TouchableOpacity onPress={() => handleCall(bloodBank.phoneNumber)}>
-                    <Text style={[styles.detailText, { color: '#007AFF' }]}>{bloodBank.phoneNumber}</Text>
+                    <Text style={[styles.detailText, { color: '#9B0000' }]}>{bloodBank.phoneNumber}</Text>
                   </TouchableOpacity>
                 </View>
                 {bloodBank.email && (
                   <View style={styles.detailRow}>
-                    <Ionicons name="mail-outline" size={16} color="#8E8E93" />
+                    <Mail size={16} color="#8E8E93" />
                     <TouchableOpacity onPress={() => handleEmail(bloodBank.email!)}>
-                      <Text style={[styles.detailText, { color: '#007AFF' }]}>{bloodBank.email}</Text>
+                      <Text style={[styles.detailText, { color: '#9B0000' }]}>{bloodBank.email}</Text>
                     </TouchableOpacity>
                   </View>
                 )}
                 {bloodBank.website && (
                   <View style={styles.detailRow}>
-                    <Ionicons name="globe-outline" size={16} color="#8E8E93" />
+                    <Globe size={16} color="#8E8E93" />
                     <TouchableOpacity onPress={() => handleWebsite(bloodBank.website!)}>
-                      <Text style={[styles.detailText, { color: '#007AFF' }]}>{bloodBank.website}</Text>
+                      <Text style={[styles.detailText, { color: '#9B0000' }]}>{bloodBank.website}</Text>
                     </TouchableOpacity>
                   </View>
                 )}
                 <View style={styles.detailRow}>
-                  <Ionicons name="time-outline" size={16} color="#8E8E93" />
+                  <Clock size={16} color="#8E8E93" />
                   <Text style={styles.detailText}>{bloodBank.operatingHours}</Text>
                 </View>
                 {bloodBank.contactPerson && (
                   <View style={styles.detailRow}>
-                    <Ionicons name="person-outline" size={16} color="#8E8E93" />
+                    <UserIcon size={16} color="#8E8E93" />
                     <Text style={styles.detailText}>Contact: {bloodBank.contactPerson}</Text>
                   </View>
                 )}
@@ -483,8 +484,8 @@ const AdminBloodBanks: React.FC = () => {
                   style={[styles.actionButton, styles.editButton]}
                   onPress={() => handleEditBloodBank(bloodBank)}
                 >
-                  <Ionicons name="create-outline" size={16} color="#007AFF" />
-                  <Text style={[styles.actionButtonText, { color: '#007AFF' }]}>Edit</Text>
+                  <Edit2 size={16} color="#9B0000" />
+                  <Text style={[styles.actionButtonText, { color: '#9B0000' }]}>Edit</Text>
                 </TouchableOpacity>
                 
 
@@ -493,7 +494,7 @@ const AdminBloodBanks: React.FC = () => {
                   style={[styles.actionButton, styles.deleteButton]}
                   onPress={() => handleDeleteBloodBank(bloodBank.id)}
                 >
-                  <Ionicons name="trash-outline" size={16} color="#FF3B30" />
+                  <Trash2 size={16} color="#FF3B30" />
                   <Text style={[styles.actionButtonText, { color: '#FF3B30' }]}>Delete</Text>
                 </TouchableOpacity>
               </View>
@@ -720,28 +721,28 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 15,
+    paddingHorizontal: 15,
+    paddingVertical: 12,
     backgroundColor: 'white',
     borderBottomWidth: 1,
     borderBottomColor: '#E5E5EA',
-    paddingTop: Platform.OS === 'ios' ? 50 : 20,
+    paddingTop: Platform.OS === 'ios' ? 45 : 15,
   },
   backButton: {
-    padding: 5,
+    padding: 4,
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '600',
     color: '#000',
   },
   addButton: {
-    padding: 5,
+    padding: 4,
   },
   searchContainer: {
     backgroundColor: 'white',
-    paddingHorizontal: 20,
-    paddingVertical: 15,
+    paddingHorizontal: 15,
+    paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#E5E5EA',
   },
@@ -749,33 +750,33 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#F2F2F7',
-    borderRadius: 10,
-    paddingHorizontal: 15,
-    marginBottom: 15,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    marginBottom: 12,
   },
   searchIcon: {
-    marginRight: 10,
+    marginRight: 8,
   },
   searchInput: {
     flex: 1,
-    paddingVertical: 12,
-    fontSize: 16,
+    paddingVertical: 10,
+    fontSize: 14,
   },
   filterContainer: {
     flexDirection: 'row',
   },
   filterButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     backgroundColor: '#F2F2F7',
-    borderRadius: 20,
-    marginRight: 10,
+    borderRadius: 16,
+    marginRight: 8,
   },
   filterButtonActive: {
-    backgroundColor: '#007AFF',
+    backgroundColor: '#9B0000',
   },
   filterButtonText: {
-    fontSize: 14,
+    fontSize: 12,
     color: '#8E8E93',
     fontWeight: '500',
   },
@@ -784,7 +785,6 @@ const styles = StyleSheet.create({
   },
   bloodBanksList: {
     flex: 1,
-    paddingHorizontal: 20,
   },
   emptyContainer: {
     alignItems: 'center',
@@ -800,6 +800,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
     borderRadius: 12,
     padding: 16,
+    marginHorizontal: 15,
     marginVertical: 8,
     shadowColor: '#000',
     shadowOffset: {
@@ -942,7 +943,7 @@ const styles = StyleSheet.create({
   },
   modalSaveButton: {
     fontSize: 16,
-    color: '#007AFF',
+    color: '#9B0000',
     fontWeight: '600',
   },
   modalContent: {

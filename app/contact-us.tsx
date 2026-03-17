@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, SafeAreaView, Dimensions } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Mail, Phone, MapPin } from 'lucide-react-native';
 
 const { width: screenWidth } = Dimensions.get('window');
 const guidelineBaseWidth = 375;
@@ -17,15 +17,15 @@ export default function ContactUsScreen() {
                 <Text style={styles.paragraph}>If you have any questions or require assistance, please feel free to contact us.</Text>
                 
                 <View style={styles.contactRow}>
-                    <Ionicons name="mail-outline" size={scale(24)} color={palette.primaryRed} />
+                    <Mail size={scale(24)} color={palette.primaryRed} />
                     <Text style={styles.contactText}>contact@publoodconnect.edu</Text>
                 </View>
                 <View style={styles.contactRow}>
-                    <Ionicons name="call-outline" size={scale(24)} color={palette.primaryRed} />
+                    <Phone size={scale(24)} color={palette.primaryRed} />
                     <Text style={styles.contactText}>+91-413-1234567</Text>
                 </View>
                 <View style={styles.contactRow}>
-                    <Ionicons name="location-outline" size={scale(24)} color={palette.primaryRed} />
+                    <MapPin size={scale(24)} color={palette.primaryRed} />
                     <Text style={styles.contactText}>PU Blood Donation Unit, Puducherry University, Puducherry</Text>
                 </View>
             </View>

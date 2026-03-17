@@ -10,7 +10,7 @@ import {
   Dimensions,
   SafeAreaView,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Search, Droplet, Activity, Heart, Calendar, ArrowLeft, Clock, MapPin, User as UserIcon } from 'lucide-react-native';
 import { router } from 'expo-router';
 import { 
   collection, 
@@ -36,7 +36,6 @@ const palette = {
   borderLight: '#EAEAEA',
   pageBg: '#F7F7F7',
   green: '#28a745',
-  blue: '#007AFF',
 };
 
 interface Donation {
@@ -230,7 +229,7 @@ const AdminDonations: React.FC = () => {
           {item.donorPhone && <Text style={styles.donorContact}>{item.donorPhone}</Text>}
         </View>
         <View style={[styles.bloodTypeBadge, { backgroundColor: getBloodTypeColor(item.bloodType) + '20' }]}>
-          <Ionicons name="water" size={scale(14)} color={getBloodTypeColor(item.bloodType)} />
+          <Droplet size={scale(14)} color={getBloodTypeColor(item.bloodType)} />
           <Text style={[styles.bloodTypeText, { color: getBloodTypeColor(item.bloodType) }]}>
             {item.bloodType}
           </Text>
@@ -240,42 +239,42 @@ const AdminDonations: React.FC = () => {
       <View style={styles.cardContent}>
         {item.age && (
           <View style={styles.infoRow}>
-            <Ionicons name="person-outline" size={scale(16)} color={palette.lightText} />
+            <UserIcon size={scale(16)} color={palette.lightText} />
             <Text style={styles.infoText}>Age: {item.age}</Text>
           </View>
         )}
         
         {item.weight && (
           <View style={styles.infoRow}>
-            <Ionicons name="fitness-outline" size={scale(16)} color={palette.lightText} />
+            <Activity size={scale(16)} color={palette.lightText} />
             <Text style={styles.infoText}>Weight: {item.weight} kg</Text>
           </View>
         )}
 
         {item.unitsdonated && item.unitsdonated > 0 && (
           <View style={styles.infoRow}>
-            <Ionicons name="medical-outline" size={scale(16)} color={palette.lightText} />
+            <Heart size={scale(16)} color={palette.lightText} />
             <Text style={styles.infoText}>Units Donated: {item.unitsdonated}</Text>
           </View>
         )}
 
         {item.eventName && (
           <View style={styles.infoRow}>
-            <Ionicons name="calendar-outline" size={scale(16)} color={palette.lightText} />
+            <Calendar size={scale(16)} color={palette.lightText} />
             <Text style={styles.infoText}>Event: {item.eventName}</Text>
           </View>
         )}
 
         {item.location && (
           <View style={styles.infoRow}>
-            <Ionicons name="location-outline" size={scale(16)} color={palette.lightText} />
+            <MapPin size={scale(16)} color={palette.lightText} />
             <Text style={styles.infoText}>Location: {item.location}</Text>
           </View>
         )}
 
         {item.donationDate && (
           <View style={styles.infoRow}>
-            <Ionicons name="time-outline" size={scale(16)} color={palette.lightText} />
+            <Clock size={scale(16)} color={palette.lightText} />
             <Text style={styles.infoText}>Donation Date: {formatDate(item.donationDate)}</Text>
           </View>
         )}
@@ -322,7 +321,7 @@ const AdminDonations: React.FC = () => {
           style={styles.backButton}
           onPress={() => router.push('/admin-dashboard')}
         >
-          <Ionicons name="arrow-back" size={24} color={palette.blue} />
+          <ArrowLeft size={22} color={palette.primaryRed} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Approved Donations</Text>
         <View style={styles.headerSpacer} />
@@ -331,7 +330,7 @@ const AdminDonations: React.FC = () => {
       {/* Search Bar */}
       <View style={styles.searchContainer}>
         <View style={styles.searchInputContainer}>
-          <Ionicons name="search" size={20} color="#8E8E93" style={styles.searchIcon} />
+          <Search size={20} color="#8E8E93" style={styles.searchIcon} />
           <TextInput
             style={styles.searchInput}
             placeholder="Search donations..."
@@ -360,7 +359,7 @@ const AdminDonations: React.FC = () => {
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Ionicons name="heart-outline" size={scale(50)} color={palette.lightText} />
+            <Heart size={scale(50)} color={palette.lightText} />
             <Text style={styles.emptyText}>No approved donations found</Text>
             <Text style={styles.emptySubText}>
               {searchQuery 
@@ -388,18 +387,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: scale(20),
-    paddingVertical: scale(15),
+    paddingHorizontal: scale(15),
+    paddingVertical: scale(12),
     backgroundColor: palette.white,
     borderBottomWidth: 1,
     borderBottomColor: palette.borderLight,
   },
   backButton: {
-    padding: scale(5),
+    padding: scale(4),
   },
   headerTitle: {
-    fontSize: scale(18),
-    fontWeight: 'bold',
+    fontSize: scale(16),
+    fontWeight: '600',
     color: palette.darkText,
   },
   headerSpacer: {
@@ -407,8 +406,8 @@ const styles = StyleSheet.create({
   },
   searchContainer: {
     backgroundColor: 'white',
-    paddingHorizontal: scale(20),
-    paddingVertical: scale(15),
+    paddingHorizontal: scale(15),
+    paddingVertical: scale(12),
     borderBottomWidth: 1,
     borderBottomColor: '#E5E5EA',
   },
@@ -416,26 +415,26 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#F2F2F7',
-    borderRadius: scale(10),
-    paddingHorizontal: scale(15),
+    borderRadius: scale(8),
+    paddingHorizontal: scale(12),
   },
   searchIcon: {
-    marginRight: scale(10),
+    marginRight: scale(8),
   },
   searchInput: {
     flex: 1,
-    paddingVertical: scale(12),
-    fontSize: scale(16),
+    paddingVertical: scale(10),
+    fontSize: scale(14),
   },
   statsContainer: {
-    paddingHorizontal: scale(20),
-    paddingVertical: scale(10),
+    paddingHorizontal: scale(15),
+    paddingVertical: scale(8),
     backgroundColor: palette.white,
     borderBottomWidth: 1,
     borderBottomColor: palette.borderLight,
   },
   statsText: {
-    fontSize: scale(14),
+    fontSize: scale(12),
     color: palette.lightText,
     textAlign: 'center',
   },

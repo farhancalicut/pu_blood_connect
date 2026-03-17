@@ -4,6 +4,7 @@ import { Platform, StyleSheet, View } from "react-native";
 /**
  * WebProvider - Handles web-specific initialization
  * Wraps the app to provide PWA functionality
+ * Note: No font loading needed - using Lucide SVG icons
  */
 export default function WebProvider({
   children,
@@ -12,6 +13,97 @@ export default function WebProvider({
 }) {
   useEffect(() => {
     if (Platform.OS === "web") {
+      // Add PWA meta tags for proper app-like experience
+      const addMetaTag = (name: string, content: string, property?: string) => {
+        const existingTag = property 
+          ? document.querySelector(`meta[property="${property}"]`)
+          : document.querySelector(`meta[name="${name}"]`);
+        
+        if (!existingTag) {
+          const meta = document.createElement("meta");
+          if (property) {
+            meta.setAttribute("property", property);
+          } else {
+            meta.setAttribute("name", name);
+          }
+          meta.setAttribute("content", content);
+          document.head.appendChild(meta);
+        }
+      };
+
+      // PWA meta tags
+      addMetaTag("mobile-web-app-capable", "yes");
+      addMetaTag("apple-mobile-web-app-capable", "yes");
+      addMetaTag("apple-mobile-web-app-status-bar-style", "black-translucent");
+      addMetaTag("apple-mobile-web-app-title", "PU NSS Connect");
+      addMetaTag("theme-color", "#EF4444");
+      addMetaTag("viewport", "width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no");
+
+      // Add apple-touch-icon
+      const appleIconLink = document.createElement("link");
+      appleIconLink.rel = "apple-touch-icon";
+      appleIconLink.href = "/apple-touch-icon.png";
+      if (!document.querySelector('link[rel="apple-touch-icon"]')) {
+        document.head.appendChild(appleIconLink);
+      }
+
+      // Ensure manifest is linked
+      const manifestLink = document.createElement("link");
+      manifestLink.rel = "manifest";
+      manifestLink.href = "/manifest.json";
+      if (!document.querySelector('link[rel="manifest"]')) {
+        document.head.appendChild(manifestLink);
+      }
+
+      // Inject CSS to prevent overscroll and rubber-band effect
+      const style = document.createElement("style");
+      style.textContent = `
+        html, body {
+          margin: 0;
+          padding: 0;
+          width: 100%;
+          height: 100%;
+          overflow: hidden;
+          position: fixed;
+          background-color: #f0f0f0;
+          overscroll-behavior: none;
+          -webkit-overflow-scrolling: touch;
+        }
+        body {
+          overscroll-behavior-y: none;
+          overscroll-behavior-x: none;
+          touch-action: pan-y;
+        }
+        #root {
+          width: 100%;
+          height: 100%;
+          overflow: hidden;
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+        }
+        * {
+          -webkit-overflow-scrolling: touch;
+          overscroll-behavior: none;
+        }
+        * {
+          -webkit-user-select: none;
+          -moz-user-select: none;
+          -ms-user-select: none;
+          user-select: none;
+          -webkit-tap-highlight-color: transparent;
+        }
+        input, textarea {
+          -webkit-user-select: text;
+          -moz-user-select: text;
+          -ms-user-select: text;
+          user-select: text;
+        }
+      `;
+      document.head.appendChild(style);
+
       // Initialize web push notifications (lazy load to avoid breaking)
       try {
         import("../../utils/notificationsWeb")

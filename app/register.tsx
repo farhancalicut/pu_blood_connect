@@ -1,13 +1,14 @@
-import { Picker } from '@react-native-picker/picker';
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 import { useNavigation, useRouter } from 'expo-router';
 import { FirebaseError } from 'firebase/app';
-import { createUserWithEmailAndPassword, getAuth, sendEmailVerification, signOut } from 'firebase/auth';
+import { createUserWithEmailAndPassword, getAuth, onAuthStateChanged, sendEmailVerification, signOut } from 'firebase/auth';
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Animated, Dimensions, Keyboard, KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TextStyle, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
+import { ActivityIndicator, Animated, Dimensions, Keyboard, KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TextStyle, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
+import FormSelect from './_components/FormSelect';
 import { db } from '../firebase';
+import { showAlert } from '../utils/alert';
 
 const { width: screenWidth } = Dimensions.get('window');
 const guidelineBaseWidth = 375; 
@@ -19,6 +20,11 @@ const GENDERS = ['Male', 'Female', 'Other'];
 const BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
 const YEARS = ['First', 'Second', 'Third', 'Fourth', 'PhD'];
 const NSS_UNITS = ['Unit 1', 'Unit 2', 'Unit 3', 'Unit 4', 'Unit 5(Karaikal)'];
+
+const toOptions = (values: string[], placeholder: string) => [
+  { label: placeholder, value: '' },
+  ...values.map((value) => ({ label: value, value })),
+];
 
 type FloatingLabelInputProps = {
   label: string;
@@ -73,21 +79,23 @@ const FloatingLabelInput = ({
 
     const handleFocus = () => {
       setIsFocused(true);
-      // Auto-scroll to focused input after a short delay
-      setTimeout(() => {
-        inputRef.current?.measureInWindow((x, y, width, height) => {
-          const screenHeight = Dimensions.get('window').height;
-          const keyboardApproximateHeight = screenHeight * 0.4; // Approximate keyboard height
-          const targetY = y - scale(80); // Position input above keyboard with padding
-          
-          if ((global as any).scrollViewRef?.current) {
-            (global as any).scrollViewRef.current.scrollTo({ 
-              y: Math.max(0, targetY), 
-              animated: true 
-            });
-          }
-        });
-      }, 150);
+      // Auto-scroll to focused input only on native platforms
+      if (Platform.OS !== 'web') {
+        setTimeout(() => {
+          inputRef.current?.measureInWindow((x, y, width, height) => {
+            const screenHeight = Dimensions.get('window').height;
+            const keyboardApproximateHeight = screenHeight * 0.4; // Approximate keyboard height
+            const targetY = y - scale(80); // Position input above keyboard with padding
+            
+            if ((global as any).scrollViewRef?.current) {
+              (global as any).scrollViewRef.current.scrollTo({ 
+                y: Math.max(0, targetY), 
+                animated: true 
+              });
+            }
+          });
+        }, 150);
+      }
     };
 
     return (
@@ -133,7 +141,31 @@ export default function RegisterScreen() {
   });
   const [isLoading, setIsLoading] = useState(isEditMode);
 
-  const validateEmail = (email: string) => /^[a-zA-Z0-9]{13}@pondiuni\.ac\.in$/.test(email);
+  const waitForAuthSync = async (uid: string) => {
+    const auth = getAuth();
+    if (auth.currentUser?.uid === uid) {
+      return;
+    }
+
+    await new Promise<void>((resolve) => {
+      const timeout = setTimeout(resolve, 2000);
+      const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+        if (currentUser?.uid === uid) {
+          clearTimeout(timeout);
+          unsubscribe();
+          resolve();
+        }
+      });
+    });
+  };
+
+  const validateEmail = (email: string) => {
+    const normalized = email.trim().toLowerCase();
+    const parts = normalized.split('@');
+    if (parts.length !== 2) return false;
+    const [localPart, domain] = parts;
+    return localPart.length > 0 && domain === 'pondiuni.ac.in';
+  };
   const validateGender = (gender: string) => GENDERS.includes(gender);
   const validateAge = (age: string) => { const num = Number(age); return !isNaN(num) && num > 15; };
   const validateBloodGroup = (bg: string) => BLOOD_GROUPS.includes(bg);
@@ -188,44 +220,44 @@ export default function RegisterScreen() {
     const { email, password, confirmPassword, age, gender, phone, bloodGroup, ...profileData } = form;
 
     if (!profileData.firstName || !profileData.lastName || !profileData.department || !profileData.year) {
-      Alert.alert('Missing Information', 'Please fill all required fields including name, department, and year.');
+      showAlert('Missing Information', 'Please fill all required fields including name, department, and year.');
       return;
     }
     if (form.isNssVolunteer === 'Yes' && !form.nssUnit) {
-      Alert.alert('Missing Information', 'Please select your NSS Unit.');
+      showAlert('Missing Information', 'Please select your NSS Unit.');
       return;
     }
     if (!isEditMode && !validateEmail(email.trim())) {
-      Alert.alert('Validation Error', 'Please enter a valid Pondicherry University email address.');
+      showAlert('Validation Error', 'Please enter a valid Pondicherry University email address.');
       return;
     }
     if (!validateGender(gender)) {
-      Alert.alert('Validation Error', 'Please select a valid gender.');
+      showAlert('Validation Error', 'Please select a valid gender.');
       return;
     }
     if (!validateAge(age)) {
-      Alert.alert('Validation Error', 'Please enter a valid age (must be greater than 15).');
+      showAlert('Validation Error', 'Please enter a valid age (must be greater than 15).');
       return;
     }
     if (!validateBloodGroup(bloodGroup)) {
-      Alert.alert('Validation Error', 'Please select a valid blood group.');
+      showAlert('Validation Error', 'Please select a valid blood group.');
       return;
     }
     if (!validateMobile(phone)){
-        Alert.alert('Mobile Number is not Valid','Please Enter Correct Valid Mobile No.');
+        showAlert('Mobile Number is not Valid','Please Enter Correct Valid Mobile No.');
         return;
     }
     if (!isEditMode) {
       if (!email || !password) {
-        Alert.alert('Missing Information', 'Please provide an email and password.');
+        showAlert('Missing Information', 'Please provide an email and password.');
         return;
       }
       if (!validatePassword(password)) {
-        Alert.alert('Validation Error', 'Password must be at least 6 characters.');
+        showAlert('Validation Error', 'Password must be at least 6 characters.');
         return;
       }
       if (password !== confirmPassword) {
-        Alert.alert('Passwords do not match');
+        showAlert('Passwords do not match');
         return;
       }
     }
@@ -256,12 +288,16 @@ export default function RegisterScreen() {
         }
         
         await updateDoc(userDocRef, updateData);
-        Alert.alert('Profile Updated!', 'Your details have been saved successfully.');
+        showAlert('Profile Updated!', 'Your details have been saved successfully.');
         router.back();
       } else {
         // Create user account
         const userCredential = await createUserWithEmailAndPassword(getAuth(), email.trim(), password);
         const newUser = userCredential.user;
+
+        // Ensure auth token/session is fully available before Firestore write.
+        await newUser.getIdToken(true);
+        await waitForAuthSync(newUser.uid);
         
         // Send email verification
         await sendEmailVerification(newUser);
@@ -307,7 +343,17 @@ export default function RegisterScreen() {
           newUserProfile.nssStatus = 'pending';
           newUserProfile.nssUnit = form.nssUnit;
         }
-        await setDoc(doc(db, 'users', newUser.uid), newUserProfile);
+        try {
+          await setDoc(doc(db, 'users', newUser.uid), newUserProfile);
+        } catch (profileWriteError: unknown) {
+          if (profileWriteError instanceof FirebaseError && profileWriteError.code === 'permission-denied') {
+            await new Promise(resolve => setTimeout(resolve, 800));
+            await newUser.getIdToken(true);
+            await setDoc(doc(db, 'users', newUser.uid), newUserProfile);
+          } else {
+            throw profileWriteError;
+          }
+        }
         
         // Sign out the user immediately after registration
         await signOut(getAuth());
@@ -316,7 +362,7 @@ export default function RegisterScreen() {
         setIsLoading(false);
         
         // Show success message and redirect to login
-        Alert.alert(
+        showAlert(
           'Registration Successful!', 
           'A verification link has been sent to your email. Please check your inbox and verify your email before logging in.',
           [
@@ -357,12 +403,15 @@ export default function RegisterScreen() {
               case 'auth/too-many-requests':
                   message = 'Too many failed attempts. Please try again later.';
                   break;
+                case 'permission-denied':
+                  message = 'Unable to create your profile due to permissions. Please try again once.';
+                  break;
               default:
                   message = `Registration failed: ${error.message}`;
           }
       }
       
-      Alert.alert('Registration Failed', message);
+      showAlert('Registration Failed', message);
     } finally {
       // Ensure loading state is always cleared
       setIsLoading(false);
@@ -370,30 +419,33 @@ export default function RegisterScreen() {
   };
 
   
+  const ContentWrapper = Platform.OS === 'web' ? View : KeyboardAvoidingView;
+  const wrapperProps = Platform.OS === 'web' 
+    ? { style: { flex: 1 } }
+    : {
+        style: { flex: 1 },
+        behavior: (Platform.OS === 'ios' ? 'padding' : 'height') as 'padding' | 'height',
+        keyboardVerticalOffset: Platform.OS === 'ios' ? 90 : 0,
+      };
+  
      return (
     <SafeAreaView style={styles.container}>
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
-      >
+      <ContentWrapper {...wrapperProps}>
         <ScrollView 
           ref={scrollViewRef}
           style={{ flex: 1 }}
           contentContainerStyle={{ paddingBottom: scale(200) }}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
-          keyboardDismissMode="interactive"
+          keyboardDismissMode={Platform.OS === 'web' ? 'none' : 'interactive'}
           scrollEnabled={true}
-          bounces={true}
-          alwaysBounceVertical={true}
-          automaticallyAdjustKeyboardInsets={false}
-          contentInsetAdjustmentBehavior="never"
-          nestedScrollEnabled={true}
-          scrollEventThrottle={16}
-          directionalLockEnabled={false}
+          bounces={Platform.OS !== 'web'}
+          alwaysBounceVertical={Platform.OS !== 'web'}
+          automaticallyAdjustsScrollIndicatorInsets={Platform.OS !== 'web'}
+          automaticallyAdjustContentInsets={Platform.OS !== 'web'}
+          scrollEventThrottle={Platform.OS === 'web' ? undefined : 16}
         >
-        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+        <TouchableWithoutFeedback onPress={Platform.OS === 'web' ? undefined : Keyboard.dismiss}>
           <View style={styles.card}>
           
             {!isEditMode && (
@@ -423,30 +475,20 @@ export default function RegisterScreen() {
           />
           <Text style={styles.label}>Department</Text>
           <View style={styles.pickerContainer}>
-            <Picker
-              selectedValue={form.department}
+            <FormSelect
+              value={form.department}
               onValueChange={(itemValue) => handleChange('department', itemValue)}
-              style={styles.picker}
-            >
-              <Picker.Item label="Select Department..." value="" />
-              {DEPARTMENTS.map(dept => (
-                <Picker.Item key={dept} label={dept} value={dept} />
-              ))}
-            </Picker>
+              options={toOptions(DEPARTMENTS, 'Select Department...')}
+            />
           </View>
 
           <Text style={styles.label}>Year</Text>
           <View style={styles.pickerContainer}>
-            <Picker
-              selectedValue={form.year}
+            <FormSelect
+              value={form.year}
               onValueChange={(itemValue) => handleChange('year', itemValue)}
-              style={styles.picker}
-            >
-              <Picker.Item label="Select Year..." value="" />
-              {YEARS.map(year => (
-                <Picker.Item key={year} label={year} value={year} />
-              ))}
-            </Picker>
+              options={toOptions(YEARS, 'Select Year...')}
+            />
           </View>
           <FloatingLabelInput
             label="Age"
@@ -462,59 +504,48 @@ export default function RegisterScreen() {
           />
           <Text style={styles.label}>Gender</Text>
           <View style={styles.pickerContainer}>
-            <Picker
-              selectedValue={form.gender}
+            <FormSelect
+              value={form.gender}
               onValueChange={value => handleChange('gender', value)}
-              style={styles.picker}
-            >
-              <Picker.Item label="Select Gender" value="" />
-              {GENDERS.map(g => <Picker.Item key={g} label={g} value={g} />)}
-            </Picker>
+              options={toOptions(GENDERS, 'Select Gender')}
+            />
           </View>
           
           <Text style={styles.label}>Blood Group</Text>
           <View style={styles.pickerContainer}>
-            <Picker
-              selectedValue={form.bloodGroup}
+            <FormSelect
+              value={form.bloodGroup}
               onValueChange={value => handleChange('bloodGroup', value)}
-              style={styles.picker}
-            >
-              <Picker.Item label="Select Blood Group" value="" />
-              {BLOOD_GROUPS.map(bg => <Picker.Item key={bg} label={bg} value={bg} />)}
-            </Picker>
+              options={toOptions(BLOOD_GROUPS, 'Select Blood Group')}
+            />
           </View>
           <Text style={styles.label}>Are you an NSS Volunteer?</Text>
           <View style={styles.pickerContainer}>
-            <Picker
-              selectedValue={form.isNssVolunteer}
+            <FormSelect
+              value={form.isNssVolunteer}
               onValueChange={value => {
                 handleChange('isNssVolunteer', value);
                 if (value !== 'Yes') {
                   handleChange('nssUnit', ''); // Clear unit selection if not NSS volunteer
                 }
               }}
-              style={styles.picker}
-            >
-              <Picker.Item label="Please select..." value="" />
-              <Picker.Item label="Yes" value="Yes" />
-              <Picker.Item label="No" value="No" />
-            </Picker>
+              options={[
+                { label: 'Please select...', value: '' },
+                { label: 'Yes', value: 'Yes' },
+                { label: 'No', value: 'No' },
+              ]}
+            />
           </View>
           
           {form.isNssVolunteer === 'Yes' && (
             <>
               <Text style={styles.label}>NSS Unit</Text>
               <View style={styles.pickerContainer}>
-                <Picker
-                  selectedValue={form.nssUnit}
+                <FormSelect
+                  value={form.nssUnit}
                   onValueChange={value => handleChange('nssUnit', value)}
-                  style={styles.picker}
-                >
-                  <Picker.Item label="Select your NSS Unit..." value="" />
-                  {NSS_UNITS.map(unit => (
-                    <Picker.Item key={unit} label={unit} value={unit} />
-                  ))}
-                </Picker>
+                  options={toOptions(NSS_UNITS, 'Select your NSS Unit...')}
+                />
               </View>
             </>
           )}
@@ -549,7 +580,7 @@ export default function RegisterScreen() {
           </View>
         </TouchableWithoutFeedback>
         </ScrollView>
-      </KeyboardAvoidingView>
+      </ContentWrapper>
     </SafeAreaView>
   );
 }
@@ -605,9 +636,12 @@ const styles = StyleSheet.create({
     marginBottom: scale(15),
     justifyContent: 'center',
     overflow: 'hidden',
+    minWidth: 0,
   },
   picker: {
     width: '100%',
+    borderWidth: 0,
+    minWidth: 0,
   },
   input: {
     backgroundColor: '#fff',

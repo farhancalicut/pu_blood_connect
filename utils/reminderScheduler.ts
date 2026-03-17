@@ -1,10 +1,17 @@
 import { collection, getDocs, query, Timestamp, where } from 'firebase/firestore';
 import { db } from '../firebase';
 import { sendDonationEligibilityReminder, sendEventReminder } from './notifications';
+import { withNetworkRetry, isOnline } from './networkStatus';
 
 // Check for upcoming events and send reminders 1 hour before
 export async function checkAndSendEventReminders() {
     try {
+        // Check if online first - skip silently if offline
+        const online = await isOnline();
+        if (!online) {
+            return; // Skip silently when offline
+        }
+
         const now = new Date();
         const oneHourLater = new Date(now.getTime() + 60 * 60 * 1000);
         const twoHoursLater = new Date(now.getTime() + 120 * 60 * 1000);
@@ -17,7 +24,7 @@ export async function checkAndSendEventReminders() {
             where('status', '==', 'upcoming')
         );
 
-        const eventsSnapshot = await getDocs(eventsQuery);
+        const eventsSnapshot = await withNetworkRetry(() => getDocs(eventsQuery), 1, 500);
 
         for (const eventDoc of eventsSnapshot.docs) {
             const event = eventDoc.data();
@@ -39,14 +46,29 @@ export async function checkAndSendEventReminders() {
                 );
             }
         }
-    } catch (error) {
-        console.error('Error checking event reminders:', error);
+    } catch (error: any) {
+        // Suppress offline error logs
+        const isOfflineError =
+            error?.code === 'unavailable' ||
+            error?.message?.includes('offline') ||
+            error?.message?.includes('network') ||
+            error?.message?.includes('timeout');
+        
+        if (!isOfflineError) {
+            console.error('Error checking event reminders:', error);
+        }
     }
 }
 
 // Check for users eligible to donate again (60 days after last donation)
 export async function checkAndSendEligibilityReminders() {
     try {
+        // Check if online first - skip silently if offline
+        const online = await isOnline();
+        if (!online) {
+            return; // Skip silently when offline
+        }
+
         const now = new Date();
         const sixtyDaysAgo = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000);
         const sixtyOneDaysAgo = new Date(now.getTime() - 61 * 24 * 60 * 60 * 1000);
@@ -59,7 +81,7 @@ export async function checkAndSendEligibilityReminders() {
             where('pushToken', '!=', null)
         );
 
-        const usersSnapshot = await getDocs(usersQuery);
+        const usersSnapshot = await withNetworkRetry(() => getDocs(usersQuery), 1, 500);
 
         for (const userDoc of usersSnapshot.docs) {
             const userData = userDoc.data();
@@ -78,8 +100,17 @@ export async function checkAndSendEligibilityReminders() {
                 await sendDonationEligibilityReminder(userData.pushToken, userId, userName);
             }
         }
-    } catch (error) {
-        console.error('Error checking eligibility reminders:', error);
+    } catch (error: any) {
+        // Suppress offline error logs
+        const isOfflineError =
+            error?.code === 'unavailable' ||
+            error?.message?.includes('offline') ||
+            error?.message?.includes('network') ||
+            error?.message?.includes('timeout');
+        
+        if (!isOfflineError) {
+            console.error('Error checking eligibility reminders:', error);
+        }
     }
 }
 

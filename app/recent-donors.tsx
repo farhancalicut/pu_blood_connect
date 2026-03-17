@@ -1,7 +1,7 @@
 import React, { useCallback, useState } from 'react';
 import { ActivityIndicator, FlatList, SafeAreaView, StyleSheet, Text, View, Dimensions } from 'react-native';
 import { useFocusEffect } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import { User } from 'lucide-react-native';
 import { collection, getDocs, limit, orderBy, query } from 'firebase/firestore';
 import { db } from '../firebase';
 
@@ -17,7 +17,7 @@ type Donation = { id: string; donorName?: string; department?: string; bloodGrou
 const ListItem = ({ name, detail, action }: { name: string; detail?: string; action: React.ReactNode; }) => (
     <View style={styles.listItem}>
         <View style={styles.itemIcon}>
-            <Ionicons name="person" size={scale(18)} color={palette.primaryRed} />
+            <User size={scale(18)} color={palette.primaryRed} />
         </View>
         <View style={styles.itemDetails}>
             <Text style={styles.itemTitle}>{String(name)}</Text>

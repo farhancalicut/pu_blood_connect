@@ -1,70 +1,30 @@
 import React, { useEffect, useState } from "react";
-import { Dimensions, Platform, StyleSheet, Text, View } from "react-native";
+import { Platform, StyleSheet, Text, View } from "react-native";
 
 const DesktopWarning = () => {
-  const [showWarning, setShowWarning] = useState(() => {
-    if (Platform.OS !== "web") {
-      console.log("[DesktopWarning] Not on web platform");
-      return false;
-    }
-    const { width } = Dimensions.get("window");
-    const shouldShow = width > 768;
-    console.log(
-      "[DesktopWarning] Initial width:",
-      width,
-      "shouldShow:",
-      shouldShow,
-    );
-    return shouldShow;
-  });
+  // Only show on web AND if viewport is truly desktop-sized
+  if (Platform.OS !== "web") {
+    return null;
+  }
+
+  const [showWarning, setShowWarning] = useState(false);
 
   useEffect(() => {
-    if (Platform.OS !== "web") {
-      console.log("[DesktopWarning] useEffect: Not on web platform");
-      return;
-    }
-
-    console.log("[DesktopWarning] useEffect: Setting up resize listener");
-    const checkScreenSize = ({ window }: { window: { width: number } }) => {
-      const newShowWarning = window.width > 768;
-      console.log(
-        "[DesktopWarning] Resize detected - width:",
-        window.width,
-        "newShowWarning:",
-        newShowWarning,
-      );
-      setShowWarning((prev) => {
-        // Only update if the state actually changes
-        if (prev !== newShowWarning) {
-          console.log(
-            "[DesktopWarning] State changing from",
-            prev,
-            "to",
-            newShowWarning,
-          );
-          return newShowWarning;
-        }
-        return prev;
-      });
+    const checkScreenSize = () => {
+      const width = window.innerWidth;
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      const shouldShow = width > 768 && !isMobile;
+      
+      console.log("[DesktopWarning] Width:", width, "isMobile:", isMobile, "shouldShow:", shouldShow);
+      setShowWarning(shouldShow);
     };
 
-    // Listen for window resize
-    const subscription = Dimensions.addEventListener("change", checkScreenSize);
-
-    return () => {
-      subscription?.remove();
-    };
+    checkScreenSize();
+    window.addEventListener('resize', checkScreenSize);
+    return () => window.removeEventListener('resize', checkScreenSize);
   }, []);
 
-  // Only show on web platform when screen is wide
-  console.log(
-    "[DesktopWarning] Render - Platform.OS:",
-    Platform.OS,
-    "showWarning:",
-    showWarning,
-  );
-  if (Platform.OS !== "web" || !showWarning) {
-    console.log("[DesktopWarning] Returning null");
+  if (!showWarning) {
     return null;
   }
 
@@ -77,7 +37,7 @@ const DesktopWarning = () => {
           This application is designed for mobile devices.
         </Text>
         <Text style={styles.instruction}>
-          Please resize your browser window to a mobile size to use this app.
+          Please resize your browser window to a mobile size or open on a mobile device.
         </Text>
       </View>
     </View>

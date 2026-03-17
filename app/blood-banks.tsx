@@ -1,10 +1,11 @@
 import React, { useState, useCallback, useEffect, memo } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, SafeAreaView, Linking, Platform, ActivityIndicator, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, SafeAreaView, Linking, Platform, ActivityIndicator, Dimensions } from 'react-native';
 import { useRouter, useFocusEffect, useNavigation } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import { MapPin, Phone, Clock, Plus, Navigation } from 'lucide-react-native';
 import { collection, getDocs, query, orderBy, doc, getDoc } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 import { db } from '../firebase';
+import { showAlert } from '../utils/alert';
 
 const { width: screenWidth } = Dimensions.get('window');
 const guidelineBaseWidth = 375; 
@@ -37,23 +38,29 @@ const BloodBankCard = memo(({ item }: { item: BloodBank }) => {
         const longitude = item.coordinates?.longitude || item.longitude;
         
         if (!latitude || !longitude) {
-            Alert.alert("Error", "Location coordinates not available for this blood bank.");
+            showAlert("Error", "Location coordinates not available for this blood bank.");
             return;
         }
 
-        const scheme = Platform.select({ ios: 'maps:0,0?q=', android: 'geo:0,0?q=' });
         const latLng = `${latitude},${longitude}`;
-        const label = item.name;
-        const url = Platform.select({
-            ios: `${scheme}${label}@${latLng}`,
-            android: `${scheme}${latLng}(${label})`
-        });
-
-        if (url) {
-            Linking.openURL(url);
+        const label = encodeURIComponent(item.name);
+        
+        let url: string;
+        
+        if (Platform.OS === 'web') {
+            // Use Google Maps for web
+            url = `https://www.google.com/maps/search/?api=1&query=${latLng}&query_place_id=${label}`;
+        } else if (Platform.OS === 'ios') {
+            // Use Apple Maps for iOS
+            url = `maps:0,0?q=${label}@${latLng}`;
         } else {
-            Alert.alert("Error", "Could not open maps for this device.");
+            // Use Google Maps for Android
+            url = `geo:0,0?q=${latLng}(${label})`;
         }
+
+        Linking.openURL(url).catch(() => {
+            showAlert("Error", "Could not open maps.");
+        });
     }, [item]);
 
     const callPhone = useCallback(() => {
@@ -61,7 +68,7 @@ const BloodBankCard = memo(({ item }: { item: BloodBank }) => {
         if (phone) {
             Linking.openURL(`tel:${phone}`);
         } else {
-            Alert.alert("Error", "Phone number not available for this blood bank.");
+            showAlert("Error", "Phone number not available for this blood bank.");
         }
     }, [item.phone, item.phoneNumber]);
 
@@ -91,13 +98,13 @@ const BloodBankCard = memo(({ item }: { item: BloodBank }) => {
 
             <View style={styles.cardDetails}>
                 <View style={styles.detailRow}>
-                    <Ionicons name="location-outline" size={scale(16)} color={palette.lightText} />
+                    <MapPin size={scale(16)} color={palette.lightText} />
                     <Text style={styles.addressText}>{item.address}</Text>
                 </View>
 
                 {item.operatingHours && (
                     <View style={styles.detailRow}>
-                        <Ionicons name="time-outline" size={scale(16)} color={palette.lightText} />
+                        <Clock size={scale(16)} color={palette.lightText} />
                         <Text style={styles.detailText}>{item.operatingHours}</Text>
                     </View>
                 )}
@@ -127,19 +134,19 @@ const BloodBankCard = memo(({ item }: { item: BloodBank }) => {
             <View style={styles.actionButtons}>
                 {phone && (
                     <TouchableOpacity style={styles.callButton} onPress={callPhone} accessibilityLabel="Call Blood Bank">
-                        <Ionicons name="call" size={scale(16)} color={palette.white} />
+                        <Phone size={scale(16)} color={palette.white} />
                         <Text style={styles.callButtonText}>Call</Text>
                     </TouchableOpacity>
                 )}
                 
                 {hasLocation ? (
                     <TouchableOpacity style={styles.directionsButton} onPress={openMaps} accessibilityLabel="Get Directions">
-                        <Ionicons name="navigate" size={scale(16)} color={palette.white} />
+                        <Navigation size={scale(16)} color={palette.white} />
                         <Text style={styles.directionsButtonText}>Get Directions</Text>
                     </TouchableOpacity>
                 ) : (
                     <View style={styles.disabledButton}>
-                        <Ionicons name="navigate" size={scale(16)} color={palette.lightText} />
+                        <Navigation size={scale(16)} color={palette.lightText} />
                         <Text style={styles.disabledButtonText}>Location Not Available</Text>
                     </View>
                 )}
@@ -152,7 +159,7 @@ function HeaderAddButton() {
     const router = useRouter();
     return (
         <TouchableOpacity onPress={() => router.push('/add-blood-bank')} style={{ marginRight: scale(15) }} accessibilityLabel="Add Blood Bank">
-            <Ionicons name="add-circle" size={scale(28)} color={palette.primaryRed} />
+            <Plus size={scale(28)} color={palette.primaryRed} />
         </TouchableOpacity>
     );
 }
@@ -178,7 +185,7 @@ export default function BloodBanksScreen() {
             const data = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as BloodBank));
             setBloodBanks(data);
         } catch (error) {
-            Alert.alert("Error", "Could not fetch blood banks.");
+            showAlert("Error", "Could not fetch blood banks.");
         } finally {
             setIsLoading(false);
         }

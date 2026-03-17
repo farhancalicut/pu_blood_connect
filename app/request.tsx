@@ -1,5 +1,4 @@
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { Picker } from '@react-native-picker/picker';
 import { useRouter } from 'expo-router';
 import { getAuth } from 'firebase/auth';
 import { addDoc, collection, doc, getDoc, serverTimestamp } from 'firebase/firestore';
@@ -15,8 +14,10 @@ import {
     TextInput, TouchableOpacity,
     View
 } from 'react-native';
+import FormSelect from './_components/FormSelect';
 import { db } from '../firebase';
 import { notifyUsersAboutBloodRequest } from '../utils/notifications';
+import { showAlert } from '../utils/alert';
 
 const { width: screenWidth } = Dimensions.get('window');
 const guidelineBaseWidth = 375;
@@ -24,6 +25,18 @@ const guidelineBaseWidth = 375;
 const scale = (size: number) => (screenWidth / guidelineBaseWidth) * size;
 
 const palette = { primaryRed: '#9B0000', darkText: '#333333', lightText: '#8A8A8A', white: '#ffffff', borderLight: '#EAEAEA', pageBg: '#FEF8F8' };
+
+const bloodGroupOptions = [
+    { label: 'Select...', value: '' },
+    { label: 'A+', value: 'A+' },
+    { label: 'A-', value: 'A-' },
+    { label: 'B+', value: 'B+' },
+    { label: 'B-', value: 'B-' },
+    { label: 'AB+', value: 'AB+' },
+    { label: 'AB-', value: 'AB-' },
+    { label: 'O+', value: 'O+' },
+    { label: 'O-', value: 'O-' },
+];
 
 export default function RequestScreen() {
     const router = useRouter();
@@ -58,7 +71,7 @@ export default function RequestScreen() {
 
     const handleSubmit = async () => {
         if (!patientName || !mobileNumber || !bloodGroup || !units || !hospital) {
-            Alert.alert('Missing Information', 'Please fill out all required fields.');
+            showAlert('Missing Information', 'Please fill out all required fields.');
             return;
         }
         setIsLoading(true);
@@ -92,11 +105,11 @@ export default function RequestScreen() {
                 // Don't fail the request submission if notifications fail
             }
             
-            Alert.alert('Success', 'Your blood request has been sent.');
+            showAlert('Success', 'Your blood request has been sent.');
             router.back();
         } catch (error) {
             console.error("Error sending request: ", error);
-            Alert.alert('Error', 'Could not send your request. Please try again.');
+            showAlert('Error', 'Could not send your request. Please try again.');
         } finally {
             setIsLoading(false);
         }
@@ -108,35 +121,64 @@ export default function RequestScreen() {
         setRequiredDate(currentDate);
     };
 
+    const handleWebDateChange = (dateString: string) => {
+        if (dateString) {
+            const newDate = new Date(dateString);
+            setRequiredDate(newDate);
+        }
+    };
+
+    const formatDateForInput = (date: Date) => {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    };
+
     return (
         <SafeAreaView style={styles.safeArea}>
             <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{flex: 1}}>
                 <ScrollView contentContainerStyle={styles.container}>
                     <Text style={styles.label}>Patient Name</Text>
-                    <TextInput style={styles.input} value={patientName} onChangeText={setPatientName} placeholder="Jane Doe" />
+                    <TextInput style={styles.input} value={patientName} onChangeText={setPatientName}  placeholderTextColor={palette.lightText} />
                     
                     <Text style={styles.label}>Mobile Number</Text>
-                    <TextInput style={styles.input} value={mobileNumber} onChangeText={setMobileNumber} placeholder="0123456789" keyboardType="phone-pad" />
+                    <TextInput style={styles.input} value={mobileNumber} onChangeText={setMobileNumber}  keyboardType="phone-pad" placeholderTextColor={palette.lightText} />
                     
                     <View style={styles.row}>
                         <View style={styles.halfWidth}>
                             <Text style={styles.label}>Required Date</Text>
-                            <TouchableOpacity onPress={() => setShowDatePicker(true)}>
-                                <View pointerEvents="none">
-                                    <TextInput style={styles.input} value={requiredDate.toLocaleDateString()} editable={false} />
-                                </View>
-                            </TouchableOpacity>
+                            {Platform.OS === 'web' ? (
+                                <input
+                                    type="date"
+                                    value={formatDateForInput(requiredDate)}
+                                    onChange={(e) => handleWebDateChange(e.target.value)}
+                                    style={{
+                                        backgroundColor: palette.white,
+                                        border: `1px solid ${palette.borderLight}`,
+                                        borderRadius: scale(8),
+                                        padding: scale(12),
+                                        fontSize: scale(14),
+                                        fontFamily: 'inherit',
+                                        width: '100%',
+                                        minWidth: 0,
+                                        display: 'block',
+                                        boxSizing: 'border-box' as any,
+                                        outline: 'none',
+                                    }}
+                                />
+                            ) : (
+                                <TouchableOpacity onPress={() => setShowDatePicker(true)}>
+                                    <View pointerEvents="none">
+                                        <TextInput style={styles.input} value={requiredDate.toLocaleDateString()} editable={false} />
+                                    </View>
+                                </TouchableOpacity>
+                            )}
                         </View>
                         <View style={styles.halfWidth}>
                             <Text style={styles.label}>Blood Group</Text>
                             <View style={styles.pickerContainer}>
-                                <Picker selectedValue={bloodGroup} onValueChange={(itemValue) => setBloodGroup(itemValue)} style={styles.picker}>
-                                    <Picker.Item label="Select..." value="" />
-                                    <Picker.Item label="A+" value="A+" /><Picker.Item label="A-" value="A-" />
-                                    <Picker.Item label="B+" value="B+" /><Picker.Item label="B-" value="B-" />
-                                    <Picker.Item label="AB+" value="AB+" /><Picker.Item label="AB-" value="AB-" />
-                                    <Picker.Item label="O+" value="O+" /><Picker.Item label="O-" value="O-" />
-                                </Picker>
+                                <FormSelect value={bloodGroup} onValueChange={setBloodGroup} options={bloodGroupOptions} />
                             </View>
                         </View>
                     </View>
@@ -144,11 +186,11 @@ export default function RequestScreen() {
                     <View style={styles.row}>
                         <View style={styles.halfWidth}>
                             <Text style={styles.label}>How many Units</Text>
-                            <TextInput style={styles.input} value={units} onChangeText={setUnits} placeholder="e.g., 2" keyboardType="number-pad" />
+                            <TextInput style={styles.input} value={units} onChangeText={setUnits} placeholder="e.g., 2" keyboardType="number-pad" placeholderTextColor={palette.lightText} />
                         </View>
                         <View style={styles.halfWidth}>
                             <Text style={styles.label}>Hospital</Text>
-                            <TextInput style={styles.input} value={hospital} onChangeText={setHospital} placeholder="City Hospital" />
+                            <TextInput style={styles.input} value={hospital} onChangeText={setHospital} placeholder="City Hospital" placeholderTextColor={palette.lightText} />
                         </View>
                     </View>
 
@@ -158,7 +200,7 @@ export default function RequestScreen() {
                     </View>
 
                     <Text style={styles.label}>Have any additional Notes?/Purpose</Text>
-                    <TextInput style={[styles.input, styles.multilineInput]} value={notes} onChangeText={setNotes} multiline placeholder="e.g., for a scheduled surgery" />
+                    <TextInput style={[styles.input, styles.multilineInput]} value={notes} onChangeText={setNotes} multiline placeholder="e.g., for a scheduled surgery" placeholderTextColor={palette.lightText} />
 
                     <View style={styles.buttonRow}>
                         <TouchableOpacity style={[styles.button, styles.cancelButton]} onPress={() => router.back()}>
@@ -170,7 +212,7 @@ export default function RequestScreen() {
                     </View>
                 </ScrollView>
             </KeyboardAvoidingView>
-            {showDatePicker && (
+            {showDatePicker && Platform.OS !== 'web' && (
                 <DateTimePicker
                     testID="dateTimePicker"
                     value={requiredDate}
@@ -209,10 +251,11 @@ const styles = StyleSheet.create({
     },
     row: { 
         flexDirection: 'row', 
-        justifyContent: 'space-between' 
+        gap: scale(12),
     },
     halfWidth: { 
-        width: '48%' 
+        flex: 1,
+        minWidth: 0,
     },
     switchRow: { 
         flexDirection: 'row', 
@@ -227,9 +270,14 @@ const styles = StyleSheet.create({
         backgroundColor: palette.white, 
         justifyContent: 'center',
         height: scale(50),
+        overflow: 'hidden',
+        minWidth: 0,
     },
     picker: { 
-        height: scale(50) 
+        height: scale(50),
+        borderWidth: 0,
+        width: '100%',
+        minWidth: 0,
     },
     buttonRow: { 
         flexDirection: 'row', 

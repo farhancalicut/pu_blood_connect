@@ -7,7 +7,6 @@ import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import React, { useEffect, useRef, useState } from 'react';
 import {
     ActivityIndicator,
-    Alert,
     Animated,
     Dimensions,
     KeyboardAvoidingView,
@@ -22,6 +21,7 @@ import {
     View,
 } from 'react-native';
 import { db } from '../firebase';
+import { showAlert } from '../utils/alert';
 
 const { width: screenWidth } = Dimensions.get('window');
 const guidelineBaseWidth = 375; 
@@ -101,13 +101,17 @@ export default function LoginScreen() {
   const router = useRouter();
 
   const handleLogin = async () => {
+    console.log('[LOGIN] Starting login attempt...', { email: email.trim() });
     if (!email.trim() || !password) {
-      Alert.alert('Validation Error', 'Please enter both email and password.');
+      console.log('[LOGIN] Validation failed - empty fields');
+      showAlert('Validation Error', 'Please enter both email and password.');
       return;
     }
     setLoading(true);
   try {
+    console.log('[LOGIN] Calling Firebase signInWithEmailAndPassword...');
     const userCredential = await signInWithEmailAndPassword(getAuth(), email.trim(), password);
+    console.log('[LOGIN] Sign in successful, user:', userCredential.user.uid);
     const user = userCredential.user;
 
     // Get/Update push notification token
@@ -147,13 +151,13 @@ export default function LoginScreen() {
         // Admin user - allow login without email verification
         const firstName = userData.firstName || '';
         const lastName = userData.lastName || '';
-        Alert.alert('Success', `Welcome ${firstName} ${lastName}`.trim(), [
+        showAlert('Success', `Welcome ${firstName} ${lastName}`.trim(), [
           { text: 'OK', onPress: () => router.replace('/admin-dashboard') }
         ]);
       } else if (userRole === 'hospital') {
         // Hospital user - redirect to hospital dashboard
         const hospitalName = userData.hospitalName || 'Hospital';
-        Alert.alert('Success', `Welcome ${hospitalName}`, [
+        showAlert('Success', `Welcome ${hospitalName}`, [
           { text: 'OK', onPress: () => router.replace('/hospital-dashboard') }
         ]);
       } else {
@@ -161,13 +165,13 @@ export default function LoginScreen() {
         if (user.emailVerified) {
           const firstName = userData.firstName || '';
           const lastName = userData.lastName || '';
-          Alert.alert('Success', `Welcome back, ${firstName} ${lastName}`.trim(), [
+          showAlert('Success', `Welcome back, ${firstName} ${lastName}`.trim(), [
             { text: 'OK', onPress: () => router.replace('/dashboard') }
           ]);
         } else {
           // Sign out unverified user
           await signOut(getAuth());
-          Alert.alert(
+          showAlert(
             'Email Verification Required',
             'Please check your email and click the verification link before logging in. If you haven\'t received the email, please check your spam folder.',
             [
@@ -179,12 +183,14 @@ export default function LoginScreen() {
         }
       }
     } else {
-      Alert.alert('Error', 'User profile not found in database.');
+      showAlert('Error', 'User profile not found in database.');
       await signOut(getAuth());
     }
   } catch (error: unknown) {
+      console.log('[LOGIN] Error caught:', error);
       let message = 'An error occurred during login. Please try again.';
     if (error instanceof FirebaseError) {
+      console.log('[LOGIN] Firebase error code:', error.code);
       switch (error.code) {
         case 'auth/user-not-found':
           message = 'No account found with this email address.';
@@ -211,22 +217,24 @@ export default function LoginScreen() {
           message = 'Login failed. Please check your credentials and try again.';
       }
     }
-    Alert.alert('Login Failed', message);
+    console.log('[LOGIN] Showing alert with message:', message);
+    showAlert('Login Failed', message);
   } finally {
+    console.log('[LOGIN] Finally block - setting loading to false');
     setLoading(false);
   }
   };
 
   const handleForgotPassword = async () => {
     if (!resetEmail.trim()) {
-      Alert.alert('Error', 'Please enter your email address.');
+      showAlert('Error', 'Please enter your email address.');
       return;
     }
 
     setResetLoading(true);
     try {
       await sendPasswordResetEmail(getAuth(), resetEmail.trim());
-      Alert.alert(
+      showAlert(
         'Password Reset Email Sent',
         `A password reset email has been sent to ${resetEmail.trim()}. Please check your inbox and follow the instructions to reset your password.`,
         [
@@ -259,7 +267,7 @@ export default function LoginScreen() {
             message = 'Unable to send password reset email. Please try again.';
         }
       }
-      Alert.alert('Error', message);
+      showAlert('Error', message);
     } finally {
       setResetLoading(false);
     }

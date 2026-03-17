@@ -1,4 +1,4 @@
-import { FontAwesome5, Ionicons } from "@expo/vector-icons";
+import { User, ChevronLeft, ChevronRight, Mail, Trophy, Calendar, MapPin, Info, CheckCircle, Plus, Shield, FileText } from "lucide-react-native";
 import { differenceInDays } from "date-fns";
 import { LinearGradient } from "expo-linear-gradient";
 import { useFocusEffect, useRouter } from "expo-router";
@@ -108,7 +108,7 @@ const CARD_MARGIN = screenWidth * 0;
 const CARD_MARGIN_HORIZONTAL = screenWidth * 0.05;
 const FULL_CARD_WIDTH = CARD_WIDTH + CARD_MARGIN_HORIZONTAL * 2;
 
-const BannerCard = () => {
+const BannerCard = React.memo(() => {
   const router = useRouter();
   return (
     <TouchableOpacity
@@ -121,9 +121,9 @@ const BannerCard = () => {
       />
     </TouchableOpacity>
   );
-};
+});
 
-const EventCarouselCard = ({
+const EventCarouselCard = React.memo(({
   item,
   onJoinEvent,
   onLeaveEvent,
@@ -137,7 +137,12 @@ const EventCarouselCard = ({
   isLoading: boolean;
 }) => {
   const router = useRouter();
-  const eventDate = item.eventDate.toDate();
+  const eventDate =
+    item.eventDate && typeof (item.eventDate as any).toDate === "function"
+      ? (item.eventDate as any).toDate()
+      : item.eventDate instanceof Date
+      ? item.eventDate
+      : new Date();
   // Get today's date at midnight
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -145,7 +150,7 @@ const EventCarouselCard = ({
   const eventDay = new Date(eventDate);
   eventDay.setHours(0, 0, 0, 0);
   const isUpcoming = eventDay >= today;
-  const scaleAnim = new Animated.Value(1);
+  const scaleAnim = useRef(new Animated.Value(1)).current;
 
   const handleCardPress = () => {
     router.push("/events");
@@ -225,8 +230,7 @@ const EventCarouselCard = ({
             <View style={styles.eventCardDetailsProfessional}>
               <View style={styles.eventDetailRowProfessional}>
                 <View style={styles.eventDetailIconContainer}>
-                  <Ionicons
-                    name="calendar"
+                  <Calendar
                     size={scale(14)}
                     color={palette.lightText}
                   />
@@ -242,8 +246,7 @@ const EventCarouselCard = ({
 
               <View style={styles.eventDetailRowProfessional}>
                 <View style={styles.eventDetailIconContainer}>
-                  <Ionicons
-                    name="location"
+                  <MapPin
                     size={scale(14)}
                     color={palette.lightText}
                   />
@@ -265,8 +268,7 @@ const EventCarouselCard = ({
                 onPress={handleCardPress}
                 activeOpacity={0.8}
               >
-                <Ionicons
-                  name="information-circle"
+                <Info
                   size={scale(14)}
                   color={palette.lightText}
                 />
@@ -296,11 +298,17 @@ const EventCarouselCard = ({
                       <ActivityIndicator size="small" color={palette.white} />
                     ) : (
                       <>
-                        <Ionicons
-                          name={isJoined ? "checkmark-circle" : "add-circle"}
-                          size={scale(14)}
-                          color={palette.white}
-                        />
+                        {isJoined ? (
+                          <CheckCircle
+                            size={scale(14)}
+                            color={palette.white}
+                          />
+                        ) : (
+                          <Plus
+                            size={scale(14)}
+                            color={palette.white}
+                          />
+                        )}
                         <Text style={styles.joinButtonTextProfessional}>
                           {isJoined ? "Joined" : "Join"}
                         </Text>
@@ -315,7 +323,7 @@ const EventCarouselCard = ({
       </Animated.View>
     </TouchableOpacity>
   );
-};
+});
 
 const TestimonialCard = ({ item }: { item: Testimonial }) => (
   <View style={styles.testimonialCard}>
@@ -327,8 +335,7 @@ const TestimonialCard = ({ item }: { item: Testimonial }) => (
             style={styles.avatarImage}
           />
         ) : (
-          <FontAwesome5
-            name="user-alt"
+          <User
             size={scale(16)}
             color={palette.darkText}
           />
@@ -355,31 +362,32 @@ const ListItem = ({
   name: string;
   detail?: string;
   action: React.ReactNode;
-  iconName: string;
+  iconName: "user" | "trophy";
   iconBg: string;
   iconColor?: string;
   isTrophy?: boolean;
-}) => (
-  <View style={styles.listItem}>
-    <View style={[styles.itemIcon, { backgroundColor: iconBg }]}>
-      <FontAwesome5
-        name={iconName}
-        size={scale(18)}
-        color={iconColor || palette.darkText}
-        solid={isTrophy}
-      />
+}) => {
+  const IconComponent = iconName === "trophy" ? Trophy : User;
+  return (
+    <View style={styles.listItem}>
+      <View style={[styles.itemIcon, { backgroundColor: iconBg }]}>
+        <IconComponent
+          size={scale(18)}
+          color={iconColor || palette.darkText}
+        />
+      </View>
+      <View style={styles.itemDetails}>
+        <Text style={styles.itemTitle}>{name}</Text>
+        {detail ? (
+          <Text style={styles.itemSubtitle}>{String(detail)}</Text>
+        ) : null}
+      </View>
+      <Text style={[styles.itemAction, { color: palette.primaryRed }]}>
+        {String(action)}
+      </Text>
     </View>
-    <View style={styles.itemDetails}>
-      <Text style={styles.itemTitle}>{name}</Text>
-      {detail ? (
-        <Text style={styles.itemSubtitle}>{String(detail)}</Text>
-      ) : null}
-    </View>
-    <Text style={[styles.itemAction, { color: palette.primaryRed }]}>
-      {String(action)}
-    </Text>
-  </View>
-);
+  );
+};
 
 const DetailRow = ({ label, value }: { label: string; value: string }) => (
   <View style={styles.detailRow}>
@@ -410,6 +418,7 @@ export default function DashboardScreen() {
   const [pastCampaignsCount, setPastCampaignsCount] = useState(0);
   const [isTestimonialAutoScroll, setIsTestimonialAutoScroll] = useState(true);
   const testimonialAutoScrollRef = useRef<number | null>(null);
+  const testimonialResumeTimeoutRef = useRef<number | null>(null);
   const [upcomingEvents, setUpcomingEvents] = useState<Event[]>([]);
   const [joinedEvents, setJoinedEvents] = useState<string[]>([]); // Array of joined event IDs
   const [joiningEvents, setJoiningEvents] = useState<Set<string>>(new Set()); // Loading states
@@ -419,7 +428,8 @@ export default function DashboardScreen() {
   // Auto-scroll for event carousel
   const [carouselActiveIndex, setCarouselActiveIndex] = useState(0);
   const carouselRef = useRef<FlatList>(null);
-  const scrollTimeout = useRef<number | null>(null);
+  const carouselAutoScrollRef = useRef<number | null>(null);
+  const carouselResumeTimeoutRef = useRef<number | null>(null);
 
   const loadDashboardData = useCallback((isInitialLoad = false) => {
     const auth = getAuth(firebaseApp);
@@ -604,7 +614,18 @@ export default function DashboardScreen() {
       fetchUpcomingEvents(),
       fetchJoinedEvents(),
     ])
-      .catch(console.error)
+      .catch((error: any) => {
+        // Suppress offline error logs
+        const isOfflineError =
+          error?.code === 'unavailable' ||
+          error?.message?.includes('offline') ||
+          error?.message?.includes('network') ||
+          error?.message?.includes('timeout');
+
+        if (!isOfflineError) {
+          console.error(error);
+        }
+      })
       .finally(() => {
         setLoading(false);
         setRefreshing(false);
@@ -657,10 +678,27 @@ export default function DashboardScreen() {
     }
   }, [userProfile]);
 
-  const handleScroll = (event: any) => {
+  const clearTestimonialResumeTimeout = () => {
+    if (testimonialResumeTimeoutRef.current) {
+      clearTimeout(testimonialResumeTimeoutRef.current);
+      testimonialResumeTimeoutRef.current = null;
+    }
+  };
+
+  const scheduleTestimonialAutoResume = (delay = 5000) => {
+    clearTestimonialResumeTimeout();
+    testimonialResumeTimeoutRef.current = setTimeout(() => {
+      setIsTestimonialAutoScroll(true);
+      testimonialResumeTimeoutRef.current = null;
+    }, delay);
+  };
+
+  const handleTestimonialMomentumEnd = (event: any) => {
     const scrollPosition = event.nativeEvent.contentOffset.x;
     const index = Math.round(scrollPosition / FULL_CARD_WIDTH);
-    setActiveIndex(index);
+    if (index >= 0 && index < testimonials.length) {
+      setActiveIndex(index);
+    }
   };
 
   // Auto-scroll for testimonials
@@ -671,60 +709,52 @@ export default function DashboardScreen() {
       return;
     }
 
-    // Ensure active index is within bounds
-    if (activeIndex >= testimonials.length) {
-      setActiveIndex(0);
-    }
-
     if (!isTestimonialAutoScroll || testimonials.length <= 1) return;
 
-    const startAutoScroll = () => {
-      testimonialAutoScrollRef.current = setInterval(() => {
-        setActiveIndex((prevIndex) => {
-          // Safety check
-          if (testimonials.length === 0) return 0;
+    testimonialAutoScrollRef.current = setInterval(() => {
+      setActiveIndex((prevIndex) => {
+        const boundedCurrent = prevIndex >= testimonials.length ? 0 : prevIndex;
+        const nextIndex = (boundedCurrent + 1) % testimonials.length;
 
-          const nextIndex = (prevIndex + 1) % testimonials.length;
-
-          // Only scroll if FlatList exists and index is valid
-          if (
-            flatListRef.current &&
-            nextIndex >= 0 &&
-            nextIndex < testimonials.length
-          ) {
-            flatListRef.current?.scrollToIndex({
-              index: nextIndex,
-              animated: true,
-            });
-          }
-
-          return nextIndex;
+        flatListRef.current?.scrollToIndex({
+          index: nextIndex,
+          animated: true,
         });
-      }, 5000); // Change every 5 seconds
-    };
 
-    startAutoScroll();
+        return nextIndex;
+      });
+    }, 5000); // Change every 5 seconds
 
     return () => {
       if (testimonialAutoScrollRef.current) {
         clearInterval(testimonialAutoScrollRef.current);
+        testimonialAutoScrollRef.current = null;
       }
     };
-  }, [testimonials.length, isTestimonialAutoScroll, activeIndex]);
+  }, [testimonials.length, isTestimonialAutoScroll]);
+
+  useEffect(() => {
+    return () => {
+      clearTestimonialResumeTimeout();
+      if (testimonialAutoScrollRef.current) {
+        clearInterval(testimonialAutoScrollRef.current);
+      }
+    };
+  }, []);
 
   // Handle user touch - stop auto scroll
   const handleTestimonialTouchStart = () => {
     setIsTestimonialAutoScroll(false);
+    clearTestimonialResumeTimeout();
     if (testimonialAutoScrollRef.current) {
       clearInterval(testimonialAutoScrollRef.current);
+      testimonialAutoScrollRef.current = null;
     }
   };
 
   // Resume auto scroll after user stops touching (with delay)
   const handleTestimonialTouchEnd = () => {
-    setTimeout(() => {
-      setIsTestimonialAutoScroll(true);
-    }, 5000); // Resume after 5 seconds of no interaction
+    scheduleTestimonialAutoResume(5000); // Resume after 5 seconds of no interaction
   };
 
   const scrollToNext = () => {
@@ -747,9 +777,7 @@ export default function DashboardScreen() {
       setActiveIndex(newIndex);
     }
 
-    setTimeout(() => {
-      setIsTestimonialAutoScroll(true);
-    }, 5000); // Resume after 5 seconds
+    scheduleTestimonialAutoResume(5000); // Resume after 5 seconds
   };
 
   const scrollToPrev = () => {
@@ -772,9 +800,7 @@ export default function DashboardScreen() {
       setActiveIndex(newIndex);
     }
 
-    setTimeout(() => {
-      setIsTestimonialAutoScroll(true);
-    }, 2000); // Resume after 5 seconds
+    scheduleTestimonialAutoResume(5000); // Resume after 5 seconds
   };
 
   const carouselData: CarouselItem[] = useMemo(() => {
@@ -786,15 +812,32 @@ export default function DashboardScreen() {
     return [bannerItem, ...eventsWithType];
   }, [upcomingEvents]);
 
-  // Auto-scroll effect for event carousel
-  useEffect(() => {
-    if (carouselData.length <= 1) return;
+  const clearCarouselAutoScroll = () => {
+    if (carouselAutoScrollRef.current) {
+      clearInterval(carouselAutoScrollRef.current);
+      carouselAutoScrollRef.current = null;
+    }
+  };
 
-    const autoScrollInterval = setInterval(() => {
+  const clearCarouselResumeTimeout = () => {
+    if (carouselResumeTimeoutRef.current) {
+      clearTimeout(carouselResumeTimeoutRef.current);
+      carouselResumeTimeoutRef.current = null;
+    }
+  };
+
+  const startCarouselAutoScroll = useCallback(() => {
+    if (carouselData.length <= 1) {
+      return;
+    }
+
+    clearCarouselAutoScroll();
+
+    carouselAutoScrollRef.current = setInterval(() => {
       setCarouselActiveIndex((prevIndex) => {
-        const nextIndex = (prevIndex + 1) % carouselData.length;
+        const boundedCurrent = prevIndex >= carouselData.length ? 0 : prevIndex;
+        const nextIndex = (boundedCurrent + 1) % carouselData.length;
 
-        // Scroll to next item
         carouselRef.current?.scrollToIndex({
           index: nextIndex,
           animated: true,
@@ -802,16 +845,48 @@ export default function DashboardScreen() {
 
         return nextIndex;
       });
-    }, 4000); // Change every 4 seconds
+    }, 4000);
+  }, [carouselData.length]);
+
+  const pauseCarouselAutoScroll = () => {
+    clearCarouselAutoScroll();
+    clearCarouselResumeTimeout();
+  };
+
+  const scheduleCarouselAutoResume = (delay = 5000) => {
+    clearCarouselResumeTimeout();
+    carouselResumeTimeoutRef.current = setTimeout(() => {
+      startCarouselAutoScroll();
+      carouselResumeTimeoutRef.current = null;
+    }, delay);
+  };
+
+  // Auto-scroll effect for event carousel
+  useEffect(() => {
+    if (carouselData.length <= 1) {
+      setCarouselActiveIndex(0);
+      clearCarouselAutoScroll();
+      clearCarouselResumeTimeout();
+      return;
+    }
+
+    if (carouselActiveIndex >= carouselData.length) {
+      setCarouselActiveIndex(0);
+      requestAnimationFrame(() => {
+        carouselRef.current?.scrollToOffset({
+          offset: 0,
+          animated: false,
+        });
+      });
+    }
+
+    startCarouselAutoScroll();
 
     return () => {
-      clearInterval(autoScrollInterval);
-      // Clear any pending scroll timeout
-      if (scrollTimeout.current) {
-        clearTimeout(scrollTimeout.current);
-      }
+      clearCarouselAutoScroll();
+      clearCarouselResumeTimeout();
     };
-  }, [carouselData.length]);
+  }, [carouselData.length, carouselActiveIndex, startCarouselAutoScroll]);
 
   // Handle manual scroll - only update when scroll ends
   const handleCarouselScroll = (event: any) => {
@@ -822,6 +897,14 @@ export default function DashboardScreen() {
     if (index >= 0 && index < carouselData.length) {
       setCarouselActiveIndex(index);
     }
+  };
+
+  const handleCarouselBeginDrag = () => {
+    pauseCarouselAutoScroll();
+  };
+
+  const handleCarouselEndDrag = () => {
+    scheduleCarouselAutoResume(5000);
   };
 
   // Join/Leave event functions
@@ -1053,7 +1136,26 @@ export default function DashboardScreen() {
             horizontal
             showsHorizontalScrollIndicator={false}
             pagingEnabled
+            initialNumToRender={2}
+            maxToRenderPerBatch={2}
+            windowSize={3}
+            updateCellsBatchingPeriod={50}
+            getItemLayout={(_, index) => ({
+              length: screenWidth,
+              offset: screenWidth * index,
+              index,
+            })}
             onMomentumScrollEnd={handleCarouselScroll}
+            onScrollBeginDrag={handleCarouselBeginDrag}
+            onScrollEndDrag={handleCarouselEndDrag}
+            onScrollToIndexFailed={({ index }) => {
+              requestAnimationFrame(() => {
+                carouselRef.current?.scrollToOffset({
+                  offset: index * screenWidth,
+                  animated: true,
+                });
+              });
+            }}
             renderItem={({ item }) => {
               if (item.type === "banner") {
                 return <BannerCard />;
@@ -1068,6 +1170,7 @@ export default function DashboardScreen() {
                 />
               );
             }}
+            removeClippedSubviews={true}
           />
 
           {/* Carousel Indicators */}
@@ -1092,6 +1195,7 @@ export default function DashboardScreen() {
           source={require("../assets/images/puhits.png")}
           style={styles.statsBackground}
           resizeMode="cover"
+          imageStyle={styles.statsBackgroundImage}
         >
           <View style={styles.statsOverlay}>
             <Text style={styles.statsHeader}>PU HITS</Text>
@@ -1206,47 +1310,61 @@ export default function DashboardScreen() {
           <Text style={styles.sectionTitle}>What Our Donors Say</Text>
           <View style={styles.carouselContainer}>
             <TouchableOpacity onPress={scrollToPrev} style={styles.arrowButton}>
-              <FontAwesome5
-                name="chevron-left"
+              <ChevronLeft
                 size={20}
                 color={palette.white}
               />
             </TouchableOpacity>
 
-            {testimonials.length > 0 ? (
-              <FlatList
-                ref={flatListRef}
-                data={testimonials}
-                renderItem={({ item }) => <TestimonialCard item={item} />}
-                keyExtractor={(item) => item.id}
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                onScroll={handleScroll}
-                scrollEventThrottle={16}
-                contentContainerStyle={{ paddingHorizontal: CARD_MARGIN }}
-                snapToInterval={FULL_CARD_WIDTH}
-                decelerationRate="fast"
-                onTouchStart={handleTestimonialTouchStart}
-                onTouchEnd={handleTestimonialTouchEnd}
-                onMomentumScrollEnd={() => {
-                  // When user finishes scrolling manually, stop auto scroll temporarily
-                  setIsTestimonialAutoScroll(false);
-                  setTimeout(() => {
-                    setIsTestimonialAutoScroll(true);
-                  }, 5000);
-                }}
-              />
-            ) : (
-              <View style={styles.emptyTestimonialContainer}>
-                <Text style={styles.emptyTestimonialText}>
-                  No testimonials yet. Be the first to share your feedback!
-                </Text>
-              </View>
-            )}
+            <View style={styles.flatListWrapper}>
+              {testimonials.length > 0 ? (
+                <FlatList
+                  ref={flatListRef}
+                  data={testimonials}
+                  renderItem={({ item }) => <TestimonialCard item={item} />}
+                  keyExtractor={(item) => item.id}
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  getItemLayout={(_, index) => ({
+                    length: FULL_CARD_WIDTH,
+                    offset: FULL_CARD_WIDTH * index,
+                    index,
+                  })}
+                  scrollEventThrottle={32}
+                  contentContainerStyle={{ 
+                    paddingHorizontal: CARD_MARGIN_HORIZONTAL,
+                  }}
+                  snapToInterval={FULL_CARD_WIDTH}
+                  decelerationRate="fast"
+                  disableIntervalMomentum={true}
+                  onTouchStart={handleTestimonialTouchStart}
+                  onTouchEnd={handleTestimonialTouchEnd}
+                  onMomentumScrollEnd={handleTestimonialMomentumEnd}
+                  onScrollBeginDrag={handleTestimonialTouchStart}
+                  onScrollEndDrag={handleTestimonialTouchEnd}
+                  onScrollToIndexFailed={({ index }) => {
+                    requestAnimationFrame(() => {
+                      flatListRef.current?.scrollToOffset({
+                        offset: index * FULL_CARD_WIDTH,
+                        animated: true,
+                      });
+                    });
+                  }}
+                  removeClippedSubviews={true}
+                  maxToRenderPerBatch={5}
+                  windowSize={5}
+                />
+              ) : (
+                <View style={styles.emptyTestimonialContainer}>
+                  <Text style={styles.emptyTestimonialText}>
+                    No testimonials yet. Be the first to share your feedback!
+                  </Text>
+                </View>
+              )}
+            </View>
 
             <TouchableOpacity onPress={scrollToNext} style={styles.arrowButton}>
-              <FontAwesome5
-                name="chevron-right"
+              <ChevronRight
                 size={20}
                 color={palette.white}
               />
@@ -1258,8 +1376,7 @@ export default function DashboardScreen() {
             style={styles.footerLinkWrapper}
             onPress={() => router.push("/privacy-policy")}
           >
-            <Ionicons
-              name="shield-checkmark-outline"
+            <Shield
               size={14}
               color={palette.lightText}
             />
@@ -1270,8 +1387,7 @@ export default function DashboardScreen() {
             style={styles.footerLinkWrapper}
             onPress={() => router.push("/terms-and-conditions")}
           >
-            <Ionicons
-              name="document-text-outline"
+            <FileText
               size={14}
               color={palette.lightText}
             />
@@ -1282,7 +1398,7 @@ export default function DashboardScreen() {
             style={styles.footerLinkWrapper}
             onPress={() => router.push("/contact-us")}
           >
-            <Ionicons name="mail-outline" size={14} color={palette.lightText} />
+            <Mail size={14} color={palette.lightText} />
             <Text style={styles.footerLink}>Contact Us</Text>
           </TouchableOpacity>
         </View>
@@ -1451,17 +1567,20 @@ const styles = StyleSheet.create({
 
   statsBackground: {
     width: "100%",
-    minHeight: scale(200),
+    height: scale(140),
     overflow: "hidden",
   },
+  statsBackgroundImage: {},
   statsOverlay: {
     backgroundColor: "rgba(177, 15, 15, 0.9)",
     padding: scale(20),
+    height: "100%",
+    width: "100%",
   },
   statsHeader: {
     color: palette.white,
     fontSize: scale(18),
-    fontWeight: "800",
+    fontWeight: "700",
     textDecorationLine: "underline",
     textAlign: "center",
     marginBottom: scale(12),
@@ -1490,8 +1609,16 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
+    width: "100%",
   },
-  arrowButton: { paddingHorizontal: scale(10) },
+  arrowButton: { 
+    paddingHorizontal: scale(8),
+    paddingVertical: scale(20),
+  },
+  flatListWrapper: {
+    width: FULL_CARD_WIDTH,
+    overflow: "hidden",
+  },
   testimonialCard: {
     width: CARD_WIDTH,
     backgroundColor: palette.white,

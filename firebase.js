@@ -7,7 +7,7 @@ import {
   initializeAuth,
   inMemoryPersistence,
 } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
+import { getFirestore, enableIndexedDbPersistence, enableMultiTabIndexedDbPersistence } from "firebase/firestore";
 import { getMessaging, isSupported } from "firebase/messaging";
 import { Platform } from "react-native";
 
@@ -21,6 +21,28 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
+
+// Initialize Firestore
+const db = getFirestore(app);
+
+// Enable offline persistence for web
+if (Platform.OS === "web" && typeof window !== "undefined") {
+  enableMultiTabIndexedDbPersistence(db).catch((err) => {
+    if (err.code === "failed-precondition") {
+      // Multiple tabs open, persistence can only be enabled in one tab at a time
+      console.warn("Firestore persistence failed: Multiple tabs open");
+      // Fall back to single tab persistence
+      enableIndexedDbPersistence(db).catch((error) => {
+        console.warn("Firestore persistence error:", error.message);
+      });
+    } else if (err.code === "unimplemented") {
+      // Browser doesn't support IndexedDB
+      console.warn("Firestore persistence not supported in this browser");
+    } else {
+      console.warn("Firestore persistence error:", err.message);
+    }
+  });
+}
 
 // Initialize Firebase Auth with platform-specific persistence
 let auth;
@@ -74,6 +96,5 @@ if (Platform.OS === "web") {
   }
 }
 
-export { auth, messaging };
-export const db = getFirestore(app);
+export { auth, messaging, db };
 export const firebaseApp = app;

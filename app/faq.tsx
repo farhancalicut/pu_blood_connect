@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView, Platform, StatusBar, Dimensions } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { ChevronDown, ChevronUp } from 'lucide-react-native';
 import Collapsible from 'react-native-collapsible';
 
 const { width: screenWidth } = Dimensions.get('window');
@@ -62,7 +62,7 @@ const FaqItem = ({ item }: { item: { q: string, a: string } }) => {
             <TouchableOpacity onPress={() => setIsCollapsed(!isCollapsed)}>
                 <View style={styles.questionContainer}>
                     <Text style={styles.questionText}>{item.q}</Text>
-                    <Ionicons name={isCollapsed ? 'chevron-down-outline' : 'chevron-up-outline'} size={scale(20)} color={palette.lightText} />
+                    {isCollapsed ? <ChevronDown size={scale(20)} color={palette.lightText} /> : <ChevronUp size={scale(20)} color={palette.lightText} />}
                 </View>
             </TouchableOpacity>
             <Collapsible collapsed={isCollapsed}>

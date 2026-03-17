@@ -1,7 +1,7 @@
-import { Ionicons } from '@expo/vector-icons';
+import { Droplet, Calendar, Bell, CheckCircle, Clock, Award, FileText, BellOff, LucideIcon } from 'lucide-react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { getAuth } from 'firebase/auth';
-import { collection, getDocs, or, orderBy, query, where, writeBatch } from 'firebase/firestore';
+import { collection, getDocs, orderBy, query, where, writeBatch } from 'firebase/firestore';
 import React, { useCallback, useState } from 'react';
 import { ActivityIndicator, Dimensions, FlatList, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { db } from '../firebase';
@@ -23,16 +23,16 @@ type Notification = {
     data?: any;
 };
 
-const getNotificationIcon = (type: string): keyof typeof Ionicons.glyphMap => {
+const getNotificationIcon = (type: string): LucideIcon => {
     switch (type) {
-        case 'blood_request': return 'water';
-        case 'event': return 'calendar';
-        case 'event_reminder': return 'alarm';
-        case 'donation': return 'checkmark-circle';
-        case 'eligibility_reminder': return 'time';
-        case 'nss_status': return 'ribbon';
-        case 'certificate_ready': return 'document-text';
-        default: return 'notifications';
+        case 'blood_request': return Droplet;
+        case 'event': return Calendar;
+        case 'event_reminder': return Bell;
+        case 'donation': return CheckCircle;
+        case 'eligibility_reminder': return Clock;
+        case 'nss_status': return Award;
+        case 'certificate_ready': return FileText;
+        default: return Bell;
     }
 };
 
@@ -50,7 +50,7 @@ const getNotificationColor = (type: string): string => {
 };
 
 const NotificationItem = ({ item, onPress }: { item: Notification; onPress?: () => void }) => {
-    const iconName = getNotificationIcon(item.type);
+    const IconComponent = getNotificationIcon(item.type);
     const iconColor = getNotificationColor(item.type);
     const createdAt = item.createdAt instanceof Date ? item.createdAt : item.createdAt.toDate();
     
@@ -61,7 +61,7 @@ const NotificationItem = ({ item, onPress }: { item: Notification; onPress?: () 
             activeOpacity={0.7}
         >
             <View style={[styles.iconContainer, { backgroundColor: iconColor + '15' }]}>
-                <Ionicons name={iconName} size={scale(24)} color={iconColor} />
+                <IconComponent size={scale(24)} color={iconColor} />
             </View>
             <View style={styles.textContainer}>
                 <Text style={styles.titleText}>{item.title}</Text>
@@ -89,24 +89,42 @@ export default function NotificationsScreen() {
         }
         setIsLoading(true);
         try {
-            // Query for notifications where recipientId is either the user's ID or 'all'
-            const q = query(
+            // Fetch notifications for this specific user
+            const q1 = query(
                 collection(db, 'notifications'),
-                or(
-                    where('recipientId', '==', user.uid),
-                    where('recipientId', '==', 'all')
-                ),
+                where('recipientId', '==', user.uid),
                 orderBy('createdAt', 'desc')
             );
-            const querySnapshot = await getDocs(q);
-            const data = querySnapshot.docs.map(doc => ({ 
-                id: doc.id, 
-                ...doc.data() 
-            } as Notification));
+            
+            // Fetch notifications for all users
+            const q2 = query(
+                collection(db, 'notifications'),
+                where('recipientId', '==', 'all'),
+                orderBy('createdAt', 'desc')
+            );
+            
+            const [snapshot1, snapshot2] = await Promise.all([
+                getDocs(q1),
+                getDocs(q2)
+            ]);
+            
+            // Merge and sort by createdAt
+            const allDocs = [...snapshot1.docs, ...snapshot2.docs];
+            const data = allDocs
+                .map(doc => ({ 
+                    id: doc.id, 
+                    ...doc.data() 
+                } as Notification))
+                .sort((a, b) => {
+                    const timeA = a.createdAt instanceof Date ? a.createdAt.getTime() : a.createdAt.toDate().getTime();
+                    const timeB = b.createdAt instanceof Date ? b.createdAt.getTime() : b.createdAt.toDate().getTime();
+                    return timeB - timeA; // Descending order
+                });
+            
             setNotifications(data);
             
             // Mark all unread notifications as read
-            const unreadNotifications = querySnapshot.docs.filter(doc => !doc.data().read);
+            const unreadNotifications = allDocs.filter(doc => !doc.data().read);
             if (unreadNotifications.length > 0) {
                 const batch = writeBatch(db);
                 unreadNotifications.forEach(notificationDoc => {
@@ -158,7 +176,7 @@ export default function NotificationsScreen() {
                 <>
                     {unreadCount > 0 && (
                         <View style={styles.headerBanner}>
-                            <Ionicons name="notifications" size={scale(20)} color={palette.white} />
+                            <Bell size={scale(20)} color={palette.white} />
                             <Text style={styles.headerText}>
                                 You have {unreadCount} unread notification{unreadCount > 1 ? 's' : ''}
                             </Text>
@@ -176,11 +194,15 @@ export default function NotificationsScreen() {
                         contentContainerStyle={styles.listContainer}
                         ListEmptyComponent={
                             <View style={styles.emptyContainer}>
-                                <Ionicons name="notifications-off-outline" size={scale(60)} color={palette.lightText} />
+                                <BellOff size={scale(60)} color={palette.lightText} />
                                 <Text style={styles.emptyText}>No notifications yet</Text>
                                 <Text style={styles.emptySubtext}>We'll notify you when something important happens</Text>
                             </View>
                         }
+                        removeClippedSubviews={true}
+                        maxToRenderPerBatch={10}
+                        windowSize={10}
+                        initialNumToRender={15}
                     />
                 </>
             )}

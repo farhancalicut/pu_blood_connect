@@ -1,4 +1,4 @@
-import { Ionicons } from "@expo/vector-icons";
+import { Building2, LogOut, Activity, FileText, CalendarDays, Users, Plus, ChevronRight, List, AlertCircle, AlertTriangle, Info } from 'lucide-react-native';
 import { useFocusEffect, useRouter } from "expo-router";
 import { getAuth, signOut } from "firebase/auth";
 import {
@@ -12,7 +12,6 @@ import {
 import React, { useCallback, useState } from "react";
 import {
     ActivityIndicator,
-    Alert,
     Dimensions,
     Platform,
     SafeAreaView,
@@ -23,6 +22,7 @@ import {
     View,
 } from "react-native";
 import { db } from "../firebase";
+import { showAlert } from "../utils/alert";
 import { BloodRequest, HospitalUser } from "../types/env";
 
 const { width: screenWidth } = Dimensions.get("window");
@@ -71,7 +71,7 @@ export default function HospitalDashboardScreen() {
       const userDoc = await getDoc(userDocRef);
 
       if (!userDoc.exists()) {
-        Alert.alert("Error", "Hospital profile not found", [
+        showAlert("Error", "Hospital profile not found", [
           {
             text: "OK",
             onPress: () => {
@@ -87,7 +87,7 @@ export default function HospitalDashboardScreen() {
 
       // Verify this is actually a hospital account
       if (hospitalData.role !== "hospital") {
-        Alert.alert("Error", "Unauthorized access", [
+        showAlert("Error", "Unauthorized access", [
           {
             text: "OK",
             onPress: () => {
@@ -143,7 +143,7 @@ export default function HospitalDashboardScreen() {
       setRecentRequests(sorted.slice(0, 3));
     } catch (error) {
       console.error("Error fetching hospital data:", error);
-      Alert.alert("Error", "Failed to load dashboard");
+      showAlert("Error", "Failed to load dashboard");
     } finally {
       setIsLoading(false);
     }
@@ -167,7 +167,7 @@ export default function HospitalDashboardScreen() {
         }
       }
     } else {
-      Alert.alert("Log Out", "Are you sure you want to log out?", [
+      showAlert("Log Out", "Are you sure you want to log out?", [
         { text: "Cancel", style: "cancel" },
         {
           text: "Log Out",
@@ -195,11 +195,11 @@ export default function HospitalDashboardScreen() {
   const getUrgencyIcon = (urgency: string) => {
     switch (urgency) {
       case "critical":
-        return "alert-circle";
+        return AlertCircle;
       case "urgent":
-        return "warning";
+        return AlertTriangle;
       default:
-        return "information-circle";
+        return Info;
     }
   };
 
@@ -221,7 +221,7 @@ export default function HospitalDashboardScreen() {
         <View style={styles.header}>
           <View style={styles.headerLeft}>
             <View style={styles.hospitalIcon}>
-              <Ionicons name="business" size={28} color={palette.primaryRed} />
+              <Building2 size={28} color={palette.primaryRed} />
             </View>
             <View>
               <Text style={styles.welcomeText}>Welcome</Text>
@@ -231,8 +231,7 @@ export default function HospitalDashboardScreen() {
             </View>
           </View>
           <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
-            <Ionicons
-              name="log-out-outline"
+            <LogOut
               size={24}
               color={palette.primaryRed}
             />
@@ -249,7 +248,7 @@ export default function HospitalDashboardScreen() {
                   { backgroundColor: "#4CAF5015" },
                 ]}
               >
-                <Ionicons name="pulse" size={24} color="#4CAF50" />
+                <Activity size={24} color="#4CAF50" />
               </View>
               <Text style={styles.statValue}>{stats.activeRequests}</Text>
               <Text style={styles.statLabel}>Active Requests</Text>
@@ -262,7 +261,7 @@ export default function HospitalDashboardScreen() {
                   { backgroundColor: "#2196F315" },
                 ]}
               >
-                <Ionicons name="document-text" size={24} color="#2196F3" />
+                <FileText size={24} color="#2196F3" />
               </View>
               <Text style={styles.statValue}>{stats.totalRequests}</Text>
               <Text style={styles.statLabel}>Total Requests</Text>
@@ -275,7 +274,7 @@ export default function HospitalDashboardScreen() {
                   { backgroundColor: "#FF980015" },
                 ]}
               >
-                <Ionicons name="today" size={24} color="#FF9800" />
+                <CalendarDays size={24} color="#FF9800" />
               </View>
               <Text style={styles.statValue}>{stats.todayRequests}</Text>
               <Text style={styles.statLabel}>Today</Text>
@@ -288,7 +287,7 @@ export default function HospitalDashboardScreen() {
                   { backgroundColor: "#E91E6315" },
                 ]}
               >
-                <Ionicons name="people" size={24} color="#E91E63" />
+                <Users size={24} color="#E91E63" />
               </View>
               <Text style={styles.statValue}>{stats.acceptedDonors}</Text>
               <Text style={styles.statLabel}>Donors</Text>
@@ -306,7 +305,7 @@ export default function HospitalDashboardScreen() {
           >
             <View style={styles.actionButtonContent}>
               <View style={styles.actionIconCircle}>
-                <Ionicons name="add-circle" size={28} color={palette.white} />
+                <Plus size={28} color={palette.white} />
               </View>
               <View style={styles.actionTextContainer}>
                 <Text style={styles.actionButtonTitle}>New Blood Request</Text>
@@ -314,11 +313,7 @@ export default function HospitalDashboardScreen() {
                   Create a new blood donation request
                 </Text>
               </View>
-              <Ionicons
-                name="chevron-forward"
-                size={24}
-                color={palette.white}
-              />
+              <ChevronRight size={24} color={palette.white} />
             </View>
           </TouchableOpacity>
 
@@ -333,7 +328,7 @@ export default function HospitalDashboardScreen() {
                   { backgroundColor: palette.primaryRed },
                 ]}
               >
-                <Ionicons name="list" size={24} color={palette.white} />
+                <List size={24} color={palette.white} />
               </View>
               <View style={styles.actionTextContainer}>
                 <Text
@@ -353,11 +348,7 @@ export default function HospitalDashboardScreen() {
                   View and manage your requests
                 </Text>
               </View>
-              <Ionicons
-                name="chevron-forward"
-                size={24}
-                color={palette.lightText}
-              />
+              <ChevronRight size={24} color={palette.lightText} />
             </View>
           </TouchableOpacity>
         </View>
@@ -375,11 +366,7 @@ export default function HospitalDashboardScreen() {
 
           {recentRequests.length === 0 ? (
             <View style={styles.emptyContainer}>
-              <Ionicons
-                name="document-outline"
-                size={48}
-                color={palette.lightText}
-              />
+              <FileText size={48} color={palette.lightText} />
               <Text style={styles.emptyText}>No requests yet</Text>
               <Text style={styles.emptySubtext}>
                 Create your first blood request
@@ -422,11 +409,10 @@ export default function HospitalDashboardScreen() {
                       },
                     ]}
                   >
-                    <Ionicons
-                      name={getUrgencyIcon(request.urgency)}
-                      size={14}
-                      color={getUrgencyColor(request.urgency)}
-                    />
+                    {React.createElement(getUrgencyIcon(request.urgency), {
+                      size: 14,
+                      color: getUrgencyColor(request.urgency)
+                    })}
                     <Text
                       style={[
                         styles.urgencyText,
@@ -447,7 +433,7 @@ export default function HospitalDashboardScreen() {
 
                 <View style={styles.requestFooter}>
                   <View style={styles.donorsInfo}>
-                    <Ionicons name="people" size={16} color={palette.success} />
+                    <Users size={16} color={palette.success} />
                     <Text style={styles.donorsText}>
                       {request.acceptedDonors?.length || 0} donor
                       {(request.acceptedDonors?.length || 0) !== 1 ? "s" : ""}{" "}
@@ -764,3 +750,4 @@ const styles = StyleSheet.create({
     textTransform: "capitalize",
   },
 });
+

@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import { ChevronLeft, Info, ChevronUp, ChevronDown, UserPlus, Search } from 'lucide-react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { createUserWithEmailAndPassword, getAuth } from 'firebase/auth';
 import {
@@ -14,7 +14,6 @@ import {
 import React, { useCallback, useState } from 'react';
 import {
     ActivityIndicator,
-    Alert,
     Dimensions,
     FlatList,
     Modal,
@@ -27,6 +26,7 @@ import {
     View
 } from 'react-native';
 import { db } from '../firebase';
+import { showAlert } from '../utils/alert';
 
 const { width: screenWidth } = Dimensions.get('window');
 const guidelineBaseWidth = 375;
@@ -97,7 +97,7 @@ export default function AdminUsersScreen() {
       const userDoc = await getDoc(userDocRef);
       
       if (!userDoc.exists() || userDoc.data()?.role !== 'admin') {
-        Alert.alert("Access Denied", "You do not have admin privileges.");
+        showAlert("Access Denied", "You do not have admin privileges.");
         router.replace('/dashboard');
         return;
       }
@@ -116,7 +116,7 @@ export default function AdminUsersScreen() {
 
     } catch (error) {
       console.error('Error fetching users:', error);
-      Alert.alert('Error', 'Failed to load users.');
+      showAlert('Error', 'Failed to load users.');
     } finally {
       setIsLoading(false);
     }
@@ -156,24 +156,24 @@ export default function AdminUsersScreen() {
   const handleCreateAdmin = async () => {
     // Validation
     if (!adminForm.firstName.trim() || !adminForm.lastName.trim() || !adminForm.email.trim() || !adminForm.password) {
-      Alert.alert('Error', 'Please fill in all required fields.');
+      showAlert('Error', 'Please fill in all required fields.');
       return;
     }
 
     if (adminForm.password !== adminForm.confirmPassword) {
-      Alert.alert('Error', 'Passwords do not match.');
+      showAlert('Error', 'Passwords do not match.');
       return;
     }
 
     if (adminForm.password.length < 6) {
-      Alert.alert('Error', 'Password must be at least 6 characters long.');
+      showAlert('Error', 'Password must be at least 6 characters long.');
       return;
     }
 
     // Check if email already exists
     const existingUser = users.find(user => user.email === adminForm.email.trim());
     if (existingUser) {
-      Alert.alert('Error', 'A user with this email already exists.');
+      showAlert('Error', 'A user with this email already exists.');
       return;
     }
 
@@ -201,7 +201,7 @@ export default function AdminUsersScreen() {
         createdBy: auth.currentUser?.email || 'system'
       });
 
-      Alert.alert('Success', 'Admin account created successfully!');
+      showAlert('Success', 'Admin account created successfully!');
       setShowAddAdminModal(false);
       resetAdminForm();
       
@@ -220,7 +220,7 @@ export default function AdminUsersScreen() {
         errorMessage = 'Password is too weak. Please choose a stronger password.';
       }
       
-      Alert.alert('Error', errorMessage);
+      showAlert('Error', errorMessage);
     } finally {
       setIsCreatingAdmin(false);
     }
@@ -250,11 +250,11 @@ export default function AdminUsersScreen() {
               style={styles.detailsButton}
             >
               <Text style={styles.detailsButtonText}>Details</Text>
-              <Ionicons 
-                name={isExpanded ? "chevron-up" : "chevron-down"} 
-                size={scale(16)} 
-                color={palette.primary} 
-              />
+              {isExpanded ? (
+                <ChevronUp size={scale(16)} color={palette.primary} />
+              ) : (
+                <ChevronDown size={scale(16)} color={palette.primary} />
+              )}
             </TouchableOpacity>
           </View>
         </View>
@@ -364,20 +364,20 @@ export default function AdminUsersScreen() {
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.push('/admin-dashboard')} style={styles.backButton}>
-          <Ionicons name="chevron-back" size={scale(24)} color={palette.primary} />
+          <ChevronLeft size={scale(22)} color={palette.primary} />
         </TouchableOpacity>
         <Text style={styles.title}>Manage Users</Text>
         <TouchableOpacity 
           onPress={() => setShowAddAdminModal(true)} 
           style={styles.addButton}
         >
-          <Ionicons name="person-add" size={scale(24)} color={palette.primary} />
+          <UserPlus size={scale(22)} color={palette.primary} />
         </TouchableOpacity>
       </View>
 
       <View style={styles.searchContainer}>
         <View style={styles.searchInputContainer}>
-          <Ionicons name="search" size={20} color="#8E8E93" style={styles.searchIcon} />
+          <Search size={20} color="#8E8E93" style={styles.searchIcon} />
           <TextInput
             style={styles.searchInput}
             placeholder="Search users by name, email, or department..."
@@ -489,7 +489,7 @@ export default function AdminUsersScreen() {
             </View>
 
             <View style={styles.infoBox}>
-              <Ionicons name="information-circle" size={20} color={palette.primary} />
+              <Info size={20} color={palette.primary} />
               <Text style={styles.infoText}>
                 This will create a new admin account that can access all admin features.
               </Text>
@@ -520,8 +520,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: scale(20),
-    paddingVertical: scale(16),
+    paddingHorizontal: scale(15),
+    paddingVertical: scale(12),
     backgroundColor: palette.white,
     borderBottomWidth: 1,
     borderBottomColor: palette.border,
@@ -530,8 +530,8 @@ const styles = StyleSheet.create({
     padding: scale(4),
   },
   title: {
-    fontSize: scale(20),
-    fontWeight: 'bold',
+    fontSize: scale(16),
+    fontWeight: '600',
     color: palette.text,
   },
   placeholder: {
@@ -539,8 +539,8 @@ const styles = StyleSheet.create({
   },
   searchContainer: {
     backgroundColor: 'white',
-    paddingHorizontal: scale(20),
-    paddingVertical: scale(15),
+    paddingHorizontal: scale(15),
+    paddingVertical: scale(12),
     borderBottomWidth: 1,
     borderBottomColor: '#E5E5EA',
   },
@@ -548,26 +548,26 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#F2F2F7',
-    borderRadius: scale(10),
-    paddingHorizontal: scale(15),
+    borderRadius: scale(8),
+    paddingHorizontal: scale(12),
   },
   searchIcon: {
-    marginRight: scale(10),
+    marginRight: scale(8),
   },
   searchInput: {
     flex: 1,
-    paddingVertical: scale(12),
-    fontSize: scale(16),
+    paddingVertical: scale(10),
+    fontSize: scale(14),
   },
   statsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingHorizontal: scale(20),
-    marginBottom: scale(15),
-    marginTop: scale(10),
+    paddingHorizontal: scale(15),
+    marginBottom: scale(12),
+    marginTop: scale(8),
   },
   statsText: {
-    fontSize: scale(14),
+    fontSize: scale(12),
     color: palette.lightText,
     fontWeight: '600',
   },

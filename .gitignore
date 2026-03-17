@@ -7,6 +7,7 @@ expo-env.d.ts
 
 # Dependencies
 node_modules/
+.expo/
 
 # Environment variables
 .env

@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import { XCircle, Copy, Share2 as Share, Search, Mic } from 'lucide-react-native';
 import * as Clipboard from 'expo-clipboard';
 import { useFocusEffect } from 'expo-router';
 import { getAuth } from 'firebase/auth';
@@ -7,11 +7,11 @@ import * as htmlToImage from 'html-to-image';
 import React, { FC, useCallback, useEffect, useRef, useState } from 'react';
 import {
     ActivityIndicator,
-    Alert,
     Dimensions,
     FlatList,
     Image,
     Modal,
+    Platform,
     SafeAreaView,
     StyleSheet,
     Text,
@@ -20,6 +20,7 @@ import {
     View
 } from 'react-native';
 import { db } from '../firebase';
+import { showAlert } from '../utils/alert';
 
 const { width: screenWidth } = Dimensions.get('window');
 const guidelineBaseWidth = 375;
@@ -42,7 +43,7 @@ const RequestDetailsModal: FC<RequestDetailsModalProps> = ({ visible, request, o
     const handleCopy = async () => {
         const textToCopy = `*Request for Blood*\n\nPatient Name: ${request.patientName}\nMobile Number: ${request.mobileNumber}\nRequired Date: ${request.requiredDate.toDate().toLocaleDateString()}\nBlood Group: ${request.bloodGroup}\nHospital: ${request.hospital}\nUnits: ${request.units}\nCritical: ${request.isCritical ? 'Yes' : 'No'}\nNotes: ${request.notes || 'N/A'}`;
         await Clipboard.setStringAsync(textToCopy);
-        Alert.alert('Copied!', 'Request details copied to clipboard.');
+        showAlert('Copied!', 'Request details copied to clipboard.');
     };
 
     const handleShareAsImage = async () => {
@@ -69,32 +70,31 @@ const RequestDetailsModal: FC<RequestDetailsModalProps> = ({ visible, request, o
             link.download = `request_${request.id}.png`;
             link.href = dataUrl;
             link.click();
-            Alert.alert("Saved", "Image downloaded to your device.");
+            showAlert("Saved", "Image downloaded to your device.");
 
         } catch (error) {
             console.error("Error sharing image:", error);
-            Alert.alert('Error', 'Could not share the details as an image.');
+            showAlert('Error', 'Could not share the details as an image.');
         }
     };
 
     return (
         <Modal animationType="fade" transparent={true} visible={visible} onRequestClose={onClose}>
             <View style={styles.modalBackdrop}>
-                <View ref={detailsRef} collapsable={false} style={{ backgroundColor: palette.white }}>
+                <View ref={detailsRef} collapsable={false}>
                     <View style={styles.modalContent}>
                         <View style={styles.modalHeader}>
                             <Text style={styles.modalTitle}>Request for Blood</Text>
                             <View style={styles.modalActions}>
                                 <TouchableOpacity onPress={handleCopy} style={styles.modalActionButton}>
-                                    <Text style={styles.modalActionText}>copy <Ionicons name="copy-outline" size={scale(14)} /></Text>
+                                    <Text style={styles.modalActionText}>copy <Copy size={scale(14)} /></Text>
                                 </TouchableOpacity>
                                 <TouchableOpacity onPress={handleShareAsImage} style={styles.modalActionButton}>
-                                    <Text style={styles.modalActionText}>Share <Ionicons name="share-outline" size={scale(14)} /></Text>
+                                    <Text style={styles.modalActionText}>Share <Share size={scale(14)} /></Text>
                                 </TouchableOpacity>
                             </View>
                         </View>
                         <View style={styles.modalBody}>
-                            <Image source={{ uri: 'https://i.ibb.co/68v8z0p/heart-logo.png' }} style={styles.watermark} />
                             <DetailRow label="Patient Name:" value={request.patientName} />
                             <DetailRow label="Mobile Number:" value={request.mobileNumber} />
                             <DetailRow label="Required Date:" value={request.requiredDate.toDate().toLocaleDateString()} />
@@ -107,7 +107,7 @@ const RequestDetailsModal: FC<RequestDetailsModalProps> = ({ visible, request, o
                     </View>
                 </View>
                 <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                    <Ionicons name="close-circle" size={scale(32)} color={palette.white} />
+                    <XCircle size={scale(32)} color={palette.white} />
                 </TouchableOpacity>
             </View>
         </Modal>
@@ -189,8 +189,17 @@ export default function DonateScreen() {
                 return { id: doc.id, ...data } as Request;
             });
 
+            // Filter out outdated requests (required date has passed)
+            const now = new Date();
+            now.setHours(0, 0, 0, 0); // Set to start of today
+            const activeRequestsData = allRequestsData.filter(request => {
+                const requiredDate = request.requiredDate?.toDate?.() || new Date();
+                requiredDate.setHours(0, 0, 0, 0);
+                return requiredDate >= now; // Only show today and future requests
+            });
+
             // Sort by critical first, then by date
-            allRequestsData.sort((a, b) => {
+            activeRequestsData.sort((a, b) => {
                 if (a.isCritical && !b.isCritical) return -1;
                 if (!a.isCritical && b.isCritical) return 1;
                 const dateA = a.requiredDate?.toDate?.() || new Date();
@@ -198,11 +207,11 @@ export default function DonateScreen() {
                 return dateB.getTime() - dateA.getTime();
             });
 
-            setAllRequests(allRequestsData);
-            setFilteredRequests(allRequestsData);
+            setAllRequests(activeRequestsData);
+            setFilteredRequests(activeRequestsData);
         } catch (error) {
             console.error("Error fetching requests: ", error);
-            Alert.alert('Error', 'Could not fetch blood requests.');
+            showAlert('Error', 'Could not fetch blood requests.');
         } finally {
             setIsLoading(false);
             lastLoadTimeRef.current = Date.now(); // Update last load time
@@ -259,7 +268,7 @@ export default function DonateScreen() {
 
     const handleDonatePress = async (request: Request) => {
         if (!donorProfile) {
-            Alert.alert("Error", "Could not identify your user profile. Please try again.");
+            showAlert("Error", "Could not identify your user profile. Please try again.");
             return;
         }
 
@@ -278,10 +287,9 @@ export default function DonateScreen() {
                     const daysRemaining = 60 - daysSinceLastDonation;
 
                     if (daysRemaining > 0) {
-                        Alert.alert(
+                        showAlert(
                             "Not Eligible Yet",
-                            `You donated blood ${daysSinceLastDonation} days ago. You need to wait ${daysRemaining} more days before your next donation.\n\nYou can donate again after ${new Date(lastDonationDate.getTime() + 60 * 24 * 60 * 60 * 1000).toLocaleDateString()}.`,
-                            [{ text: "OK" }]
+                            `You donated blood ${daysSinceLastDonation} days ago. You need to wait ${daysRemaining} more days before your next donation.\n\nYou can donate again after ${new Date(lastDonationDate.getTime() + 60 * 24 * 60 * 60 * 1000).toLocaleDateString()}.`
                         );
                         return;
                     }
@@ -291,14 +299,7 @@ export default function DonateScreen() {
             console.error("Error checking donation eligibility:", error);
         }
 
-        Alert.alert(
-            "Thank You for Your Offer!",
-            `We will notify ${request.requesterName || 'the requester'} about your willingness to donate.`,
-            [
-                { text: "Cancel", style: "cancel" },
-                {
-                    text: "OK, Share",
-                    onPress: async () => {
+        const proceedWithDonation = async () => {
                         try {
                             const notificationPromise = addDoc(collection(db, "notifications"), {
                                 recipientId: request.requesterId,
@@ -334,24 +335,40 @@ export default function DonateScreen() {
                             });
 
                             await Promise.all([notificationPromise, offerPromise, updatePromise]);
-                            Alert.alert("Sent!", `${request.requesterName} has been notified. Check your History page for next steps.`);
+                            showAlert("Sent!", `${request.requesterName} has been notified. Check your History page for next steps.`);
                         } catch (error) {
                             console.error("Error creating notification/offer: ", error);
-                            Alert.alert("Error", "Could not send notification. Please try again.");
+                            showAlert("Error", "Could not send notification. Please try again.");
                         }
+        };
+
+        if (Platform.OS === 'web') {
+            const confirmed = window.confirm(`Thank You for Your Offer!\n\nWe will notify ${request.requesterName || 'the requester'} about your willingness to donate.\n\nClick OK to proceed.`);
+            if (confirmed) {
+                await proceedWithDonation();
+            }
+        } else {
+            showAlert(
+                "Thank You for Your Offer!",
+                `We will notify ${request.requesterName || 'the requester'} about your willingness to donate.`,
+                [
+                    { text: "Cancel", style: "cancel" },
+                    {
+                        text: "OK, Share",
+                        onPress: proceedWithDonation
                     }
-                }
-            ]
-        );
+                ]
+            );
+        }
     };
 
     return (
         <SafeAreaView style={styles.safeArea}>
             <View style={styles.searchAndFilterContainer}>
                 <View style={styles.searchBar}>
-                    <Ionicons name="search" size={scale(20)} color={palette.lightText} style={{ marginLeft: scale(10) }} />
+                    <Search size={scale(20)} color={palette.lightText} style={{ marginLeft: scale(10) }} />
                     <TextInput placeholder="Search by hospital, patient..." style={styles.searchInput} value={searchQuery} onChangeText={setSearchQuery} />
-                    <Ionicons name="mic" size={scale(20)} color={palette.lightText} style={{ marginRight: scale(10) }} />
+                    <Mic size={scale(20)} color={palette.lightText} style={{ marginRight: scale(10) }} />
                 </View>
                 <FlatList
                     data={BLOOD_GROUPS}
@@ -366,6 +383,9 @@ export default function DonateScreen() {
                         </TouchableOpacity>
                     )}
                     contentContainerStyle={{ paddingHorizontal: scale(15), paddingVertical: scale(10) }}
+                    removeClippedSubviews={true}
+                    maxToRenderPerBatch={5}
+                    windowSize={5}
                 />
             </View>
             {isLoading ? (
@@ -377,6 +397,10 @@ export default function DonateScreen() {
                     keyExtractor={item => item.id}
                     contentContainerStyle={styles.listContainer}
                     ListEmptyComponent={<Text style={styles.emptyText}>No matching blood requests found.</Text>}
+                    removeClippedSubviews={true}
+                    maxToRenderPerBatch={10}
+                    windowSize={10}
+                    initialNumToRender={8}
                 />
             )}
             <RequestDetailsModal visible={isModalVisible} request={selectedRequest} onClose={closeDetailsModal} />
@@ -407,7 +431,7 @@ const styles = StyleSheet.create({
     donateButtonText: { color: palette.white, fontWeight: 'bold', fontSize: scale(14) },
     emptyText: { textAlign: 'center', marginTop: scale(50), color: palette.lightText, fontSize: scale(16) },
     modalBackdrop: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0, 0, 0, 0.6)' },
-    modalContent: { width: '90%', backgroundColor: palette.cardBg, borderRadius: scale(10), overflow: 'hidden' },
+    modalContent: { width: '100%', backgroundColor: palette.cardBg, borderRadius: scale(10), overflow: 'hidden' },
     modalHeader: { padding: scale(15), flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#F8F8F8', borderBottomWidth: 1, borderBottomColor: palette.borderLight },
     modalTitle: { fontSize: scale(16), fontWeight: 'bold', color: palette.primaryRed },
     modalActions: { flexDirection: 'row' },

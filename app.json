@@ -4,7 +4,7 @@
     "slug": "pu-nss-connect",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/app_logo.png",
     "scheme": "pu-nss-connect",
     "userInterfaceStyle": "light",
     "splash": {
@@ -23,7 +23,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "foregroundImage": "./assets/images/app_logo.png",
         "backgroundColor": "#EF4444"
       },
       "package": "com.farhankoolimad.PUNSSConnect",
@@ -36,7 +36,7 @@
     },
     "web": {
       "bundler": "metro",
-      "favicon": "./assets/images/favicon.png",
+      "favicon": "./assets/images/app_logo.png",
       "output": "static",
       "lang": "en",
       "name": "PU NSS Connect - Blood Donation & Volunteer Management",
@@ -53,8 +53,7 @@
       "build": {
         "babel": {
           "include": [
-            "@react-native-async-storage/async-storage",
-            "react-native-vector-icons"
+            "@react-native-async-storage/async-storage"
           ]
         }
       },

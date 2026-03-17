@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, Image, ScrollView, SafeAreaView, ActivityIndicator, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, Image, ScrollView, SafeAreaView, ActivityIndicator, Dimensions } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { getAuth } from 'firebase/auth';
 import { collection, addDoc, serverTimestamp, doc, getDoc, updateDoc } from 'firebase/firestore'; 
@@ -7,6 +7,7 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, /*storage*/ } from '../firebase';
 import * as ImagePicker from 'expo-image-picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { showAlert } from '../utils/alert';
 
 const { width: screenWidth } = Dimensions.get('window');
 const guidelineBaseWidth = 375; 
@@ -35,7 +36,7 @@ export default function AddEventScreen() {
                 const userDocRef = doc(db, 'users', user.uid);
                 const docSnap = await getDoc(userDocRef);
                 if (!docSnap.exists() || docSnap.data().role !== 'admin') {
-                    Alert.alert("Access Denied", "You do not have permission to view this page.");
+                    showAlert("Access Denied", "You do not have permission to view this page.");
                     router.replace('/dashboard');
                     return;
                 }
@@ -56,7 +57,7 @@ export default function AddEventScreen() {
                     }
                 }
             } catch (e) {
-                Alert.alert("Error", "Failed to verify admin or load event.");
+                showAlert("Error", "Failed to verify admin or load event.");
                 router.replace('/dashboard');
             } finally {
                 if (isMounted) setCheckingAdmin(false);
@@ -70,14 +71,28 @@ export default function AddEventScreen() {
         setForm(prev => ({ ...prev, [field]: value }));
     };
 
+    const handleWebDateChange = (dateString: string) => {
+        if (dateString) {
+            const newDate = new Date(dateString);
+            handleChange('eventDate', newDate);
+        }
+    };
+
+    const formatDateForInput = (date: Date) => {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    };
+
     const pickImage = async () => {
-        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        const { status } = await requestMediaLibraryPermissionsAsync();
         if (status !== 'granted') {
-            Alert.alert('Permission Denied', 'Sorry, we need camera roll permissions.');
+            showAlert('Permission Denied', 'We need camera roll permissions to upload images.');
             return;
         }
-        let result = await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        let result = await launchImageLibraryAsync({
+            mediaTypes: MediaTypeOptions.Images,
             allowsEditing: true,
             aspect: [16, 9],
             quality: 1,
@@ -90,7 +105,7 @@ export default function AddEventScreen() {
     const handleSubmit = async () => {
         const { title, location, eventDate, description } = form;
         if (!title || !location || !eventDate || !description || !imageUri) {
-            Alert.alert('Missing Information', 'Please fill all fields and select a poster image.');
+            showAlert('Missing Information', 'Please fill all fields and select a poster image.');
             return;
         }
         setSubmitting(true);
@@ -106,14 +121,14 @@ export default function AddEventScreen() {
             if (isEditMode && params.eventId) {
                 const eventDocRef = doc(db, 'events', params.eventId);
                 await updateDoc(eventDocRef, { ...form, posterImageUrl });
-                Alert.alert('Success', 'Event has been updated.');
+                showAlert('Success', 'Event has been updated.');
             } else {
                 await addDoc(collection(db, 'events'), { ...form, posterImageUrl, createdAt: serverTimestamp() });
-                Alert.alert('Success', 'New event has been added.');
+                showAlert('Success', 'New event has been added.');
             }
             router.back();
         } catch (error) {
-            Alert.alert('Error', 'Could not add/update the event.');
+            showAlert('Error', 'Could not add/update the event.');
         } finally {
             setSubmitting(false);
         }
@@ -131,21 +146,43 @@ export default function AddEventScreen() {
                 <Text style={styles.label}>Location</Text>
                 <TextInput style={styles.input} value={form.location} onChangeText={(val) => handleChange('location', val)} placeholder="e.g., PU Campus" />
                 <Text style={styles.label}>Date of Event</Text>
-                <TouchableOpacity onPress={() => setShowDatePicker(true)}>
-                    <View pointerEvents="none">
-                        <TextInput style={styles.input} value={form.eventDate.toLocaleDateString()} editable={false} />
-                    </View>
-                </TouchableOpacity>
-                {showDatePicker && (
-                    <DateTimePicker
-                        value={form.eventDate}
-                        mode="date"
-                        display="default"
-                        onChange={(e, selectedDate) => {
-                            setShowDatePicker(false);
-                            if (selectedDate) handleChange('eventDate', selectedDate);
+                {Platform.OS === 'web' ? (
+                    <input
+                        type="date"
+                        value={formatDateForInput(form.eventDate)}
+                        onChange={(e) => handleWebDateChange(e.target.value)}
+                        style={{
+                            backgroundColor: palette.white,
+                            border: `1px solid ${palette.borderLight}`,
+                            borderRadius: scale(8),
+                            padding: scale(12),
+                            fontSize: scale(14),
+                            fontFamily: 'inherit',
+                            width: '100%',
+                            minWidth: 0,
+                            display: 'block',
+                            boxSizing: 'border-box' as any
                         }}
                     />
+                ) : (
+                    <>
+                        <TouchableOpacity onPress={() => setShowDatePicker(true)}>
+                            <View pointerEvents="none">
+                                <TextInput style={styles.input} value={form.eventDate.toLocaleDateString()} editable={false} />
+                            </View>
+                        </TouchableOpacity>
+                        {showDatePicker && (
+                            <DateTimePicker
+                                value={form.eventDate}
+                                mode="date"
+                                display="default"
+                                onChange={(e, selectedDate) => {
+                                    setShowDatePicker(false);
+                                    if (selectedDate) handleChange('eventDate', selectedDate);
+                                }}
+                            />
+                        )}
+                    </>
                 )}
                 <Text style={styles.label}>Description</Text>
                 <TextInput style={[styles.input, { height: scale(100), textAlignVertical: 'top' }]} value={form.description} onChangeText={(val) => handleChange('description', val)} multiline placeholder="More details about the event..." />

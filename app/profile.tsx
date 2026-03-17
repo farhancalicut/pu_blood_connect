@@ -1,12 +1,13 @@
-import { Ionicons } from '@expo/vector-icons';
-import * as ImagePicker from 'expo-image-picker';
+import { User, Phone, Mail, Droplet, Calendar, Camera, Shield, Heart, Bell, LogOut, LucideIcon, ChevronLeft, ChevronRight, Edit2 as Edit, LockIcon as Lock } from 'lucide-react-native';
 import { Stack, useFocusEffect, useRouter } from 'expo-router';
 import { EmailAuthProvider, getAuth, reauthenticateWithCredential, signOut, updatePassword } from 'firebase/auth';
 import { collection, doc, getDoc, getDocs, query, updateDoc, where } from 'firebase/firestore';
 import React, { FC, useCallback, useState } from 'react';
-import { ActivityIndicator, Alert, Dimensions, Image, Modal, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Dimensions, Image, Modal, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { db } from '../firebase';
+import { showAlert } from '../utils/alert';
 import { uploadImageToCloudinary } from '../utils/cloudinary';
+import { requestMediaLibraryPermissionsAsync, launchImageLibraryAsync, MediaTypeOptions } from '../utils/imagePickerWeb';
 
 const { width: screenWidth } = Dimensions.get('window');
 const guidelineBaseWidth = 375; 
@@ -39,15 +40,27 @@ type Event = {
     status?: string;
 };
 
-const ProfileInfoRow = ({ icon, label, value }: { icon: React.ComponentProps<typeof Ionicons>['name'], label: string, value: string }) => (
+const iconMap: Record<string, LucideIcon> = {
+  'person': User,
+  'call': Phone,
+  'mail': Mail,
+  'water': Droplet,
+  'calendar': Calendar,
+};
+
+const ProfileInfoRow = ({ icon, label, value }: { icon: string, label: string, value: string }) => {
+  const IconComponent = iconMap[icon] || User;
+  return (
     <View style={styles.infoRow}>
-        <Ionicons name={icon} size={scale(22)} color={palette.primaryRed} style={styles.infoIcon} />
+        <IconComponent size={scale(22)} color={palette.primaryRed} style={styles.infoIcon} />
         <View>
             <Text style={styles.infoLabel}>{label}</Text>
             <Text style={styles.infoValue}>{value}</Text>
         </View>
     </View>
-);
+  );
+};
+
 const ChangePasswordModal: FC<{ visible: boolean, onClose: () => void }> = ({ visible, onClose }) => {
     const [currentPassword, setCurrentPassword] = useState('');
     const [newPassword, setNewPassword] = useState('');
@@ -67,7 +80,7 @@ const ChangePasswordModal: FC<{ visible: boolean, onClose: () => void }> = ({ vi
             try {
                 await reauthenticateWithCredential(user, credential);
                 await updatePassword(user, newPassword);
-                Alert.alert("Success", "Your password has been changed successfully.");
+                showAlert("Success", "Your password has been changed successfully.");
                 onClose();
             } catch (error: any) {
                 console.error(error);
@@ -190,13 +203,13 @@ export default function ProfileScreen() {
 
     const handleProfilePicChange = async () => {
         if (!user) return;
-        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        const { status } = await requestMediaLibraryPermissionsAsync();
         if (status !== 'granted') { 
-            Alert.alert('Permission Denied', 'We need permission to access your photos.'); 
+            showAlert('Permission Denied', 'We need permission to access your photos.'); 
             return; 
         }
-        let result = await ImagePicker.launchImageLibraryAsync({ 
-            mediaTypes: ImagePicker.MediaTypeOptions.Images, 
+        let result = await launchImageLibraryAsync({ 
+            mediaTypes: MediaTypeOptions.Images, 
             allowsEditing: true, 
             aspect: [1, 1], 
             quality: 0.5, 
@@ -209,7 +222,7 @@ export default function ProfileScreen() {
                 const uploadResult = await uploadImageToCloudinary(uri, 'profile_pictures');
                 
                 if (!uploadResult.success) {
-                    Alert.alert('Upload Error', uploadResult.error || 'Failed to upload image');
+                    showAlert('Upload Error', uploadResult.error || 'Failed to upload image');
                     setIsUploading(false);
                     return;
                 }
@@ -217,10 +230,10 @@ export default function ProfileScreen() {
                 const userDocRef = doc(db, 'users', user.uid);
                 await updateDoc(userDocRef, { profilePicUrl: uploadResult.url });
                 setUserProfile(prev => prev ? { ...prev, profilePicUrl: uploadResult.url } : null);
-                Alert.alert("Success", "Profile picture updated!");
+                showAlert("Success", "Profile picture updated!");
             } catch (error) {
                 console.error("Error uploading image: ", error);
-                Alert.alert("Error", "Failed to upload image.");
+                showAlert("Error", "Failed to upload image.");
             } finally {
                 setIsUploading(false);
             }
@@ -228,18 +241,27 @@ export default function ProfileScreen() {
     };
 
     const handleLogout = () => {
-    Alert.alert("Log Out", "Are you sure you want to log out?", [
-        { text: "Cancel", style: "cancel" },
-        { 
-            text: "Log Out", 
-            style: "destructive", 
-            onPress: () => {
+        if (Platform.OS === 'web') {
+            // For web, use browser confirm dialog
+            if (window.confirm('Are you sure you want to log out?')) {
                 signOut(auth);
                 router.replace('/login');
             }
+        } else {
+            // For native, use showAlert with buttons
+            showAlert("Log Out", "Are you sure you want to log out?", [
+                { text: "Cancel", style: "cancel" },
+                { 
+                    text: "Log Out", 
+                    style: "destructive", 
+                    onPress: () => {
+                        signOut(auth);
+                        router.replace('/login');
+                    }
+                }
+            ]);
         }
-    ]);
-};
+    };
 
 
 
@@ -265,7 +287,7 @@ export default function ProfileScreen() {
                 {/* Custom Header */}
                 <View style={styles.header}>
                     <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-                        <Ionicons name="chevron-back" size={24} color={palette.darkText} />
+                        <ChevronLeft size={24} color={palette.darkText} />
                     </TouchableOpacity>
                     <Text style={styles.headerTitle}>Profile</Text>
                     <View style={styles.headerSpacer} />
@@ -281,12 +303,12 @@ export default function ProfileScreen() {
                                     <Image source={{ uri: userProfile.profilePicUrl }} style={styles.profileImage} />
                                 ) : (
                                     <View style={styles.avatarPlaceholder}>
-                                        <Ionicons name="person" size={scale(40)} color={palette.lightText} />
+                                        <User size={scale(40)} color={palette.lightText} />
                                     </View>
                                 )}
                                 {isUploading && <ActivityIndicator style={styles.uploadIndicator} color={palette.primaryRed} />}
                                 <View style={styles.cameraIcon}>
-                                    <Ionicons name="camera" size={14} color="white" />
+                                    <Camera size={14} color="white" />
                                 </View>
                             </TouchableOpacity>
                         </View>
@@ -300,14 +322,14 @@ export default function ProfileScreen() {
                             <View style={styles.badgesContainer}>
                                 {/* Blood Group Badge */}
                                 <View style={styles.bloodGroupBadge}>
-                                    <Ionicons name="water" size={16} color={palette.primaryRed} />
+                                    <Droplet size={16} color={palette.primaryRed} />
                                     <Text style={styles.bloodGroupText}>{userProfile?.bloodGroup}</Text>
                                 </View>
                                 
                                 {/* NSS Volunteer Badge - Only for approved volunteers */}
                                 {userProfile?.isNssVolunteer === 'Yes' && userProfile?.nssStatus === 'approved' && (
                                     <View style={styles.nssBadge}>
-                                        <Ionicons name="shield-checkmark" size={14} color="#4A90E2" />
+                                        <Shield size={14} color="#4A90E2" />
                                         <Text style={styles.nssText} numberOfLines={1} ellipsizeMode="tail">
                                             NSS Volunteer
                                         </Text>
@@ -326,7 +348,7 @@ export default function ProfileScreen() {
                                 onPress={() => router.push('/my-events')}
                             >
                                 <View style={styles.statIconContainer}>
-                                    <Ionicons name="calendar" size={20} color={palette.primaryRed} />
+                                    <Calendar size={20} color={palette.primaryRed} />
                                 </View>
                                 <Text style={styles.statValue}>{participatedEvents.length}</Text>
                                 <Text style={styles.statLabel}>Events</Text>
@@ -336,7 +358,7 @@ export default function ProfileScreen() {
                                 onPress={() => router.push('/History')}
                             >
                                 <View style={styles.statIconContainer}>
-                                    <Ionicons name="heart" size={20} color="#FF6B6B" />
+                                    <Heart size={20} color="#FF6B6B" />
                                 </View>
                                 <Text style={styles.statValue}>{donationCount}</Text>
                                 <Text style={styles.statLabel}>Donations</Text>
@@ -358,52 +380,52 @@ export default function ProfileScreen() {
                         
                         <TouchableOpacity style={styles.modernActionButton} onPress={() => router.push('/edit-profile')}>
                             <View style={styles.actionIconContainer}>
-                                <Ionicons name="create-outline" size={20} color={palette.primaryRed} />
+                                <Edit size={20} color={palette.primaryRed} />
                             </View>
                             <View style={styles.actionContent}>
                                 <Text style={styles.actionTitle}>Edit Profile</Text>
                                 <Text style={styles.actionSubtitle}>Update your personal information</Text>
                             </View>
-                            <Ionicons name="chevron-forward" size={16} color={palette.lightText} />
+                            <ChevronRight size={16} color={palette.lightText} />
                         </TouchableOpacity>
                         
                         <TouchableOpacity style={styles.modernActionButton} onPress={() => setIsPasswordModalVisible(true)}>
                             <View style={styles.actionIconContainer}>
-                                <Ionicons name="lock-closed-outline" size={20} color={palette.primaryRed} />
+                                <Lock size={20} color={palette.primaryRed} />
                             </View>
                             <View style={styles.actionContent}>
                                 <Text style={styles.actionTitle}>Change Password</Text>
                                 <Text style={styles.actionSubtitle}>Update your account security</Text>
                             </View>
-                            <Ionicons name="chevron-forward" size={16} color={palette.lightText} />
+                            <ChevronRight size={16} color={palette.lightText} />
                         </TouchableOpacity>
                         
                         <TouchableOpacity style={styles.modernActionButton} onPress={() => router.push('/notifications')}>
                             <View style={styles.actionIconContainer}>
-                                <Ionicons name="notifications-outline" size={20} color="#FF9500" />
+                                <Bell size={20} color="#FF9500" />
                             </View>
                             <View style={styles.actionContent}>
                                 <Text style={styles.actionTitle}>Notifications</Text>
                                 <Text style={styles.actionSubtitle}>Manage your preferences</Text>
                             </View>
-                            <Ionicons name="chevron-forward" size={16} color={palette.lightText} />
+                            <ChevronRight size={16} color={palette.lightText} />
                         </TouchableOpacity>
                         
                         <TouchableOpacity style={styles.modernActionButton} onPress={() => router.push('/privacy-policy')}>
                             <View style={styles.actionIconContainer}>
-                                <Ionicons name="shield-checkmark-outline" size={20} color="#34C759" />
+                                <Shield size={20} color="#34C759" />
                             </View>
                             <View style={styles.actionContent}>
                                 <Text style={styles.actionTitle}>Privacy & Security</Text>
                                 <Text style={styles.actionSubtitle}>Review privacy settings</Text>
                             </View>
-                            <Ionicons name="chevron-forward" size={16} color={palette.lightText} />
+                            <ChevronRight size={16} color={palette.lightText} />
                         </TouchableOpacity>
                     </View>
 
                     {/* Logout Button */}
                     <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-                        <Ionicons name="log-out-outline" size={20} color={palette.primaryRed} />
+                        <LogOut size={20} color={palette.primaryRed} />
                         <Text style={styles.logoutButtonText}>Log Out</Text>
                     </TouchableOpacity>
                 </ScrollView>

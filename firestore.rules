@@ -1,0 +1,121 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Users - authenticated users can read all, write their own
+    match /users/{userId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Blood requests - authenticated users can read all, create, update/delete their own
+    match /bloodRequests/{requestId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null;
+      allow update, delete: if request.auth != null && 
+        (resource.data.userId == request.auth.uid || 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
+    }
+    
+    // Events - authenticated users can read all; users can join events; admins can write
+    match /events/{eventId} {
+      allow read: if request.auth != null;
+      allow create, delete: if request.auth != null && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      allow update: if request.auth != null;
+    }
+    
+    // Blood banks - authenticated users can read all, admins can write
+    match /bloodBanks/{bankId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    // Donations - authenticated users can read all, admins can create/update/delete
+    match /donations/{donationId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      allow update, delete: if request.auth != null && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    // Donation Offers - users can read their own and create; users and admins can update
+    match /donationOffers/{offerId} {
+      allow read: if request.auth != null && 
+        (resource.data.donorId == request.auth.uid || 
+         resource.data.requesterId == request.auth.uid ||
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
+      allow create: if request.auth != null;
+      allow update: if request.auth != null && 
+        (resource.data.donorId == request.auth.uid || 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
+      allow delete: if request.auth != null && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    // Feedback - authenticated users can read all and create, admins can update/delete
+    match /feedback/{feedbackId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null;
+      allow update, delete: if request.auth != null && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    // Hospitals - authenticated users can read all, hospitals/admins can write
+    match /hospitals/{hospitalId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && 
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'hospital');
+    }
+    
+    // Hospital requests - authenticated users can read all, hospitals can write their own
+    match /hospitalRequests/{requestId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null;
+      allow update, delete: if request.auth != null && 
+        (resource.data.hospitalId == request.auth.uid || 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
+    }
+    
+    // Notifications - users can read their own notifications and notifications sent to 'all'
+    match /notifications/{notificationId} {
+      allow read: if request.auth != null && 
+        (resource.data.recipientId == request.auth.uid || resource.data.recipientId == 'all');
+      allow create: if request.auth != null;
+      allow update: if request.auth != null && 
+        (resource.data.recipientId == request.auth.uid || resource.data.recipientId == 'all');
+      allow delete: if request.auth != null && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    // Event registrations - users can read all, create, update/delete their own
+    match /eventRegistrations/{registrationId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null;
+      allow update, delete: if request.auth != null && 
+        (resource.data.userId == request.auth.uid ||
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
+    }
+    
+    // Gallery images - authenticated users can read all, create, and delete their own
+    match /galleryImages/{imageId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null;
+      allow delete: if request.auth != null && 
+        (resource.data.uploaderId == request.auth.uid || 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
+    }
+    
+    // Requests - authenticated users can read all, create, and update/delete their own or admins
+    match /requests/{requestId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null;
+      allow update, delete: if request.auth != null && 
+        (resource.data.requesterId == request.auth.uid || 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
+    }
+  }
+}

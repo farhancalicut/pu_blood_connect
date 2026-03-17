@@ -1,4 +1,4 @@
-import { Ionicons } from "@expo/vector-icons";
+import { Users, Calendar, ChevronRight, LogOut, Droplet, Clock, Shield, ShieldCheck, CheckCircle, Building2, MapPin, LucideIcon, FileText, MessageSquare } from 'lucide-react-native';
 import { useFocusEffect, useRouter } from "expo-router";
 import { getAuth, signOut } from "firebase/auth";
 import {
@@ -12,7 +12,6 @@ import {
 import React, { useCallback, useState } from "react";
 import {
     ActivityIndicator,
-    Alert,
     Dimensions,
     Platform,
     SafeAreaView,
@@ -24,6 +23,7 @@ import {
     View,
 } from "react-native";
 import { db } from "../firebase";
+import { showAlert } from "../utils/alert";
 
 const { width: screenWidth } = Dimensions.get("window");
 const guidelineBaseWidth = 375;
@@ -52,10 +52,21 @@ type DashboardStats = {
 };
 
 type QuickActionItem = {
-  icon: React.ComponentProps<typeof Ionicons>["name"];
+  icon: string;
   title: string;
   route: string;
   color: string;
+};
+
+const iconMap: Record<string, LucideIcon> = {
+  'people-outline': Users,
+  'checkmark-circle-outline': CheckCircle,
+  'shield-outline': Shield,
+  'calendar-outline': Calendar,
+  'business-outline': Building2,
+  'location-outline': MapPin,
+  'document-text-outline': FileText,
+  'chatbox-ellipses-outline': MessageSquare,
 };
 
 const quickActions: QuickActionItem[] = [
@@ -140,7 +151,7 @@ export default function AdminDashboardScreen() {
       const userDoc = await getDoc(userDocRef);
 
       if (!userDoc.exists() || userDoc.data()?.role !== "admin") {
-        Alert.alert("Access Denied", "You do not have admin privileges.");
+        showAlert("Access Denied", "You do not have admin privileges.");
         router.replace("/dashboard");
         return;
       }
@@ -196,7 +207,7 @@ export default function AdminDashboardScreen() {
       });
     } catch (error) {
       console.error("Error fetching admin data:", error);
-      Alert.alert("Error", "Failed to load admin dashboard.");
+      showAlert("Error", "Failed to load admin dashboard.");
     } finally {
       setIsLoading(false);
     }
@@ -226,7 +237,7 @@ export default function AdminDashboardScreen() {
         }
       }
     } else {
-      Alert.alert("Logout", "Are you sure you want to logout?", [
+      showAlert("Logout", "Are you sure you want to logout?", [
         { text: "Cancel", style: "cancel" },
         {
           text: "Logout",
@@ -281,8 +292,7 @@ export default function AdminDashboardScreen() {
             <Text style={styles.adminName}>{adminName}</Text>
           </View>
           <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
-            <Ionicons
-              name="log-out-outline"
+            <LogOut
               size={scale(24)}
               color={palette.primary}
             />
@@ -294,18 +304,13 @@ export default function AdminDashboardScreen() {
           <View style={styles.statsContainer}>
             <View style={styles.statsGrid}>
               <View style={styles.statCard}>
-                <Ionicons
-                  name="people"
-                  size={scale(24)}
-                  color={palette.primary}
-                />
+                <Users size={scale(24)} color={palette.primary} />
                 <Text style={styles.statNumber}>{stats.totalUsers}</Text>
                 <Text style={styles.statLabel}>Total Users</Text>
               </View>
 
               <View style={styles.statCard}>
-                <Ionicons
-                  name="water"
+                <Droplet
                   size={scale(24)}
                   color={palette.success}
                 />
@@ -314,30 +319,25 @@ export default function AdminDashboardScreen() {
               </View>
 
               <View style={styles.statCard}>
-                <Ionicons
-                  name="calendar"
-                  size={scale(24)}
-                  color={palette.warning}
-                />
+                <Calendar size={scale(24)} color={palette.warning} />
                 <Text style={styles.statNumber}>{stats.totalEvents}</Text>
                 <Text style={styles.statLabel}>Events</Text>
               </View>
 
               <View style={styles.statCard}>
-                <Ionicons name="time" size={scale(24)} color="#FF6B6B" />
+                <Clock size={scale(24)} color="#FF6B6B" />
                 <Text style={styles.statNumber}>{stats.pendingApprovals}</Text>
                 <Text style={styles.statLabel}>Pending Approvals</Text>
               </View>
 
               <View style={styles.statCard}>
-                <Ionicons name="shield" size={scale(24)} color="#8E44AD" />
+                <Shield size={scale(24)} color="#8E44AD" />
                 <Text style={styles.statNumber}>{stats.pendingNSS}</Text>
                 <Text style={styles.statLabel}>Pending NSS</Text>
               </View>
 
               <View style={styles.statCard}>
-                <Ionicons
-                  name="shield-checkmark"
+                <ShieldCheck
                   size={scale(24)}
                   color="#27AE60"
                 />
@@ -360,17 +360,12 @@ export default function AdminDashboardScreen() {
                   ]}
                   onPress={() => handleQuickAction(action.route)}
                 >
-                  <Ionicons
-                    name={action.icon}
-                    size={scale(24)}
-                    color={action.color}
-                  />
+                  {React.createElement(iconMap[action.icon] || Users, {
+                    size: scale(24),
+                    color: action.color
+                  })}
                   <Text style={styles.quickActionText}>{action.title}</Text>
-                  <Ionicons
-                    name="chevron-forward"
-                    size={scale(16)}
-                    color={palette.lightText}
-                  />
+                  <ChevronRight size={scale(16)} color={palette.lightText} />
                 </TouchableOpacity>
               ))}
             </View>
@@ -422,30 +417,30 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: scale(20),
-    paddingVertical: scale(16),
+    paddingHorizontal: scale(15),
+    paddingVertical: scale(12),
     backgroundColor: palette.white,
     borderBottomWidth: 1,
     borderBottomColor: palette.border,
   },
   welcomeText: {
-    fontSize: scale(14),
+    fontSize: scale(12),
     color: palette.lightText,
   },
   adminName: {
-    fontSize: scale(20),
-    fontWeight: "bold",
+    fontSize: scale(16),
+    fontWeight: "600",
     color: palette.text,
   },
   logoutButton: {
-    padding: scale(8),
+    padding: scale(4),
   },
   content: {
     flex: 1,
   },
   statsContainer: {
-    paddingHorizontal: scale(20),
-    paddingTop: scale(20),
+    paddingHorizontal: scale(15),
+    paddingTop: scale(15),
   },
   statsGrid: {
     flexDirection: "row",
@@ -528,3 +523,4 @@ const styles = StyleSheet.create({
     lineHeight: scale(20),
   },
 });
+

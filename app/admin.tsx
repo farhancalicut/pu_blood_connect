@@ -1,11 +1,12 @@
-import { Ionicons } from '@expo/vector-icons';
+import { X } from 'lucide-react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { getAuth } from 'firebase/auth';
 import { addDoc, collection, doc, getDoc, getDocs, increment, query, serverTimestamp, updateDoc, where } from 'firebase/firestore';
 import React, { useCallback, useState } from 'react';
-import { ActivityIndicator, Alert, Dimensions, FlatList, Image, Modal, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Dimensions, FlatList, Image, Modal, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { db } from '../firebase';
 import { notifyCertificateGenerated } from '../utils/notifications';
+import { showAlert } from '../utils/alert';
 
 const { width: screenWidth } = Dimensions.get('window');
 const guidelineBaseWidth = 375; 
@@ -18,11 +19,12 @@ type Submission = {
     id: string;
     donorName: string;
     donorId: string;
-    confirmedUnits: number;
-    confirmedDate: { toDate: () => Date };
-    certificateUrl: string;
-    bloodGroup: string;
-    hospital: string;
+    confirmedUnits?: number;
+    confirmedDate?: { toDate?: () => Date } | Date;
+    certificateUrl?: string;
+    bloodGroup?: string;
+    hospital?: string;
+    confirmedLocation?: string;
 };
 
 const SubmissionCard = React.memo(({ item, onApprove, onReject, processingId, onViewCertificate }: { 
@@ -89,11 +91,11 @@ export default function AdminScreen() {
                 const subs = querySnapshot.docs.map(d => ({ id: d.id, ...d.data() } as Submission));
                 setSubmissions(subs);
             } else {
-                Alert.alert("Access Denied", "You do not have permission to view this page.");
+                showAlert("Access Denied", "You do not have permission to view this page.");
                 router.replace('/dashboard');
             }
         } catch (error) {
-            Alert.alert('Error', 'Failed to fetch admin data.');
+            showAlert('Error', 'Failed to fetch admin data.');
         } finally {
             setIsLoading(false);
         }
@@ -116,21 +118,30 @@ export default function AdminScreen() {
             }
             const donorData = donorDocSnap.data();
             const donorDepartment = donorData.department || 'N/A';
+            const approvedUnits = Number(submission.confirmedUnits ?? 0);
+            const safeUnits = Number.isFinite(approvedUnits) && approvedUnits > 0 ? approvedUnits : 0;
+            const donationDate =
+                submission.confirmedDate && typeof (submission.confirmedDate as any).toDate === 'function'
+                    ? submission.confirmedDate
+                    : new Date();
+            const safeBloodGroup = submission.bloodGroup || 'Unknown';
+            const safeHospital = submission.hospital || submission.confirmedLocation || 'Not specified';
+            const safeDonorName = submission.donorName || donorData.firstName || 'Donor';
 
             await updateDoc(offerDocRef, { status: 'completed' });
 
             await updateDoc(userDocRef, {
-                totalDonates: increment(submission.confirmedUnits),
-                lastDonated: submission.confirmedDate
+                totalDonates: increment(safeUnits),
+                lastDonated: donationDate
             });
             await addDoc(collection(db, "donations"), {
-                donorName: submission.donorName,
+                donorName: safeDonorName,
                 donorId: submission.donorId,
                 department: donorDepartment,
-                units: submission.confirmedUnits,
-                bloodGroup: submission.bloodGroup,
-                hospital: submission.hospital,
-                date: submission.confirmedDate,
+                units: safeUnits,
+                bloodGroup: safeBloodGroup,
+                hospital: safeHospital,
+                date: donationDate,
                 createdAt: serverTimestamp(),
             });
 
@@ -149,10 +160,11 @@ export default function AdminScreen() {
                 }
             }
 
-            Alert.alert('Success', `${submission.donorName}'s donation has been approved.`);
+            showAlert('Success', `${safeDonorName}'s donation has been approved.`);
             checkAdminStatusAndFetchData();
         } catch (error) {
-            Alert.alert('Error', 'Could not approve the submission.');
+            console.error('Approval failed for submission:', submission.id, error);
+            showAlert('Error', 'Could not approve the submission.');
         } finally {
             setProcessingId(null);
         }
@@ -163,10 +175,10 @@ export default function AdminScreen() {
         try {
             const offerDocRef = doc(db, 'donationOffers', submission.id);
             await updateDoc(offerDocRef, { status: 'rejected' });
-            Alert.alert('Success', `${submission.donorName}'s donation has been rejected.`);
+            showAlert('Success', `${submission.donorName}'s donation has been rejected.`);
             checkAdminStatusAndFetchData();
         } catch (error) {
-            Alert.alert('Error', 'Could not reject the submission.');
+            showAlert('Error', 'Could not reject the submission.');
         } finally {
             setProcessingId(null);
         }
@@ -176,12 +188,12 @@ export default function AdminScreen() {
         return <ActivityIndicator style={{ flex: 1 }} size="large" color={palette.primaryRed} />;
     }
 
-    const handleViewCertificate = (certificateUrl: string) => {
+    const handleViewCertificate = (certificateUrl?: string) => {
         if (certificateUrl) {
             setSelectedCertificate(certificateUrl);
             setShowCertificateModal(true);
         } else {
-            Alert.alert('No Certificate', 'No certificate image available for this submission.');
+            showAlert('No Certificate', 'No certificate image available for this submission.');
         }
     };
     
@@ -217,7 +229,7 @@ export default function AdminScreen() {
                         <View style={styles.modalHeader}>
                             <Text style={styles.modalTitle}>Certificate Image</Text>
                             <TouchableOpacity onPress={() => setShowCertificateModal(false)}>
-                                <Ionicons name="close" size={scale(28)} color={palette.darkText} />
+                                <X size={scale(28)} color={palette.darkText} />
                             </TouchableOpacity>
                         </View>
                         <ScrollView contentContainerStyle={styles.imageScrollContainer}>

@@ -1,10 +1,26 @@
-import { Ionicons } from '@expo/vector-icons';
+import { 
+  Shield, 
+  CheckCircle, 
+  Users, 
+  Calendar, 
+  MapPin, 
+  Bell, 
+  Grid3X3, 
+  FileText, 
+  Clock, 
+  QrCode, 
+  Image as ImageIcon, 
+  MessageSquare, 
+  HelpCircle,
+  User
+} from 'lucide-react-native';
 import { Href, useRouter } from 'expo-router';
 import { getAuth, onAuthStateChanged } from 'firebase/auth'; 
 import { doc, getDoc } from 'firebase/firestore';
 import React, { useEffect, useState } from 'react';
-import { Alert, Image, Pressable, SafeAreaView, Share, StyleSheet, Text, View, Dimensions } from 'react-native';
+import { Image, Pressable, SafeAreaView, Share, StyleSheet, Text, View, Dimensions } from 'react-native';
 import { db } from '../firebase';
+import { showAlert } from '../utils/alert';
 import { useMenu } from './context/MenuContext';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
@@ -14,8 +30,27 @@ const scale = (size: number) => (screenWidth / guidelineBaseWidth) * size;
 const verticalScale = (size: number) => (screenHeight / guidelineBaseHeight) * size;
 const moderateScale = (size: number, factor = 0.5) => size + (scale(size) - size) * factor;
 
+// Icon mapping from Ionicons names to Lucide components
+const iconMap: Record<string, React.ComponentType<{ size: number; color: string }>> = {
+  'shield-outline': Shield,
+  'checkmark-circle-outline': CheckCircle,
+  'people-outline': Users,
+  'calendar-outline': Calendar,
+  'location-outline': MapPin,
+  'notifications-outline': Bell,
+  'grid-outline': Grid3X3,
+  'document-text-outline': FileText,
+  'time-outline': Clock,
+  'qr-code-outline': QrCode,
+  'images-outline': ImageIcon,
+  'chatbox-ellipses-outline': MessageSquare,
+  'help-circle-outline': HelpCircle,
+  'person-outline': User,
+  'person': User,
+};
+
 type MenuItem = {
-  icon: React.ComponentProps<typeof Ionicons>['name'];
+  icon: string;
   name: string;
   href?: Href;
 };
@@ -105,7 +140,7 @@ export default function MenuBar() {
             message: "Join me on PU NSS CONNECT and be a part of a life-saving community! Download the app here: [Your App Link Here]",
         });
     } catch (error) {
-        Alert.alert("Error", "Could not open share menu.");
+        showAlert("Error", "Could not open share menu.");
     }
   };
 
@@ -131,7 +166,7 @@ export default function MenuBar() {
           {profilePicUrl ? (
             <Image source={{ uri: profilePicUrl }} style={styles.profileImage} />
           ) : (
-            <Ionicons name="person" size={scale(24)} color="#971A1A" />
+            <User size={scale(24)} color="#971A1A" />
           )}
         </Pressable>
         <View style={styles.profileTextContainer}>
@@ -147,24 +182,30 @@ export default function MenuBar() {
       </View>
 
       <View style={styles.menuItemsContainer}>
-        {getMainMenuItems(isAdmin).map((item, index) => (
-          <Pressable
-            key={index}
-            style={styles.menuItem}
-            onPress={() => handlePress(item)}
-            hitSlop={item.name === 'Dashboard' ? 0 : undefined}
-          >
-            <Ionicons name={item.icon} size={scale(22)} color="white" />
-            <Text style={styles.menuItemText}>{item.name}</Text>
-          </Pressable>
-        ))}
+        {getMainMenuItems(isAdmin).map((item, index) => {
+          const IconComponent = iconMap[item.icon] || User;
+          return (
+            <Pressable
+              key={index}
+              style={styles.menuItem}
+              onPress={() => handlePress(item)}
+              hitSlop={item.name === 'Dashboard' ? 0 : undefined}
+            >
+              <IconComponent size={scale(22)} color="white" />
+              <Text style={styles.menuItemText}>{item.name}</Text>
+            </Pressable>
+          );
+        })}
         <View style={styles.divider} />
-        {secondaryMenuItems.map((item, index) => (
-          <Pressable key={index} style={styles.menuItem} onPress={() => handlePress(item)}>
-            <Ionicons name={item.icon} size={scale(22)} color="white" />
-            <Text style={styles.menuItemText}>{item.name}</Text>
-          </Pressable>
-        ))}
+        {secondaryMenuItems.map((item, index) => {
+          const IconComponent = iconMap[item.icon] || User;
+          return (
+            <Pressable key={index} style={styles.menuItem} onPress={() => handlePress(item)}>
+              <IconComponent size={scale(22)} color="white" />
+              <Text style={styles.menuItemText}>{item.name}</Text>
+            </Pressable>
+          );
+        })}
 
       </View>
     </SafeAreaView>

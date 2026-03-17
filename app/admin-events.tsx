@@ -1,6 +1,5 @@
-import { Ionicons } from '@expo/vector-icons';
+import { ArrowLeft, Plus, Search, Calendar, MapPin, User as UserIcon, Edit2, Trash2, QrCode, XCircle, Image as ImageIcon, Clock, Share2, CheckCircle } from 'lucide-react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
 import { getAuth, onAuthStateChanged, User } from 'firebase/auth';
 import {
@@ -19,7 +18,6 @@ import * as htmlToImage from 'html-to-image';
 import { QRCodeSVG } from 'qrcode.react';
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  Alert,
   Image,
   Modal,
   Platform,
@@ -32,7 +30,9 @@ import {
   View
 } from 'react-native';
 import { db } from '../firebase';
+import { showAlert } from '../utils/alert';
 import { uploadImageToCloudinary } from '../utils/cloudinary';
+import { requestMediaLibraryPermissionsAsync, launchImageLibraryAsync, MediaTypeOptions } from '../utils/imagePickerWeb';
 import { notifyUsersAboutNewEvent } from '../utils/notifications';
 
 interface Event {
@@ -112,7 +112,7 @@ const AdminEvents: React.FC = () => {
       const userDoc = await getDoc(userDocRef);
 
       if (!userDoc.exists() || userDoc.data()?.role !== 'admin') {
-        Alert.alert('Access Denied', 'You do not have admin privileges.');
+        showAlert('Access Denied', 'You do not have admin privileges.');
         router.replace('/dashboard');
         return;
       }
@@ -121,7 +121,7 @@ const AdminEvents: React.FC = () => {
       fetchEvents();
     } catch (error) {
       console.error('Error checking admin status:', error);
-      Alert.alert('Error', 'Failed to verify admin status.');
+      showAlert('Error', 'Failed to verify admin status.');
     }
   };
 
@@ -179,7 +179,7 @@ const AdminEvents: React.FC = () => {
       setLoading(false);
     } catch (error) {
       console.error('Error fetching events:', error);
-      Alert.alert('Error', 'Failed to fetch events.');
+      showAlert('Error', 'Failed to fetch events.');
       setLoading(false);
     }
   };
@@ -236,6 +236,44 @@ const AdminEvents: React.FC = () => {
     setSelectedImage(null);
   };
 
+  const handleWebDateChange = (dateString: string) => {
+    if (dateString) {
+      const newDate = new Date(dateString);
+      setSelectedDate(newDate);
+      const formattedDate = newDate.toLocaleDateString('en-GB'); // DD/MM/YYYY format
+      setEventForm({ ...eventForm, date: formattedDate });
+    }
+  };
+
+  const handleWebTimeChange = (timeString: string) => {
+    if (timeString) {
+      const [hours, minutes] = timeString.split(':');
+      const newDate = new Date();
+      newDate.setHours(parseInt(hours));
+      newDate.setMinutes(parseInt(minutes));
+      setSelectedTime(newDate);
+      const formattedTime = newDate.toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+      });
+      setEventForm({ ...eventForm, time: formattedTime });
+    }
+  };
+
+  const formatDateForInput = (date: Date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const formatTimeForInput = (date: Date) => {
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    return `${hours}:${minutes}`;
+  };
+
   const handleDateChange = (event: any, date?: Date) => {
     setShowDatePicker(Platform.OS === 'ios');
     if (date) {
@@ -259,15 +297,15 @@ const AdminEvents: React.FC = () => {
   };
 
   const handleImagePicker = async () => {
-    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    const permissionResult = await requestMediaLibraryPermissionsAsync();
 
     if (permissionResult.granted === false) {
-      Alert.alert('Permission Required', 'Please allow access to your photo library to select a poster image.');
+      showAlert('Permission Required', 'Please allow access to your photo library to select a poster image.');
       return;
     }
 
-    const pickerResult = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+    const pickerResult = await launchImageLibraryAsync({
+      mediaTypes: MediaTypeOptions.Images,
       allowsEditing: true,
       aspect: [16, 9], // Poster aspect ratio
       quality: 0.6, // Reduced quality to help keep under 500KB
@@ -284,7 +322,7 @@ const AdminEvents: React.FC = () => {
 
   const handleSaveEvent = async () => {
     if (!eventForm.title || !eventForm.date || !eventForm.location) {
-      Alert.alert('Error', 'Please fill in all required fields.');
+      showAlert('Error', 'Please fill in all required fields.');
       return;
     }
 
@@ -296,7 +334,7 @@ const AdminEvents: React.FC = () => {
         const uploadResult = await uploadImageToCloudinary(selectedImage, 'event_posters');
 
         if (!uploadResult.success) {
-          Alert.alert('Upload Error', uploadResult.error || 'Failed to upload poster image');
+          showAlert('Upload Error', uploadResult.error || 'Failed to upload poster image');
           return;
         }
 
@@ -316,7 +354,7 @@ const AdminEvents: React.FC = () => {
         // Validate date components
         if (isNaN(dayNum) || isNaN(monthNum) || isNaN(yearNum) ||
           dayNum < 1 || dayNum > 31 || monthNum < 1 || monthNum > 12 || yearNum < 2024) {
-          Alert.alert('Error', 'Invalid date format. Please select a valid date.');
+          showAlert('Error', 'Invalid date format. Please select a valid date.');
           return;
         }
 
@@ -324,7 +362,7 @@ const AdminEvents: React.FC = () => {
 
         // Check if the created date is valid
         if (isNaN(eventDate.getTime())) {
-          Alert.alert('Error', 'Invalid date. Please select a valid date.');
+          showAlert('Error', 'Invalid date. Please select a valid date.');
           return;
         }
       } else {
@@ -344,10 +382,10 @@ const AdminEvents: React.FC = () => {
 
       if (editingEvent) {
         await updateDoc(doc(db, 'events', editingEvent.id), eventData);
-        Alert.alert('Success', 'Event updated successfully!');
+        showAlert('Success', 'Event updated successfully!');
       } else {
         await addDoc(collection(db, 'events'), eventData);
-        Alert.alert('Success', 'Event created successfully!');
+        showAlert('Success', 'Event created successfully!');
 
         // Send push notifications to all users about new event
         try {
@@ -368,7 +406,7 @@ const AdminEvents: React.FC = () => {
       fetchEvents();
     } catch (error) {
       console.error('Error saving event:', error);
-      Alert.alert('Error', 'Failed to save event.');
+      showAlert('Error', 'Failed to save event.');
     }
   };
 
@@ -405,7 +443,7 @@ const AdminEvents: React.FC = () => {
   };
 
   const handleDeleteEvent = (eventId: string) => {
-    Alert.alert(
+    showAlert(
       'Delete Event',
       'Are you sure you want to delete this event? This action cannot be undone.',
       [
@@ -416,11 +454,11 @@ const AdminEvents: React.FC = () => {
           onPress: async () => {
             try {
               await deleteDoc(doc(db, 'events', eventId));
-              Alert.alert('Success', 'Event deleted successfully!');
+              showAlert('Success', 'Event deleted successfully!');
               fetchEvents();
             } catch (error) {
               console.error('Error deleting event:', error);
-              Alert.alert('Error', 'Failed to delete event.');
+              showAlert('Error', 'Failed to delete event.');
             }
           }
         }
@@ -478,7 +516,7 @@ const AdminEvents: React.FC = () => {
       setShowQRModal(true);
     } catch (error) {
       console.error('Error fetching attendance data:', error);
-      Alert.alert('Error', 'Failed to load attendance data.');
+      showAlert('Error', 'Failed to load attendance data.');
     }
   };
 
@@ -522,13 +560,13 @@ const AdminEvents: React.FC = () => {
       }
     } catch (error) {
       console.error('Error sharing QR code:', error);
-      Alert.alert('Error', 'Failed to share QR code.');
+      showAlert('Error', 'Failed to share QR code.');
     }
   };
 
   const getStatusColor = (status: Event['status']) => {
     switch (status) {
-      case 'upcoming': return '#007AFF';
+      case 'upcoming': return '#9B0000';
       case 'ongoing': return '#34C759';
       case 'completed': return '#8E8E93';
       case 'cancelled': return '#FF3B30';
@@ -538,11 +576,11 @@ const AdminEvents: React.FC = () => {
 
   const getStatusIcon = (status: Event['status']) => {
     switch (status) {
-      case 'upcoming': return 'time-outline';
-      case 'ongoing': return 'play-circle-outline';
-      case 'completed': return 'checkmark-circle-outline';
-      case 'cancelled': return 'close-circle-outline';
-      default: return 'help-circle-outline';
+      case 'upcoming': return <Clock size={12} color="white" />;
+      case 'ongoing': return <CheckCircle size={12} color="white" />;
+      case 'completed': return <CheckCircle size={12} color="white" />;
+      case 'cancelled': return <XCircle size={12} color="white" />;
+      default: return <Calendar size={12} color="white" />;
     }
   };
 
@@ -570,7 +608,7 @@ const AdminEvents: React.FC = () => {
           style={styles.backButton}
           onPress={() => router.push('/admin-dashboard')}
         >
-          <Ionicons name="arrow-back" size={24} color="#007AFF" />
+          <ArrowLeft size={22} color="#9B0000" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Manage Events</Text>
         <TouchableOpacity
@@ -580,14 +618,14 @@ const AdminEvents: React.FC = () => {
             setShowEventModal(true);
           }}
         >
-          <Ionicons name="add" size={24} color="#007AFF" />
+          <Plus size={22} color="#9B0000" />
         </TouchableOpacity>
       </View>
 
       {/* Search and Filter */}
       <View style={styles.searchContainer}>
         <View style={styles.searchInputContainer}>
-          <Ionicons name="search" size={20} color="#8E8E93" style={styles.searchIcon} />
+          <Search size={20} color="#8E8E93" style={styles.searchIcon} />
           <TextInput
             style={styles.searchInput}
             placeholder="Search events..."
@@ -626,13 +664,14 @@ const AdminEvents: React.FC = () => {
       {/* Events List */}
       <ScrollView
         style={styles.eventsList}
+        showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
         {filteredEvents.length === 0 ? (
           <View style={styles.emptyContainer}>
-            <Ionicons name="calendar-outline" size={64} color="#8E8E93" />
+            <Calendar size={64} color="#8E8E93" />
             <Text style={styles.emptyText}>No events found</Text>
           </View>
         ) : (
@@ -642,12 +681,7 @@ const AdminEvents: React.FC = () => {
                 <View style={styles.eventTitleContainer}>
                   <Text style={styles.eventTitle}>{event.title}</Text>
                   <View style={[styles.statusBadge, { backgroundColor: getStatusColor(event.status) }]}>
-                    <Ionicons
-                      name={getStatusIcon(event.status) as any}
-                      size={12}
-                      color="white"
-                      style={styles.statusIcon}
-                    />
+                    {getStatusIcon(event.status)}
                     <Text style={styles.statusText}>{event.status?.toUpperCase() || 'UNKNOWN'}</Text>
                   </View>
                 </View>
@@ -657,15 +691,15 @@ const AdminEvents: React.FC = () => {
 
               <View style={styles.eventDetails}>
                 <View style={styles.eventDetailRow}>
-                  <Ionicons name="calendar-outline" size={16} color="#8E8E93" />
+                  <Calendar size={16} color="#8E8E93" />
                   <Text style={styles.eventDetailText}>{event.date} at {event.time}</Text>
                 </View>
                 <View style={styles.eventDetailRow}>
-                  <Ionicons name="location-outline" size={16} color="#8E8E93" />
+                  <MapPin size={16} color="#8E8E93" />
                   <Text style={styles.eventDetailText}>{event.location}</Text>
                 </View>
                 <View style={styles.eventDetailRow}>
-                  <Ionicons name="person-outline" size={16} color="#8E8E93" />
+                  <UserIcon size={16} color="#8E8E93" />
                   <Text style={styles.eventDetailText}>{event.organizer}</Text>
                 </View>
               </View>
@@ -676,15 +710,15 @@ const AdminEvents: React.FC = () => {
                   style={[styles.actionButton, styles.editButton]}
                   onPress={() => handleEditEvent(event)}
                 >
-                  <Ionicons name="create-outline" size={16} color="#007AFF" />
-                  <Text style={[styles.actionButtonText, { color: '#007AFF' }]}>Edit</Text>
+                  <Edit2 size={16} color="#9B0000" />
+                  <Text style={[styles.actionButtonText, { color: '#9B0000' }]}>Edit</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
                   style={[styles.actionButton, styles.deleteButton]}
                   onPress={() => handleDeleteEvent(event.id)}
                 >
-                  <Ionicons name="trash-outline" size={16} color="#FF3B30" />
+                  <Trash2 size={16} color="#FF3B30" />
                   <Text style={[styles.actionButtonText, { color: '#FF3B30' }]}>Delete</Text>
                 </TouchableOpacity>
 
@@ -693,7 +727,7 @@ const AdminEvents: React.FC = () => {
                     style={[styles.actionButton, styles.qrButton]}
                     onPress={() => handleShowQRCode(event)}
                   >
-                    <Ionicons name="qr-code-outline" size={16} color="#FF9500" />
+                    <QrCode size={16} color="#FF9500" />
                     <Text style={[styles.actionButtonText, { color: '#FF9500' }]}>QR Code</Text>
                   </TouchableOpacity>
                 )}
@@ -755,7 +789,7 @@ const AdminEvents: React.FC = () => {
                     style={styles.removeImageButton}
                     onPress={handleRemoveImage}
                   >
-                    <Ionicons name="close-circle" size={24} color="#FF3B30" />
+                    <XCircle size={24} color="#FF3B30" />
                   </TouchableOpacity>
                 </View>
               ) : (
@@ -763,7 +797,7 @@ const AdminEvents: React.FC = () => {
                   style={styles.imagePickerButton}
                   onPress={handleImagePicker}
                 >
-                  <Ionicons name="image-outline" size={32} color="#666" />
+                  <ImageIcon size={32} color="#666" />
                   <Text style={styles.imagePickerText}>Select Poster Image</Text>
                   <Text style={styles.imagePickerSubtext}>Recommended: 16:9 aspect ratio, under 500KB</Text>
                 </TouchableOpacity>
@@ -773,27 +807,68 @@ const AdminEvents: React.FC = () => {
             <View style={styles.formRow}>
               <View style={[styles.formGroup, { flex: 1, marginRight: 10 }]}>
                 <Text style={styles.formLabel}>Date *</Text>
-                <TouchableOpacity
-                  style={styles.dateTimeButton}
-                  onPress={() => setShowDatePicker(true)}
-                >
-                  <Text style={styles.dateTimeText}>
-                    {eventForm.date || 'Select Date'}
-                  </Text>
-                  <Ionicons name="calendar-outline" size={20} color="#666" />
-                </TouchableOpacity>
+                {Platform.OS === 'web' ? (
+                  <input
+                    type="date"
+                    value={formatDateForInput(selectedDate)}
+                    onChange={(e) => handleWebDateChange(e.target.value)}
+                    min={formatDateForInput(new Date())}
+                    style={{
+                      backgroundColor: '#FFFFFF',
+                      border: '1px solid #E5E5EA',
+                      borderRadius: 8,
+                      padding: 12,
+                      fontSize: 15,
+                      fontFamily: 'inherit',
+                      width: '100%',
+                      minWidth: 0,
+                      display: 'block',
+                      boxSizing: 'border-box' as any
+                    }}
+                  />
+                ) : (
+                  <TouchableOpacity
+                    style={styles.dateTimeButton}
+                    onPress={() => setShowDatePicker(true)}
+                  >
+                    <Text style={styles.dateTimeText}>
+                      {eventForm.date || 'Select Date'}
+                    </Text>
+                    <Calendar size={20} color="#666" />
+                  </TouchableOpacity>
+                )}
               </View>
               <View style={[styles.formGroup, { flex: 1, marginLeft: 10 }]}>
                 <Text style={styles.formLabel}>Time</Text>
-                <TouchableOpacity
-                  style={styles.dateTimeButton}
-                  onPress={() => setShowTimePicker(true)}
-                >
-                  <Text style={styles.dateTimeText}>
-                    {eventForm.time || 'Select Time'}
-                  </Text>
-                  <Ionicons name="time-outline" size={20} color="#666" />
-                </TouchableOpacity>
+                {Platform.OS === 'web' ? (
+                  <input
+                    type="time"
+                    value={formatTimeForInput(selectedTime)}
+                    onChange={(e) => handleWebTimeChange(e.target.value)}
+                    style={{
+                      backgroundColor: '#FFFFFF',
+                      border: '1px solid #E5E5EA',
+                      borderRadius: 8,
+                      padding: 12,
+                      fontSize: 15,
+                      fontFamily: 'inherit',
+                      width: '100%',
+                      minWidth: 0,
+                      display: 'block',
+                      boxSizing: 'border-box' as any
+                    }}
+                  />
+                ) : (
+                  <TouchableOpacity
+                    style={styles.dateTimeButton}
+                    onPress={() => setShowTimePicker(true)}
+                  >
+                    <Text style={styles.dateTimeText}>
+                      {eventForm.time || 'Select Time'}
+                    </Text>
+                    <Clock size={20} color="#666" />
+                  </TouchableOpacity>
+                )}
               </View>
             </View>
 
@@ -844,7 +919,7 @@ const AdminEvents: React.FC = () => {
             </TouchableOpacity>
             <Text style={styles.modalTitle}>Event Attendance</Text>
             <TouchableOpacity onPress={shareQRCode}>
-              <Ionicons name="share-outline" size={24} color="#007AFF" />
+              <Share2 size={24} color="#9B0000" />
             </TouchableOpacity>
           </View>
 
@@ -918,15 +993,11 @@ const AdminEvents: React.FC = () => {
                           ? styles.attendedStatus
                           : styles.notAttendedStatus
                       ]}>
-                        <Ionicons
-                          name={attendanceData.attendedStudents.some((a: any) => a.id === student.id)
-                            ? "checkmark-circle" : "time-outline"
-                          }
-                          size={16}
-                          color={attendanceData.attendedStudents.some((a: any) => a.id === student.id)
-                            ? "#34C759" : "#FF9500"
-                          }
-                        />
+                        {attendanceData.attendedStudents.some((a: any) => a.id === student.id) ? (
+                          <CheckCircle size={16} color="#34C759" />
+                        ) : (
+                          <Clock size={16} color="#FF9500" />
+                        )}
                         <Text style={[
                           styles.attendanceStatusText,
                           attendanceData.attendedStudents.some((a: any) => a.id === student.id)
@@ -953,7 +1024,7 @@ const AdminEvents: React.FC = () => {
 
       {/* Date Picker */}
       {
-        showDatePicker && (
+        showDatePicker && Platform.OS !== 'web' && (
           <DateTimePicker
             value={selectedDate}
             mode="date"
@@ -966,7 +1037,7 @@ const AdminEvents: React.FC = () => {
 
       {/* Time Picker */}
       {
-        showTimePicker && (
+        showTimePicker && Platform.OS !== 'web' && (
           <DateTimePicker
             value={selectedTime}
             mode="time"
@@ -992,28 +1063,28 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 15,
+    paddingHorizontal: 15,
+    paddingVertical: 12,
     backgroundColor: 'white',
     borderBottomWidth: 1,
     borderBottomColor: '#E5E5EA',
-    paddingTop: Platform.OS === 'ios' ? 50 : 20,
+    paddingTop: Platform.OS === 'ios' ? 45 : 15,
   },
   backButton: {
-    padding: 5,
+    padding: 4,
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '600',
     color: '#000',
   },
   addButton: {
-    padding: 5,
+    padding: 4,
   },
   searchContainer: {
     backgroundColor: 'white',
-    paddingHorizontal: 20,
-    paddingVertical: 15,
+    paddingHorizontal: 15,
+    paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#E5E5EA',
   },
@@ -1021,33 +1092,33 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#F2F2F7',
-    borderRadius: 10,
-    paddingHorizontal: 15,
-    marginBottom: 15,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    marginBottom: 12,
   },
   searchIcon: {
-    marginRight: 10,
+    marginRight: 8,
   },
   searchInput: {
     flex: 1,
-    paddingVertical: 12,
-    fontSize: 16,
+    paddingVertical: 10,
+    fontSize: 14,
   },
   filterContainer: {
     flexDirection: 'row',
   },
   filterButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     backgroundColor: '#F2F2F7',
-    borderRadius: 20,
-    marginRight: 10,
+    borderRadius: 16,
+    marginRight: 8,
   },
   filterButtonActive: {
-    backgroundColor: '#007AFF',
+    backgroundColor: '#9B0000',
   },
   filterButtonText: {
-    fontSize: 14,
+    fontSize: 12,
     color: '#8E8E93',
     fontWeight: '500',
   },
@@ -1056,7 +1127,6 @@ const styles = StyleSheet.create({
   },
   eventsList: {
     flex: 1,
-    paddingHorizontal: 20,
   },
   emptyContainer: {
     alignItems: 'center',
@@ -1072,6 +1142,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
     borderRadius: 12,
     padding: 16,
+    marginHorizontal: 15,
     marginVertical: 8,
     shadowColor: '#000',
     shadowOffset: {
@@ -1186,7 +1257,7 @@ const styles = StyleSheet.create({
   },
   modalSaveButton: {
     fontSize: 16,
-    color: '#007AFF',
+    color: '#9B0000',
     fontWeight: '600',
   },
   modalContent: {
@@ -1329,7 +1400,7 @@ const styles = StyleSheet.create({
   qrPlaceholderText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#007AFF',
+    color: '#9B0000',
     marginTop: 10,
   },
   qrDataText: {

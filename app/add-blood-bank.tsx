@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, SafeAreaView, ScrollView, ActivityIndicator, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, SafeAreaView, ScrollView, ActivityIndicator, Dimensions } from 'react-native';
 import { useRouter } from 'expo-router';
 import { getAuth } from 'firebase/auth';
 import { collection, addDoc, serverTimestamp, doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase';
+import { showAlert } from '../utils/alert';
 
 const { width: screenWidth } = Dimensions.get('window');
 const guidelineBaseWidth = 375; 
@@ -34,11 +35,11 @@ export default function AddBloodBankScreen() {
                 if (docSnap.exists() && docSnap.data().role === 'admin') {
                     setIsAdmin(true);
                 } else {
-                    Alert.alert("Access Denied", "You do not have permission to view this page.");
+                    showAlert("Access Denied", "You do not have permission to view this page.");
                     router.replace('/dashboard');
                 }
             } catch (error) {
-                Alert.alert("Error", "Failed to verify admin status.");
+                showAlert("Error", "Failed to verify admin status.");
                 router.replace('/dashboard');
             } finally {
                 setCheckingAdmin(false);
@@ -57,15 +58,15 @@ export default function AddBloodBankScreen() {
     const handleSubmit = async () => {
         const { name, address, phone, latitude, longitude } = form;
         if (!name || !address || !phone || !latitude || !longitude) {
-            Alert.alert('Missing Information', 'Please fill out all fields.');
+            showAlert('Missing Information', 'Please fill out all fields.');
             return;
         }
         if (!validatePhone(phone)) {
-            Alert.alert('Invalid Phone', 'Enter a valid phone number.');
+            showAlert('Invalid Phone', 'Enter a valid phone number.');
             return;
         }
         if (!validateCoordinate(latitude) || !validateCoordinate(longitude)) {
-            Alert.alert('Invalid Coordinates', 'Enter valid latitude and longitude.');
+            showAlert('Invalid Coordinates', 'Enter valid latitude and longitude.');
             return;
         }
         setSubmitting(true);
@@ -80,10 +81,10 @@ export default function AddBloodBankScreen() {
                 },
                 createdAt: serverTimestamp(),
             });
-            Alert.alert('Success', 'New blood bank has been added.');
+            showAlert('Success', 'New blood bank has been added.');
             router.back();
         } catch (error) {
-            Alert.alert('Error', 'Could not add the blood bank.');
+            showAlert('Error', 'Could not add the blood bank.');
         } finally {
             setSubmitting(false);
         }

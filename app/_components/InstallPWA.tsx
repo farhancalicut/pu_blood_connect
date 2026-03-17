@@ -2,6 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import React, { useEffect, useState } from "react";
 import {
     Platform,
+  Pressable,
     StyleSheet,
     Text,
     TouchableOpacity,
@@ -14,20 +15,32 @@ import {
  */
 export default function InstallPWA() {
   const [showInstall, setShowInstall] = useState(false);
+  const [showInstructions, setShowInstructions] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
 
   useEffect(() => {
     if (Platform.OS !== "web") return;
 
     // Check if already installed
-    const isInstalled = window.matchMedia("(display-mode: standalone)").matches;
+    const isInstalled =
+      window.matchMedia("(display-mode: standalone)").matches ||
+      (window.navigator as Navigator & { standalone?: boolean }).standalone ===
+        true;
     if (isInstalled) return;
+
+    // Show install option immediately for browsers that don't fire the event
+    const timer = setTimeout(() => {
+      if (!deferredPrompt) {
+        setShowInstall(true); // Show manual instructions
+      }
+    }, 3000); // Show after 3 seconds if no prompt
 
     // Listen for install prompt
     const handleBeforeInstallPrompt = (e: any) => {
       e.preventDefault();
       setDeferredPrompt(e);
       setShowInstall(true);
+      clearTimeout(timer);
     };
 
     window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
@@ -41,6 +54,7 @@ export default function InstallPWA() {
     window.addEventListener("appinstalled", handleAppInstalled);
 
     return () => {
+      clearTimeout(timer);
       window.removeEventListener(
         "beforeinstallprompt",
         handleBeforeInstallPrompt,
@@ -50,7 +64,10 @@ export default function InstallPWA() {
   }, []);
 
   const handleInstallClick = async () => {
-    if (!deferredPrompt) return;
+    if (!deferredPrompt) {
+      setShowInstructions(true);
+      return;
+    }
 
     deferredPrompt.prompt();
     const { outcome } = await deferredPrompt.userChoice;
@@ -65,6 +82,7 @@ export default function InstallPWA() {
 
   const handleDismiss = () => {
     setShowInstall(false);
+    setShowInstructions(false);
   };
 
   if (Platform.OS !== "web" || !showInstall) {
@@ -75,7 +93,7 @@ export default function InstallPWA() {
     <View style={styles.container}>
       <View style={styles.banner}>
         <View style={styles.iconContainer}>
-          <Ionicons name="download-outline" size={24} color="#EF4444" />
+          <Text style={styles.iconFallback}>+</Text>
         </View>
         <View style={styles.textContainer}>
           <Text style={styles.title}>Install PU NSS Connect</Text>
@@ -94,10 +112,34 @@ export default function InstallPWA() {
             onPress={handleDismiss}
             style={styles.dismissButton}
           >
-            <Ionicons name="close" size={20} color="#666" />
+            <Text style={styles.dismissButtonText}>X</Text>
           </TouchableOpacity>
         </View>
       </View>
+      {showInstructions ? (
+        <Pressable style={styles.instructionsOverlay} onPress={() => setShowInstructions(false)}>
+          <Pressable style={styles.instructionsCard} onPress={() => {}}>
+            <View style={styles.instructionsHeader}>
+              <Text style={styles.instructionsTitle}>Install this app</Text>
+              <TouchableOpacity onPress={() => setShowInstructions(false)} style={styles.instructionsCloseButton}>
+                <Text style={styles.dismissButtonText}>X</Text>
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.instructionsText}>
+              On iPhone or iPad Safari, tap Share and choose Add to Home Screen.
+            </Text>
+            <Text style={styles.instructionsText}>
+              On Chrome or Edge, open the browser menu and choose Install app or Add to Home screen.
+            </Text>
+            <Text style={styles.instructionsText}>
+              On Firefox, open the browser menu and choose Install.
+            </Text>
+            <TouchableOpacity onPress={() => setShowInstructions(false)} style={styles.instructionsAction}>
+              <Text style={styles.instructionsActionText}>Close</Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      ) : null}
     </View>
   );
 }
@@ -133,6 +175,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginRight: 12,
   },
+  iconFallback: {
+    color: "#EF4444",
+    fontSize: 24,
+    fontWeight: "700",
+    lineHeight: 24,
+  },
   textContainer: {
     flex: 1,
   },
@@ -164,5 +212,64 @@ const styles = StyleSheet.create({
   },
   dismissButton: {
     padding: 8,
+  },
+  dismissButtonText: {
+    color: "#666",
+    fontSize: 18,
+    fontWeight: "700",
+    lineHeight: 18,
+  },
+  instructionsOverlay: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    backgroundColor: "rgba(0, 0, 0, 0.35)",
+    justifyContent: "flex-end",
+    padding: 16,
+  },
+  instructionsCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 20,
+    padding: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  instructionsHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 12,
+  },
+  instructionsTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#1F2937",
+  },
+  instructionsCloseButton: {
+    padding: 6,
+  },
+  instructionsText: {
+    fontSize: 15,
+    lineHeight: 22,
+    color: "#4B5563",
+    marginBottom: 12,
+  },
+  instructionsAction: {
+    alignSelf: "flex-end",
+    backgroundColor: "#EF4444",
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 10,
+    marginTop: 4,
+  },
+  instructionsActionText: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "700",
   },
 });

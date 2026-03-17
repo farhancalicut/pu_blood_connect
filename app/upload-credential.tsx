@@ -1,12 +1,13 @@
-import { Ionicons } from '@expo/vector-icons';
+import { Upload } from 'lucide-react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { doc, updateDoc } from 'firebase/firestore';
 import React, { useState } from 'react';
-import { ActivityIndicator, Alert, Dimensions, Image, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Dimensions, Image, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { db } from '../firebase';
+import { showAlert } from '../utils/alert';
 import { uploadImageToCloudinary } from '../utils/cloudinary';
+import { requestMediaLibraryPermissionsAsync, launchImageLibraryAsync, MediaTypeOptions } from '../utils/imagePickerWeb';
 
 const { width: screenWidth } = Dimensions.get('window');
 const guidelineBaseWidth = 375;
@@ -26,14 +27,28 @@ export default function UploadCredentialScreen() {
     const [imageUri, setImageUri] = useState<string | null>(null);
     const [isUploading, setIsUploading] = useState(false);
 
+    const handleWebDateChange = (dateString: string) => {
+        if (dateString) {
+            const newDate = new Date(dateString);
+            setDate(newDate);
+        }
+    };
+
+    const formatDateForInput = (date: Date) => {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    };
+
     const pickImage = async () => {
-        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        const { status } = await requestMediaLibraryPermissionsAsync();
         if (status !== 'granted') {
-            Alert.alert('Permission Denied', 'Sorry, we need camera roll permissions to make this work!');
+            showAlert('Permission Denied', 'We need camera roll permissions to upload images.');
             return;
         }
-        let result = await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        let result = await launchImageLibraryAsync({
+            mediaTypes: MediaTypeOptions.Images,
             allowsEditing: true,
             aspect: [4, 3],
             quality: 0.7, // Reduced quality to help keep file size under 500KB
@@ -45,11 +60,11 @@ export default function UploadCredentialScreen() {
 
     const handleSubmit = async () => {
         if (!units || !location || !imageUri) {
-            Alert.alert('Missing Information', 'Please fill all fields and select an image.');
+            showAlert('Missing Information', 'Please fill all fields and select an image.');
             return;
         }
         if (!offerId) {
-            Alert.alert('Error', 'Donation offer ID is missing.');
+            showAlert('Error', 'Donation offer ID is missing.');
             return;
         }
         setIsUploading(true);
@@ -58,7 +73,7 @@ export default function UploadCredentialScreen() {
             const uploadResult = await uploadImageToCloudinary(imageUri, 'donation_certificates');
             
             if (!uploadResult.success) {
-                Alert.alert('Upload Error', uploadResult.error || 'Failed to upload image');
+                showAlert('Upload Error', uploadResult.error || 'Failed to upload image');
                 setIsUploading(false);
                 return;
             }
@@ -71,11 +86,11 @@ export default function UploadCredentialScreen() {
                 confirmedDate: date,
                 certificateUrl: uploadResult.url,
             });
-            Alert.alert('Success!', 'Your credentials have been submitted for verification.');
+            showAlert('Success!', 'Your credentials have been submitted for verification.');
             router.back();
         } catch (error) {
             console.error("Error submitting credentials:", error);
-            Alert.alert('Error', 'There was a problem submitting your credentials.');
+            showAlert('Error', 'There was a problem submitting your credentials.');
         } 
         finally {
             setIsUploading(false);
@@ -89,12 +104,34 @@ export default function UploadCredentialScreen() {
                 <TextInput style={styles.input} value={units} onChangeText={setUnits} keyboardType="number-pad" placeholder="e.g., 2" />
 
                 <Text style={styles.label}>Date of Donation</Text>
-                <TouchableOpacity onPress={() => setShowDatePicker(true)}>
-                    <View pointerEvents="none">
-                        <TextInput style={styles.input} value={date.toLocaleDateString()} editable={false} />
-                    </View>
-                </TouchableOpacity>
-                {showDatePicker && <DateTimePicker value={date} mode="date" display="default" onChange={(e, selectedDate) => { setShowDatePicker(false); setDate(selectedDate || date); }} />}
+                {Platform.OS === 'web' ? (
+                    <input
+                        type="date"
+                        value={formatDateForInput(date)}
+                        onChange={(e) => handleWebDateChange(e.target.value)}
+                        style={{
+                            backgroundColor: palette.white,
+                            border: `1px solid ${palette.borderLight}`,
+                            borderRadius: scale(8),
+                            padding: scale(12),
+                            fontSize: scale(14),
+                            fontFamily: 'inherit',
+                            width: '100%',
+                            minWidth: 0,
+                            display: 'block',
+                            boxSizing: 'border-box' as any
+                        }}
+                    />
+                ) : (
+                    <>
+                        <TouchableOpacity onPress={() => setShowDatePicker(true)}>
+                            <View pointerEvents="none">
+                                <TextInput style={styles.input} value={date.toLocaleDateString()} editable={false} />
+                            </View>
+                        </TouchableOpacity>
+                        {showDatePicker && <DateTimePicker value={date} mode="date" display="default" onChange={(e, selectedDate) => { setShowDatePicker(false); setDate(selectedDate || date); }} />}
+                    </>
+                )}
 
                 <Text style={styles.label}>Hospital / Camp Location</Text>
                 <TextInput style={styles.input} value={location} onChangeText={setLocation} placeholder="Where did you donate?" />
@@ -106,7 +143,7 @@ export default function UploadCredentialScreen() {
                         <Image source={{ uri: imageUri }} style={styles.imagePreview} />
                     ) : (
                         <>
-                            <Ionicons name="cloud-upload-outline" size={scale(32)} color={palette.lightText} />
+                            <Upload size={scale(32)} color={palette.lightText} />
                             <Text style={styles.imagePickerText}>Tap to select certificate image</Text>
                             <Text style={styles.imageSizeText}>(Max size: 500KB)</Text>
                         </>

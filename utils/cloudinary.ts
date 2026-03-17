@@ -3,6 +3,8 @@
  * Handles image uploads to Cloudinary with size validation
  */
 
+import { Platform } from 'react-native';
+
 interface CloudinaryUploadResponse {
   secure_url: string;
   public_id: string;
@@ -25,6 +27,17 @@ export const uploadImageToCloudinary = async (
   folder: string = 'pu_nss_connect'
 ): Promise<UploadResult> => {
   try {
+    // Get Cloudinary configuration
+    const cloudName = process.env.EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME || 'dwfquaj6z';
+    const uploadPreset = process.env.EXPO_PUBLIC_CLOUDINARY_UPLOAD_PRESET || 'pu_nss_preset';
+
+    if (!cloudName) {
+      return {
+        success: false,
+        error: 'Cloudinary cloud name is not configured. Please add EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME to your .env file.',
+      };
+    }
+
     // Fetch the image from local URI
     const response = await fetch(imageUri);
     const blob = await response.blob();
@@ -42,22 +55,29 @@ export const uploadImageToCloudinary = async (
     // Create FormData for Cloudinary upload
     const formData = new FormData();
     
-    // Add the image file
-    formData.append('file', {
-      uri: imageUri,
-      type: 'image/jpeg', // You can make this dynamic based on actual file type
-      name: `upload_${Date.now()}.jpg`,
-    } as any);
+    // Add the image file - different format for web vs native
+    if (Platform.OS === 'web') {
+      // For web, append blob directly with a filename
+      formData.append('file', blob, `upload_${Date.now()}.jpg`);
+    } else {
+      // For native platforms, use the object format
+      formData.append('file', {
+        uri: imageUri,
+        type: blob.type || 'image/jpeg',
+        name: `upload_${Date.now()}.jpg`,
+      } as any);
+    }
 
-    // Add upload preset (you need to create this in your Cloudinary dashboard)
-    // Go to Settings > Upload > Upload presets and create an unsigned preset
-    formData.append('upload_preset', process.env.EXPO_PUBLIC_CLOUDINARY_UPLOAD_PRESET || 'pu_nss_preset');
+    // Add upload preset (must be created in Cloudinary dashboard as unsigned)
+    formData.append('upload_preset', uploadPreset);
     
     // Add folder
     formData.append('folder', folder);
 
     // Upload to Cloudinary
-    const cloudinaryUrl = `https://api.cloudinary.com/v1_1/${process.env.EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME}/image/upload`;
+    const cloudinaryUrl = `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`;
+    
+    console.log('Uploading to Cloudinary:', cloudinaryUrl, 'Preset:', uploadPreset, 'Folder:', folder);
     
     const uploadResponse = await fetch(cloudinaryUrl, {
       method: 'POST',
@@ -65,10 +85,20 @@ export const uploadImageToCloudinary = async (
     });
 
     if (!uploadResponse.ok) {
-      const errorData = await uploadResponse.json();
+      const errorData = await uploadResponse.json().catch(() => ({}));
+      console.error('Cloudinary upload failed:', errorData);
+      
+      // Provide helpful error messages
+      if (errorData.error?.message?.includes('Invalid upload preset')) {
+        return {
+          success: false,
+          error: `Upload preset "${uploadPreset}" not found. Please create an unsigned upload preset in your Cloudinary dashboard.`,
+        };
+      }
+      
       return {
         success: false,
-        error: errorData.error?.message || 'Upload failed',
+        error: errorData.error?.message || `Upload failed with status ${uploadResponse.status}`,
       };
     }
 

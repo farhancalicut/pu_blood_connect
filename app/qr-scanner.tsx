@@ -1,11 +1,10 @@
-import { Ionicons } from '@expo/vector-icons';
+import { ArrowLeft, Camera, ScanLine, RefreshCw, CheckCircle } from 'lucide-react-native';
 import { router, Stack } from 'expo-router';
 import { getAuth } from 'firebase/auth';
 import { arrayUnion, doc, getDoc, updateDoc } from 'firebase/firestore';
 import React, { useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Dimensions,
   Modal,
   StyleSheet,
@@ -14,6 +13,7 @@ import {
   View,
 } from 'react-native';
 import { db } from '../firebase';
+import { showAlert } from '../utils/alert';
 
 import { CameraView, useCameraPermissions } from 'expo-camera';
 
@@ -71,7 +71,7 @@ const QRScannerScreen: React.FC = () => {
 
     } catch (error) {
       console.error('Error processing QR code:', error);
-      Alert.alert(
+      showAlert(
         'Invalid QR Code',
         error instanceof Error ? error.message : 'The QR code could not be processed. Please try again or contact the event organizer.',
         [{ text: 'OK', onPress: () => setScanned(false) }]
@@ -86,7 +86,7 @@ const QRScannerScreen: React.FC = () => {
     const user = auth.currentUser;
 
     if (!user) {
-      Alert.alert('Error', 'Please log in to mark attendance.');
+      showAlert('Error', 'Please log in to mark attendance.');
       return;
     }
 
@@ -105,7 +105,7 @@ const QRScannerScreen: React.FC = () => {
 
       // Check if user joined the event
       if (!joinedStudents.includes(user.uid)) {
-        Alert.alert(
+        showAlert(
           'Not Registered',
           'You need to join this event first before marking attendance.',
           [
@@ -124,7 +124,7 @@ const QRScannerScreen: React.FC = () => {
 
       // Check if already marked attendance
       if (attendedStudents.includes(user.uid)) {
-        Alert.alert(
+        showAlert(
           'Already Attended',
           'Your attendance has already been marked for this event.',
           [{ text: 'OK', onPress: () => setScanned(false) }]
@@ -142,7 +142,7 @@ const QRScannerScreen: React.FC = () => {
 
     } catch (error) {
       console.error('Error marking attendance:', error);
-      Alert.alert(
+      showAlert(
         'Error',
         'Failed to mark attendance. Please try again or contact the organizer.',
         [{ text: 'OK', onPress: () => setScanned(false) }]
@@ -173,17 +173,19 @@ const QRScannerScreen: React.FC = () => {
 
   if (!permission.granted) {
       return (
-        <View style={styles.container}>
-          <View style={styles.header}>
-            <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-              <Ionicons name="arrow-back" size={24} color="#007AFF" />
-            </TouchableOpacity>
-            <Text style={styles.headerTitle}>Camera Permission</Text>
-            <View style={styles.placeholder} />
-          </View>
+        <>
+          <Stack.Screen options={{ headerShown: false }} />
+          <View style={styles.container}>
+            <View style={styles.header}>
+              <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+                <ArrowLeft size={24} color="#007AFF" />
+              </TouchableOpacity>
+              <Text style={styles.headerTitle}>Camera Permission</Text>
+              <View style={styles.placeholder} />
+            </View>
           
           <View style={{flex: 1, justifyContent: 'center', alignItems: 'center', padding: 40}}>
-            <Ionicons name="camera-outline" size={80} color="#8E8E93" />
+            <Camera size={80} color="#8E8E93" />
             <Text style={styles.permissionTitle}>Camera Permission Required</Text>
             <Text style={styles.permissionText}>
               Please enable camera access to scan QR codes for event attendance.
@@ -193,6 +195,7 @@ const QRScannerScreen: React.FC = () => {
             </TouchableOpacity>
           </View>
         </View>
+        </>
       );
     }
 
@@ -202,7 +205,7 @@ const QRScannerScreen: React.FC = () => {
       <View style={styles.container}>
         <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#000000ff" />
+          <ArrowLeft size={24} color="#000000ff" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Scan Attendance QR</Text>
         <View style={styles.placeholder} />
@@ -235,7 +238,7 @@ const QRScannerScreen: React.FC = () => {
           </View>
         ) : (
           <View style={styles.instructionsContainer}>
-            <Ionicons name="scan-outline" size={80} color="#bf0000ff" />
+            <ScanLine size={80} color="#bf0000ff" />
             <Text style={styles.instructionsTitle}>Ready to Scan</Text>
             <Text style={styles.instructionsText}>
               Position the QR code within the camera frame to mark your attendance.
@@ -249,7 +252,7 @@ const QRScannerScreen: React.FC = () => {
 
       {!scanning && (
         <TouchableOpacity style={styles.startScanButton} onPress={() => setScanning(true)}>
-          <Ionicons name="camera" size={20} color="white" />
+          <Camera size={20} color="white" />
           <Text style={styles.startScanButtonText}>Start Scanning</Text>
         </TouchableOpacity>
       )}
@@ -263,7 +266,7 @@ const QRScannerScreen: React.FC = () => {
             </>
           ) : (
             <TouchableOpacity style={styles.scanAgainButton} onPress={resetScanner}>
-              <Ionicons name="refresh" size={20} color="#007AFF" />
+              <RefreshCw size={20} color="#007AFF" />
               <Text style={styles.scanAgainButtonText}>Scan Again</Text>
             </TouchableOpacity>
           )}
@@ -279,7 +282,7 @@ const QRScannerScreen: React.FC = () => {
         <View style={styles.modalOverlay}>
           <View style={styles.successModal}>
             <View style={styles.successIcon}>
-              <Ionicons name="checkmark-circle" size={80} color="#34C759" />
+              <CheckCircle size={80} color="#34C759" />
             </View>
             <Text style={styles.successTitle}>Attendance Marked!</Text>
             <Text style={styles.successMessage}>
@@ -307,7 +310,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingTop: 60,
+    paddingTop: 10,
     paddingBottom: 20,
     backgroundColor: 'white',
     borderBottomWidth: 1,

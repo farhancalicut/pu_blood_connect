@@ -1,10 +1,11 @@
-import { Ionicons } from '@expo/vector-icons';
+import { Clock, Phone, Users, ChevronRight, Trash2, ChevronLeft, Plus, FileText, Droplet, CheckCheck, Edit2, AlertCircle, AlertTriangle, Info, LucideIcon } from 'lucide-react-native';
 import { Stack, useFocusEffect, useRouter } from 'expo-router';
 import { getAuth } from 'firebase/auth';
 import { collection, deleteDoc, doc, getDocs, query, updateDoc, where } from 'firebase/firestore';
 import React, { useCallback, useState } from 'react';
-import { ActivityIndicator, Alert, Dimensions, FlatList, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Dimensions, FlatList, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { db } from '../firebase';
+import { showAlert } from '../utils/alert';
 import { BloodRequest } from '../types/env';
 
 const { width: screenWidth } = Dimensions.get('window');
@@ -60,7 +61,7 @@ export default function HospitalMyRequestsScreen() {
       setRequests(requestsData);
     } catch (error) {
       console.error('Error fetching requests:', error);
-      Alert.alert('Error', 'Failed to load requests');
+      showAlert('Error', 'Failed to load requests');
     } finally {
       setIsLoading(false);
     }
@@ -74,16 +75,16 @@ export default function HospitalMyRequestsScreen() {
     try {
       const requestRef = doc(db, 'requests', request.id!);
       await updateDoc(requestRef, { status: newStatus });
-      Alert.alert('Success', `Request marked as ${newStatus}`);
+      showAlert('Success', `Request marked as ${newStatus}`);
       fetchRequests();
     } catch (error) {
       console.error('Error updating request:', error);
-      Alert.alert('Error', 'Failed to update request status');
+      showAlert('Error', 'Failed to update request status');
     }
   };
 
   const handleDeleteRequest = async (request: BloodRequest) => {
-    Alert.alert(
+    showAlert(
       'Delete Request',
       'Are you sure you want to delete this blood request?',
       [
@@ -94,11 +95,11 @@ export default function HospitalMyRequestsScreen() {
           onPress: async () => {
             try {
               await deleteDoc(doc(db, 'requests', request.id!));
-              Alert.alert('Success', 'Request deleted successfully');
+              showAlert('Success', 'Request deleted successfully');
               fetchRequests();
             } catch (error) {
               console.error('Error deleting request:', error);
-              Alert.alert('Error', 'Failed to delete request');
+              showAlert('Error', 'Failed to delete request');
             }
           },
         },
@@ -114,11 +115,11 @@ export default function HospitalMyRequestsScreen() {
     }
   };
 
-  const getUrgencyIcon = (urgency: string): 'alert-circle' | 'warning' | 'information-circle' => {
+  const getUrgencyIcon = (urgency: string): typeof AlertCircle => {
     switch (urgency) {
-      case 'critical': return 'alert-circle';
-      case 'urgent': return 'warning';
-      default: return 'information-circle';
+      case 'critical': return AlertCircle;
+      case 'urgent': return AlertTriangle;
+      default: return Info;
     }
   };
 
@@ -150,7 +151,10 @@ export default function HospitalMyRequestsScreen() {
             </Text>
           </View>
           <View style={[styles.urgencyBadge, { backgroundColor: getUrgencyColor(item.urgency) + '15' }]}>
-            <Ionicons name={getUrgencyIcon(item.urgency)} size={14} color={getUrgencyColor(item.urgency)} />
+            {React.createElement(getUrgencyIcon(item.urgency), {
+              size: 14,
+              color: getUrgencyColor(item.urgency)
+            })}
             <Text style={[styles.urgencyText, { color: getUrgencyColor(item.urgency) }]}>
               {item.urgency.charAt(0).toUpperCase() + item.urgency.slice(1)}
             </Text>
@@ -165,26 +169,26 @@ export default function HospitalMyRequestsScreen() {
         {/* Patient Info */}
         <Text style={styles.patientName}>{item.patientName}</Text>
         <View style={styles.detailsRow}>
-          <Ionicons name="water-outline" size={16} color={palette.lightText} />
+          <Droplet size={16} color={palette.lightText} />
           <Text style={styles.detailsText}>
             {item.unitsNeeded} {item.unitsNeeded === 1 ? 'unit' : 'units'} needed
           </Text>
         </View>
         <View style={styles.detailsRow}>
-          <Ionicons name="time-outline" size={16} color={palette.lightText} />
+          <Clock size={16} color={palette.lightText} />
           <Text style={styles.detailsText}>
             Required by: {requiredByDate.toLocaleDateString()} at {requiredByDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
           </Text>
         </View>
         <View style={styles.detailsRow}>
-          <Ionicons name="call-outline" size={16} color={palette.lightText} />
+          <Phone size={16} color={palette.lightText} />
           <Text style={styles.detailsText}>{item.contactNumber}</Text>
         </View>
 
         {/* Donors Info */}
         <View style={styles.donorsContainer}>
           <View style={styles.donorsInfo}>
-            <Ionicons name="people" size={18} color={palette.success} />
+            <Users size={18} color={palette.success} />
             <Text style={styles.donorsText}>
               {item.acceptedDonors?.length || 0} donor{(item.acceptedDonors?.length || 0) !== 1 ? 's' : ''} accepted
             </Text>
@@ -195,7 +199,7 @@ export default function HospitalMyRequestsScreen() {
               onPress={() => router.push(`/hospital-request-details?id=${item.id}` as any)}
             >
               <Text style={styles.viewDonorsText}>View Donors</Text>
-              <Ionicons name="chevron-forward" size={16} color={palette.primaryRed} />
+              <ChevronRight size={16} color={palette.primaryRed} />
             </TouchableOpacity>
           )}
         </View>
@@ -207,7 +211,7 @@ export default function HospitalMyRequestsScreen() {
             style={[styles.actionButton, { borderColor: palette.critical, backgroundColor: palette.critical + '15' }]}
             onPress={() => handleDeleteRequest(item)}
           >
-            <Ionicons name="trash-outline" size={14} color={palette.critical} />
+            <Trash2 size={14} color={palette.critical} />
             <Text style={[styles.actionButtonText, { color: palette.critical }]}>Delete</Text>
           </TouchableOpacity>
           
@@ -217,7 +221,7 @@ export default function HospitalMyRequestsScreen() {
               style={[styles.actionButton, { borderColor: '#2196F3', backgroundColor: '#2196F315' }]}
               onPress={() => handleStatusChange(item, 'fulfilled')}
             >
-              <Ionicons name="checkmark-done" size={14} color="#2196F3" />
+              <CheckCheck size={14} color="#2196F3" />
               <Text style={[styles.actionButtonText, { color: '#2196F3' }]}>Mark Fulfilled</Text>
             </TouchableOpacity>
           )}
@@ -228,7 +232,7 @@ export default function HospitalMyRequestsScreen() {
               style={[styles.actionButton, { borderColor: '#FF9800', backgroundColor: '#FF980015' }]}
               onPress={() => router.push(`/hospital-add-request?id=${item.id}` as any)}
             >
-              <Ionicons name="create-outline" size={14} color="#FF9800" />
+              <Edit2 size={14} color="#FF9800" />
               <Text style={[styles.actionButtonText, { color: '#FF9800' }]}>Edit</Text>
             </TouchableOpacity>
           )}
@@ -244,14 +248,14 @@ export default function HospitalMyRequestsScreen() {
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <Ionicons name="chevron-back" size={24} color={palette.darkText} />
+            <ChevronLeft size={24} color={palette.darkText} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>My Requests</Text>
           <TouchableOpacity
             onPress={() => router.push('/hospital-add-request' as any)}
             style={styles.addButton}
           >
-            <Ionicons name="add" size={24} color={palette.white} />
+            <Plus size={24} color={palette.white} />
           </TouchableOpacity>
         </View>
 
@@ -291,7 +295,7 @@ export default function HospitalMyRequestsScreen() {
             contentContainerStyle={styles.listContainer}
             ListEmptyComponent={
               <View style={styles.emptyContainer}>
-                <Ionicons name="document-outline" size={60} color={palette.lightText} />
+                <FileText size={60} color={palette.lightText} />
                 <Text style={styles.emptyText}>No {filter !== 'all' ? filter : ''} requests</Text>
                 <Text style={styles.emptySubtext}>
                   {filter === 'all' 
@@ -543,3 +547,4 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 });
+

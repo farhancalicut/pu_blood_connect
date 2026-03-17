@@ -1,5 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
-import { Picker } from '@react-native-picker/picker';
+import { Check, X, CheckCircle, ArrowLeft, Users } from 'lucide-react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { getAuth } from 'firebase/auth';
 import {
@@ -15,7 +14,6 @@ import {
 import React, { useCallback, useState } from 'react';
 import {
     ActivityIndicator,
-    Alert,
     Dimensions,
     FlatList,
     RefreshControl,
@@ -25,7 +23,9 @@ import {
     TouchableOpacity,
     View
 } from 'react-native';
+import FormSelect from './_components/FormSelect';
 import { db } from '../firebase';
+import { showAlert } from '../utils/alert';
 import { notifyNSSApproval } from '../utils/notifications';
 
 const { width: screenWidth } = Dimensions.get('window');
@@ -84,7 +84,7 @@ export default function AdminNSSScreen() {
 
       const userDoc = await getDoc(doc(db, 'users', user.uid));
       if (!userDoc.exists() || userDoc.data().role !== 'admin') {
-        Alert.alert('Access Denied', 'You do not have permission to access this page.');
+        showAlert('Access Denied', 'You do not have permission to access this page.');
         router.back();
         return;
       }
@@ -92,7 +92,7 @@ export default function AdminNSSScreen() {
       setIsAdmin(true);
     } catch (error) {
       console.error('Error checking admin access:', error);
-      Alert.alert('Error', 'Failed to verify admin access.');
+      showAlert('Error', 'Failed to verify admin access.');
       router.back();
     }
   }, [router]);
@@ -122,7 +122,7 @@ export default function AdminNSSScreen() {
       setApprovedStudents(approved);
     } catch (error) {
       console.error('Error fetching NSS students:', error);
-      Alert.alert('Error', 'Failed to load NSS students data.');
+      showAlert('Error', 'Failed to load NSS students data.');
     }
   }, []);
 
@@ -165,11 +165,11 @@ export default function AdminNSSScreen() {
         }
       }
       
-      Alert.alert('Success', 'Student approved successfully!');
+      showAlert('Success', 'Student approved successfully!');
       await fetchNSSStudents();
     } catch (error) {
       console.error('Error approving student:', error);
-      Alert.alert('Error', 'Failed to approve student.');
+      showAlert('Error', 'Failed to approve student.');
     } finally {
       setProcessingIds(prev => {
         const newSet = new Set(prev);
@@ -180,7 +180,7 @@ export default function AdminNSSScreen() {
   };
 
   const handleReject = async (studentId: string) => {
-    Alert.alert(
+    showAlert(
       'Reject Student',
       'Are you sure you want to reject this NSS application?',
       [
@@ -209,11 +209,11 @@ export default function AdminNSSScreen() {
                 }
               }
               
-              Alert.alert('Success', 'Student application rejected.');
+              showAlert('Success', 'Student application rejected.');
               await fetchNSSStudents();
             } catch (error) {
               console.error('Error rejecting student:', error);
-              Alert.alert('Error', 'Failed to reject student.');
+              showAlert('Error', 'Failed to reject student.');
             } finally {
               setProcessingIds(prev => {
                 const newSet = new Set(prev);
@@ -264,7 +264,7 @@ export default function AdminNSSScreen() {
               <ActivityIndicator color={palette.white} size="small" />
             ) : (
               <>
-                <Ionicons name="checkmark" size={scale(16)} color={palette.white} />
+                <Check size={scale(16)} color={palette.white} />
                 <Text style={styles.actionButtonText}>Approve</Text>
               </>
             )}
@@ -275,7 +275,7 @@ export default function AdminNSSScreen() {
             onPress={() => handleReject(item.uid)}
             disabled={processingIds.has(item.uid)}
           >
-            <Ionicons name="close" size={scale(16)} color={palette.white} />
+            <X size={scale(16)} color={palette.white} />
             <Text style={styles.actionButtonText}>Reject</Text>
           </TouchableOpacity>
         </View>
@@ -283,7 +283,7 @@ export default function AdminNSSScreen() {
 
       {activeTab === 'approved' && (
         <View style={styles.approvedBadge}>
-          <Ionicons name="checkmark-circle" size={scale(16)} color={palette.success} />
+          <CheckCircle size={scale(16)} color={palette.success} />
           <Text style={styles.approvedText}>Approved NSS Volunteer</Text>
         </View>
       )}
@@ -328,7 +328,7 @@ export default function AdminNSSScreen() {
           style={styles.backButton}
           onPress={() => router.push('/admin-dashboard')}
         >
-          <Ionicons name="arrow-back" size={24} color={palette.primary} />
+          <ArrowLeft size={22} color={palette.primary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>NSS Management</Text>
         <View style={styles.headerSpacer} />
@@ -358,15 +358,11 @@ export default function AdminNSSScreen() {
       <View style={styles.filterContainer}>
         <Text style={styles.filterLabel}>Filter by Unit:</Text>
         <View style={styles.pickerContainer}>
-          <Picker
-            selectedValue={selectedUnit}
+          <FormSelect
+            value={selectedUnit}
             onValueChange={setSelectedUnit}
-            style={styles.picker}
-          >
-            {NSS_UNITS.map(unit => (
-              <Picker.Item key={unit} label={unit} value={unit} />
-            ))}
-          </Picker>
+            options={NSS_UNITS.map((unit) => ({ label: unit, value: unit }))}
+          />
         </View>
       </View>
 
@@ -381,11 +377,7 @@ export default function AdminNSSScreen() {
         }
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Ionicons 
-              name="people-outline" 
-              size={scale(64)} 
-              color={palette.lightText} 
-            />
+            <Users size={scale(64)} color={palette.lightText} />
             <Text style={styles.emptyText}>
               {activeTab === 'pending' 
                 ? 'No pending NSS applications' 
@@ -411,17 +403,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: scale(20),
-    paddingVertical: scale(15),
+    paddingHorizontal: scale(15),
+    paddingVertical: scale(12),
     backgroundColor: palette.white,
     borderBottomWidth: 1,
     borderBottomColor: palette.border,
   },
   backButton: {
-    padding: scale(5),
+    padding: scale(4),
   },
   headerTitle: {
-    fontSize: scale(18),
+    fontSize: scale(16),
     fontWeight: '600',
     color: palette.text,
   },
@@ -447,7 +439,7 @@ const styles = StyleSheet.create({
   },
   tab: {
     flex: 1,
-    paddingVertical: scale(16),
+    paddingVertical: scale(12),
     alignItems: 'center',
   },
   activeTab: {
@@ -455,7 +447,7 @@ const styles = StyleSheet.create({
     borderBottomColor: palette.primary,
   },
   tabText: {
-    fontSize: scale(14),
+    fontSize: scale(12),
     fontWeight: '500',
     color: palette.lightText,
   },
@@ -465,17 +457,17 @@ const styles = StyleSheet.create({
   filterContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: scale(20),
-    paddingVertical: scale(10),
+    paddingHorizontal: scale(15),
+    paddingVertical: scale(8),
     backgroundColor: palette.white,
     borderBottomWidth: 1,
     borderBottomColor: palette.border,
   },
   filterLabel: {
-    fontSize: scale(14),
+    fontSize: scale(12),
     fontWeight: '500',
     color: palette.text,
-    marginRight: scale(12),
+    marginRight: scale(8),
   },
   pickerContainer: {
     flex: 1,
@@ -485,10 +477,13 @@ const styles = StyleSheet.create({
     backgroundColor: palette.secondary,
     height: scale(40),
     justifyContent: 'center',
+    minWidth: 0,
+    overflow: 'hidden',
   },
   picker: {
     height: scale(50),
     width: '100%',
+    minWidth: 0,
   },
   listContainer: {
     padding: scale(16),

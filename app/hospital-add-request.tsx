@@ -1,11 +1,12 @@
-import { Ionicons } from '@expo/vector-icons';
+import { ChevronLeft, Calendar, Clock, CheckCircle, PlusCircle, AlertCircle, Info } from 'lucide-react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { getAuth } from 'firebase/auth';
 import { addDoc, collection, doc, getDoc, getDocs, query, serverTimestamp, updateDoc, where } from 'firebase/firestore';
 import React, { useState } from 'react';
-import { ActivityIndicator, Alert, Dimensions, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Dimensions, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { db } from '../firebase';
+import { showAlert } from '../utils/alert';
 import { notifyUsersAboutBloodRequest } from '../utils/notifications';
 
 const { width: screenWidth } = Dimensions.get('window');
@@ -26,6 +27,20 @@ const palette = {
 
 const bloodGroups = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
 const urgencyLevels = ['normal', 'critical'];
+
+const webDateTimeInputStyle = {
+  flex: 1,
+  width: 0,
+  minWidth: 0,
+  backgroundColor: palette.white,
+  border: `1px solid ${palette.borderLight}`,
+  borderRadius: scale(8),
+  padding: scale(12),
+  fontSize: scale(14),
+  fontFamily: 'inherit',
+  boxSizing: 'border-box' as const,
+  display: 'block',
+};
 
 export default function HospitalAddRequestScreen() {
   const router = useRouter();
@@ -73,7 +88,7 @@ export default function HospitalAddRequestScreen() {
       }
     } catch (error) {
       console.error('Error fetching request:', error);
-      Alert.alert('Error', 'Failed to load request data');
+      showAlert('Error', 'Failed to load request data');
     } finally {
       setIsLoading(false);
     }
@@ -99,6 +114,38 @@ export default function HospitalAddRequestScreen() {
     }
   };
 
+  const handleWebDateChange = (dateString: string) => {
+    if (dateString) {
+      const newDate = new Date(dateString);
+      newDate.setHours(requiredBy.getHours());
+      newDate.setMinutes(requiredBy.getMinutes());
+      setRequiredBy(newDate);
+    }
+  };
+
+  const handleWebTimeChange = (timeString: string) => {
+    if (timeString) {
+      const [hours, minutes] = timeString.split(':');
+      const newDate = new Date(requiredBy);
+      newDate.setHours(parseInt(hours));
+      newDate.setMinutes(parseInt(minutes));
+      setRequiredBy(newDate);
+    }
+  };
+
+  const formatDateForInput = (date: Date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const formatTimeForInput = (date: Date) => {
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    return `${hours}:${minutes}`;
+  };
+
   const handleDateChange = (event: any, selectedDate?: Date) => {
     setShowDatePicker(false);
     if (selectedDate) {
@@ -118,19 +165,19 @@ export default function HospitalAddRequestScreen() {
 
   const validateForm = () => {
     if (!patientName.trim()) {
-      Alert.alert('Error', 'Please enter patient name');
+      showAlert('Error', 'Please enter patient name');
       return false;
     }
     if (!bloodGroup) {
-      Alert.alert('Error', 'Please select blood group');
+      showAlert('Error', 'Please select blood group');
       return false;
     }
     if (!unitsNeeded || parseInt(unitsNeeded) < 1) {
-      Alert.alert('Error', 'Please enter valid units needed (minimum 1)');
+      showAlert('Error', 'Please enter valid units needed (minimum 1)');
       return false;
     }
     if (!contactNumber.trim()) {
-      Alert.alert('Error', 'Please enter contact number');
+      showAlert('Error', 'Please enter contact number');
       return false;
     }
     return true;
@@ -162,7 +209,7 @@ export default function HospitalAddRequestScreen() {
           updatedAt: serverTimestamp(),
         });
 
-        Alert.alert(
+        showAlert(
           'Success',
           'Blood request updated successfully!',
           [
@@ -195,7 +242,7 @@ export default function HospitalAddRequestScreen() {
           // Don't fail the request creation if notification fails
         }
 
-        Alert.alert(
+        showAlert(
           'Success',
           'Blood request created successfully! Donors will be notified.',
           [
@@ -208,7 +255,7 @@ export default function HospitalAddRequestScreen() {
       }
     } catch (error) {
       console.error('Error saving blood request:', error);
-      Alert.alert('Error', 'Failed to save blood request. Please try again.');
+      showAlert('Error', 'Failed to save blood request. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -221,7 +268,7 @@ export default function HospitalAddRequestScreen() {
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <Ionicons name="chevron-back" size={24} color={palette.darkText} />
+            <ChevronLeft size={24} color={palette.darkText} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>{requestId ? 'Edit Blood Request' : 'New Blood Request'}</Text>
           <View style={styles.headerSpacer} />
@@ -309,15 +356,25 @@ export default function HospitalAddRequestScreen() {
                     ]}
                     onPress={() => setUrgency(level as 'critical' | 'normal')}
                   >
-                    <Ionicons
-                      name={level === 'critical' ? 'alert-circle' : 'information-circle'}
-                      size={20}
-                      color={
-                        urgency === level
-                          ? level === 'critical' ? palette.critical : palette.success
-                          : palette.lightText
-                      }
-                    />
+                    {level === 'critical' ? (
+                      <AlertCircle
+                        size={20}
+                        color={
+                          urgency === level
+                            ? palette.critical
+                            : palette.lightText
+                        }
+                      />
+                    ) : (
+                      <Info
+                        size={20}
+                        color={
+                          urgency === level
+                            ? palette.success
+                            : palette.lightText
+                        }
+                      />
+                    )}
                     <Text
                       style={[
                         styles.urgencyText,
@@ -338,45 +395,65 @@ export default function HospitalAddRequestScreen() {
                 Required By <Text style={styles.required}>*</Text>
               </Text>
               <View style={styles.dateTimeContainer}>
-                <TouchableOpacity
-                  style={styles.dateTimeButton}
-                  onPress={() => setShowDatePicker(true)}
-                >
-                  <Ionicons name="calendar-outline" size={20} color={palette.primaryRed} />
-                  <Text style={styles.dateTimeText}>
-                    {requiredBy.toLocaleDateString()}
-                  </Text>
-                </TouchableOpacity>
+                {Platform.OS === 'web' ? (
+                  <>
+                    <input
+                      type="date"
+                      value={formatDateForInput(requiredBy)}
+                      onChange={(e) => handleWebDateChange(e.target.value)}
+                      min={formatDateForInput(new Date())}
+                      style={webDateTimeInputStyle}
+                    />
+                    <input
+                      type="time"
+                      value={formatTimeForInput(requiredBy)}
+                      onChange={(e) => handleWebTimeChange(e.target.value)}
+                      style={webDateTimeInputStyle}
+                    />
+                  </>
+                ) : (
+                  <>
+                    <TouchableOpacity
+                      style={styles.dateTimeButton}
+                      onPress={() => setShowDatePicker(true)}
+                    >
+                      <Calendar size={20} color={palette.primaryRed} />
+                      <Text style={styles.dateTimeText}>
+                        {requiredBy.toLocaleDateString()}
+                      </Text>
+                    </TouchableOpacity>
 
-                <TouchableOpacity
-                  style={styles.dateTimeButton}
-                  onPress={() => setShowTimePicker(true)}
-                >
-                  <Ionicons name="time-outline" size={20} color={palette.primaryRed} />
-                  <Text style={styles.dateTimeText}>
-                    {requiredBy.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </Text>
-                </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.dateTimeButton}
+                      onPress={() => setShowTimePicker(true)}
+                    >
+                      <Clock size={20} color={palette.primaryRed} />
+                      <Text style={styles.dateTimeText}>
+                        {requiredBy.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </Text>
+                    </TouchableOpacity>
+
+                    {showDatePicker && (
+                      <DateTimePicker
+                        value={requiredBy}
+                        mode="date"
+                        display="default"
+                        onChange={handleDateChange}
+                        minimumDate={new Date()}
+                      />
+                    )}
+
+                    {showTimePicker && (
+                      <DateTimePicker
+                        value={requiredBy}
+                        mode="time"
+                        display="default"
+                        onChange={handleTimeChange}
+                      />
+                    )}
+                  </>
+                )}
               </View>
-
-              {showDatePicker && (
-                <DateTimePicker
-                  value={requiredBy}
-                  mode="date"
-                  display="default"
-                  onChange={handleDateChange}
-                  minimumDate={new Date()}
-                />
-              )}
-
-              {showTimePicker && (
-                <DateTimePicker
-                  value={requiredBy}
-                  mode="time"
-                  display="default"
-                  onChange={handleTimeChange}
-                />
-              )}
             </View>
 
             {/* Contact Number */}
@@ -419,7 +496,11 @@ export default function HospitalAddRequestScreen() {
                 <ActivityIndicator color={palette.white} />
               ) : (
                 <>
-                  <Ionicons name={requestId ? "checkmark-circle-outline" : "add-circle-outline"} size={20} color={palette.white} />
+                  {requestId ? (
+                    <CheckCircle size={20} color={palette.white} />
+                  ) : (
+                    <PlusCircle size={20} color={palette.white} />
+                  )}
                   <Text style={styles.submitButtonText}>{requestId ? 'Update Blood Request' : 'Create Blood Request'}</Text>
                 </>
               )}
@@ -553,9 +634,11 @@ const styles = StyleSheet.create({
   dateTimeContainer: {
     flexDirection: 'row',
     gap: scale(10),
+    minWidth: 0,
   },
   dateTimeButton: {
     flex: 1,
+    minWidth: 0,
     flexDirection: 'row',
     alignItems: 'center',
     gap: scale(10),

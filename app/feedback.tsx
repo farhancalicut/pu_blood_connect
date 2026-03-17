@@ -1,10 +1,11 @@
-import { Ionicons } from '@expo/vector-icons';
+import { Star } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { getAuth } from 'firebase/auth';
 import { addDoc, collection, doc, getDoc, serverTimestamp } from 'firebase/firestore';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Dimensions, KeyboardAvoidingView, Platform, SafeAreaView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Dimensions, KeyboardAvoidingView, Platform, SafeAreaView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { db } from '../firebase';
+import { showAlert } from '../utils/alert';
 
 const { width: screenWidth } = Dimensions.get('window');
 const guidelineBaseWidth = 375; 
@@ -46,7 +47,7 @@ export default function FeedbackScreen() {
 
     const handleSubmit = async () => {
         if (rating === 0) {
-            Alert.alert('Rating Required', 'Please select a star rating before submitting.');
+            showAlert('Rating Required', 'Please select a star rating before submitting.');
             return;
         }
         setIsLoading(true);
@@ -65,7 +66,7 @@ export default function FeedbackScreen() {
                 category: 'general',
                 createdAt: serverTimestamp(),
             });
-            Alert.alert(
+            showAlert(
                 'Thank You!', 
                 rating >= 4 
                     ? 'Your feedback has been submitted successfully. Great reviews like yours may appear in our testimonials section!' 
@@ -74,7 +75,7 @@ export default function FeedbackScreen() {
             router.back(); 
         } catch (error) {
             console.error("Error submitting feedback: ", error);
-            Alert.alert('Error', 'Could not submit your feedback. Please try again.');
+            showAlert('Error', 'Could not submit your feedback. Please try again.');
         } finally {
             setIsLoading(false);
         }
@@ -91,10 +92,10 @@ export default function FeedbackScreen() {
                 <View style={styles.starsContainer}>
                     {[1, 2, 3, 4, 5].map((star) => (
                         <TouchableOpacity key={star} onPress={() => setRating(star)}>
-                            <Ionicons 
-                                name={star <= rating ? 'star' : 'star-outline'} 
+                            <Star 
                                 size={scale(40)} 
-                                color={palette.trophyYellow} 
+                                color={palette.trophyYellow}
+                                fill={star <= rating ? palette.trophyYellow : "transparent"}
                             />
                         </TouchableOpacity>
                     ))}

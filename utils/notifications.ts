@@ -1,8 +1,15 @@
 import { addDoc, collection, getDocs, query, serverTimestamp, where } from 'firebase/firestore';
+import { Platform } from 'react-native';
 import { db } from '../firebase';
 
 // Send push notification to specific users
 export async function sendPushNotification(expoPushTokens: string[], title: string, body: string, data?: any) {
+    // Skip push notifications on web (CORS restriction)
+    if (Platform.OS === 'web') {
+        console.log('Push notifications skipped on web platform');
+        return;
+    }
+
     const messages = expoPushTokens
         .filter(token => token && token.startsWith('ExponentPushToken'))
         .map(token => ({

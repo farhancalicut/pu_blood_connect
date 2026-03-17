@@ -1,7 +1,7 @@
 /* eslint-disable no-restricted-globals */
-const CACHE_NAME = "pu-nss-connect-v2"; // Incremented version to force cache refresh
-const RUNTIME_CACHE = "runtime-cache-v2";
-const IMAGE_CACHE = "image-cache-v2";
+const CACHE_NAME = "pu-nss-connect-v3"; // Incremented version to force cache refresh
+const RUNTIME_CACHE = "runtime-cache-v3";
+const IMAGE_CACHE = "image-cache-v3";
 
 // Files to cache immediately on install
 const PRECACHE_URLS = [

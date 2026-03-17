@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, FlatList, SafeAreaView, ActivityIndicator, TouchableOpacity, Dimensions } from 'react-native';
 import { useFocusEffect } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import { Trophy, User } from 'lucide-react-native';
 import { collection, getDocs, query, orderBy, limit } from 'firebase/firestore';
 import { db } from '../firebase';
 
@@ -18,7 +18,7 @@ type DepartmentStat = { name: string; donorCount: number; totalUnits: number; };
 const ListItem = ({ name, detail, action, isTrophy = false }: { name: string; detail?: string; action: React.ReactNode; isTrophy?: boolean }) => (
     <View style={styles.listItem}>
         <View style={[styles.itemIcon, { backgroundColor: isTrophy ? palette.trophyBg : '#EAEAEA' }]}>
-            <Ionicons name={isTrophy ? "trophy" : "person"} size={scale(18)} color={isTrophy ? palette.trophyYellow : palette.primaryRed} />
+            {isTrophy ? <Trophy size={scale(18)} color={palette.trophyYellow} /> : <User size={scale(18)} color={palette.primaryRed} />}
         </View>
         <View style={styles.itemDetails}>
             <Text style={styles.itemTitle}>{String(name)}</Text>

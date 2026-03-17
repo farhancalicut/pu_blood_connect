@@ -6,6 +6,9 @@ const config = getDefaultConfig(__dirname);
 // Add web-specific configurations
 config.resolver.sourceExts.push("web.tsx", "web.ts", "web.jsx", "web.js");
 
+// Add SVG to source extensions
+config.resolver.sourceExts.push("svg");
+
 // Optimize for web
 config.transformer = {
   ...config.transformer,
@@ -16,16 +19,13 @@ config.transformer = {
   },
 };
 
-// Configure asset handling for web
-config.resolver.assetExts = config.resolver.assetExts.filter(
-  (ext) => ext !== "svg",
-);
-config.resolver.sourceExts.push("svg");
-
 // Web-specific optimizations
 if (process.env.EXPO_PLATFORM === "web") {
   config.transformer.enableBabelRCLookup = true;
   config.transformer.enableBabelRuntime = true;
+  
+  // Ensure proper platform resolution for web
+  config.resolver.platforms = ["web", "ios", "android"];
 }
 
 module.exports = config;

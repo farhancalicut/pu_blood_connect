@@ -1,14 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  View, Text, StyleSheet, TextInput, TouchableOpacity, Alert,
+  View, Text, StyleSheet, TextInput, TouchableOpacity,
   ActivityIndicator, KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, Dimensions, Animated, TextStyle
 } from 'react-native';
 import { useRouter, useNavigation } from 'expo-router';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
-import { Picker } from '@react-native-picker/picker';
 import { EmailAuthProvider, reauthenticateWithCredential, updatePassword, getAuth } from 'firebase/auth';
+import FormSelect from './_components/FormSelect';
 import { db } from '../firebase';
 import { FirebaseError } from 'firebase/app';
+import { showAlert } from '../utils/alert';
 
 // --- RESPONSIVE SETUP ---
 const { width: screenWidth } = Dimensions.get('window');
@@ -21,6 +22,11 @@ const GENDERS = ['Male', 'Female', 'Other'];
 const BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
 const YEARS = ['First', 'Second', 'Third', 'Fourth', 'PhD'];
 const NSS_UNITS = ['Unit 1', 'Unit 2', 'Unit 3', 'Unit 4'];
+
+const toOptions = (values: string[], placeholder: string) => [
+  { label: placeholder, value: '' },
+  ...values.map((value) => ({ label: value, value })),
+];
 
 // --- HELPER COMPONENT (You can move this to a separate file if you wish) ---
 type FloatingLabelInputProps = {
@@ -103,7 +109,7 @@ export default function EditProfileScreen() {
           }
         } catch (error) {
           console.error("Error fetching user data:", error);
-          Alert.alert("Error", "Could not load your profile data.");
+          showAlert("Error", "Could not load your profile data.");
         } finally {
           setIsLoading(false);
         }
@@ -121,11 +127,11 @@ export default function EditProfileScreen() {
 
   const handleSubmit = async () => {
     if (!form.firstName || !form.lastName || !form.department || !form.year || !form.phone) {
-      Alert.alert('Missing Information', 'Please fill all required profile fields.');
+      showAlert('Missing Information', 'Please fill all required profile fields.');
       return;
     }
     if (form.isNssVolunteer === 'Yes' && !form.nssUnit) {
-      Alert.alert('Missing Information', 'Please select your NSS Unit.');
+      showAlert('Missing Information', 'Please select your NSS Unit.');
       return;
     }
     setIsLoading(true);
@@ -154,12 +160,12 @@ export default function EditProfileScreen() {
         }
         
         await updateDoc(userDocRef, updateData);
-        Alert.alert('Profile Updated!', 'Your details have been saved successfully.');
+        showAlert('Profile Updated!', 'Your details have been saved successfully.');
         router.back();
       }
     } catch (error) {
       const err = error as FirebaseError;
-      Alert.alert('Operation Failed', err.message);
+      showAlert('Operation Failed', err.message);
     } finally {
       setIsLoading(false);
     }
@@ -181,18 +187,12 @@ export default function EditProfileScreen() {
           
           <Text style={styles.label}>Department</Text>
           <View style={styles.pickerContainer}>
-            <Picker selectedValue={form.department} onValueChange={value => handleChange('department', value)}>
-              <Picker.Item label="Select Department..." value="" />
-              {DEPARTMENTS.map(dept => <Picker.Item key={dept} label={dept} value={dept} />)}
-            </Picker>
+            <FormSelect value={form.department} onValueChange={value => handleChange('department', value)} options={toOptions(DEPARTMENTS, 'Select Department...')} />
           </View>
           
           <Text style={styles.label}>Year</Text>
           <View style={styles.pickerContainer}>
-            <Picker selectedValue={form.year} onValueChange={value => handleChange('year', value)}>
-              <Picker.Item label="Select Year..." value="" />
-              {YEARS.map(year => <Picker.Item key={year} label={year} value={year} />)}
-            </Picker>
+            <FormSelect value={form.year} onValueChange={value => handleChange('year', value)} options={toOptions(YEARS, 'Select Year...')} />
           </View>
           
           <FloatingLabelInput label="Age" value={form.age} onChangeText={text => handleChange('age', text)} keyboardType="numeric" />
@@ -200,50 +200,41 @@ export default function EditProfileScreen() {
           
           <Text style={styles.label}>Gender</Text>
           <View style={styles.pickerContainer}>
-            <Picker selectedValue={form.gender} onValueChange={value => handleChange('gender', value)}>
-              <Picker.Item label="Select Gender" value="" />
-              {GENDERS.map(g => <Picker.Item key={g} label={g} value={g} />)}
-            </Picker>
+            <FormSelect value={form.gender} onValueChange={value => handleChange('gender', value)} options={toOptions(GENDERS, 'Select Gender')} />
           </View>
           
           <Text style={styles.label}>Blood Group</Text>
           <View style={styles.pickerContainer}>
-            <Picker selectedValue={form.bloodGroup} onValueChange={value => handleChange('bloodGroup', value)}>
-              <Picker.Item label="Select Blood Group" value="" />
-              {BLOOD_GROUPS.map(bg => <Picker.Item key={bg} label={bg} value={bg} />)}
-            </Picker>
+            <FormSelect value={form.bloodGroup} onValueChange={value => handleChange('bloodGroup', value)} options={toOptions(BLOOD_GROUPS, 'Select Blood Group')} />
           </View>
           
           <Text style={styles.label}>Are you an NSS Volunteer?</Text>
           <View style={styles.pickerContainer}>
-            <Picker 
-              selectedValue={form.isNssVolunteer} 
+            <FormSelect
+              value={form.isNssVolunteer}
               onValueChange={value => {
                 handleChange('isNssVolunteer', value);
                 if (value !== 'Yes') {
                   handleChange('nssUnit', ''); // Clear unit selection if not NSS volunteer
                 }
               }}
-            >
-              <Picker.Item label="Please select..." value="" />
-              <Picker.Item label="Yes" value="Yes" />
-              <Picker.Item label="No" value="No" />
-            </Picker>
+              options={[
+                { label: 'Please select...', value: '' },
+                { label: 'Yes', value: 'Yes' },
+                { label: 'No', value: 'No' },
+              ]}
+            />
           </View>
           
           {form.isNssVolunteer === 'Yes' && (
             <>
               <Text style={styles.label}>NSS Unit</Text>
               <View style={styles.pickerContainer}>
-                <Picker
-                  selectedValue={form.nssUnit}
+                <FormSelect
+                  value={form.nssUnit}
                   onValueChange={value => handleChange('nssUnit', value)}
-                >
-                  <Picker.Item label="Select your NSS Unit..." value="" />
-                  {NSS_UNITS.map(unit => (
-                    <Picker.Item key={unit} label={unit} value={unit} />
-                  ))}
-                </Picker>
+                  options={toOptions(NSS_UNITS, 'Select your NSS Unit...')}
+                />
               </View>
             </>
           )}
@@ -287,6 +278,12 @@ const styles = StyleSheet.create({
     marginBottom: scale(15),
     justifyContent: 'center',
     overflow: 'hidden',
+    minWidth: 0,
+  },
+  picker: {
+    width: '100%',
+    borderWidth: 0,
+    minWidth: 0,
   },
   input: {
     backgroundColor: '#fff',

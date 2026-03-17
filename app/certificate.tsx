@@ -1,8 +1,10 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { doc, getDoc } from 'firebase/firestore';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Dimensions, ImageBackground, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Dimensions, ImageBackground, Platform, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import * as htmlToImage from 'html-to-image';
 import { db } from '../firebase';
+import { showAlert } from '../utils/alert';
 
 const { width: screenWidth } = Dimensions.get('window');
 const guidelineBaseWidth = 375;
@@ -33,7 +35,7 @@ export default function CertificateScreen() {
 
     useEffect(() => {
         if (!offerId) {
-            Alert.alert("Error", "No donation record found.");
+            showAlert("Error", "No donation record found.");
             router.back();
             return;
         }
@@ -45,10 +47,10 @@ export default function CertificateScreen() {
                 if (docSnap.exists()) {
                     setOffer({ id: docSnap.id, ...docSnap.data() } as DonationOffer);
                 } else {
-                    Alert.alert("Error", "Could not find this donation record.");
+                    showAlert("Error", "Could not find this donation record.");
                 }
             } catch (error) {
-                Alert.alert("Error", "Failed to load certificate.");
+                showAlert("Error", "Failed to load certificate.");
             } finally {
                 setIsLoading(false);
             }
@@ -69,10 +71,10 @@ export default function CertificateScreen() {
             link.href = dataUrl;
             link.click();
 
-            Alert.alert("Saved!", "Certificate downloaded successfully.");
+            showAlert("Saved!", "Certificate downloaded successfully.");
         } catch (error) {
             console.error(error);
-            Alert.alert("Error", "Could not save certificate.");
+            showAlert("Error", "Could not save certificate.");
         } finally {
             setDownloading(false);
         }

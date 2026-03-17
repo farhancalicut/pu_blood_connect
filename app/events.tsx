@@ -1,10 +1,11 @@
-import { Ionicons } from '@expo/vector-icons';
+import { ImageIcon, Info, Plus, CheckCircle, MapPin, Minus, MinusCircle, Edit2 as Edit, Trash2, X, Calendar, FileText, User, Phone } from 'lucide-react-native';
 import { useFocusEffect, useNavigation, useRouter } from 'expo-router';
 import { getAuth } from 'firebase/auth';
 import { arrayRemove, arrayUnion, collection, deleteDoc, doc, getDoc, getDocs, orderBy, query, updateDoc } from 'firebase/firestore';
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Dimensions, FlatList, Image, Modal, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Dimensions, FlatList, Image, Modal, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { db, /*storage*/ } from '../firebase';
+import { showAlert } from '../utils/alert';
 
 const { width: screenWidth } = Dimensions.get('window');
 const guidelineBaseWidth = 375; 
@@ -50,7 +51,7 @@ const EventCard = ({ item, isAdmin, onEdit, onDelete, onPress, onJoin, joinedEve
                     <Image source={{ uri: item.posterImageUrl }} style={styles.heroImage} />
                 ) : (
                     <View style={styles.heroPlaceholder}>
-                        <Ionicons name="image-outline" size={scale(30)} color="rgba(255, 255, 255, 0.6)" />
+                        <ImageIcon size={scale(30)} color="rgba(255, 255, 255, 0.6)" />
                         <Text style={styles.noPosterText}>No poster to show</Text>
                     </View>
                 )}
@@ -82,7 +83,7 @@ const EventCard = ({ item, isAdmin, onEdit, onDelete, onPress, onJoin, joinedEve
             <View style={styles.modernCardBottom}>
                 {/* Location */}
                 <View style={styles.modernLocationRow}>
-                    <Ionicons name="location-outline" size={scale(16)} color={palette.primaryRed} />
+                    <MapPin size={scale(16)} color={palette.primaryRed} />
                     <Text style={styles.modernLocationText} numberOfLines={1}>{item.location}</Text>
                 </View>
                 
@@ -92,7 +93,7 @@ const EventCard = ({ item, isAdmin, onEdit, onDelete, onPress, onJoin, joinedEve
                         style={[styles.modernDetailsButton, !isUpcoming && styles.modernDetailsButtonFull]} 
                         onPress={onPress}
                     >
-                        <Ionicons name="information-circle-outline" size={scale(14)} color="#6B7280" />
+                        <Info size={scale(14)} color="#6B7280" />
                         <Text style={styles.modernDetailsText}>Details</Text>
                     </TouchableOpacity>
                     
@@ -109,11 +110,11 @@ const EventCard = ({ item, isAdmin, onEdit, onDelete, onPress, onJoin, joinedEve
                                 <ActivityIndicator size="small" color="white" />
                             ) : (
                                 <>
-                                    <Ionicons 
-                                        name={joinedEvents.has(item.id) ? "remove" : "add"} 
-                                        size={scale(14)} 
-                                        color="white" 
-                                    />
+                                    {joinedEvents.has(item.id) ? (
+                                        <Minus size={scale(14)} color="white" />
+                                    ) : (
+                                        <Plus size={scale(14)} color="white" />
+                                    )}
                                     <Text style={styles.modernJoinText}>
                                         {joinedEvents.has(item.id) ? 'Leave' : 'Join'}
                                     </Text>
@@ -125,10 +126,10 @@ const EventCard = ({ item, isAdmin, onEdit, onDelete, onPress, onJoin, joinedEve
                     {isAdmin && (
                         <View style={styles.modernAdminButtons}>
                             <TouchableOpacity style={styles.modernEditButton} onPress={onEdit}>
-                                <Ionicons name="pencil" size={scale(16)} color={palette.blue} />
+                                <Edit size={scale(16)} color={palette.blue} />
                             </TouchableOpacity>
                             <TouchableOpacity style={styles.modernDeleteButton} onPress={onDelete}>
-                                <Ionicons name="trash" size={scale(16)} color={palette.primaryRed} />
+                                <Trash2 size={scale(16)} color={palette.primaryRed} />
                             </TouchableOpacity>
                         </View>
                     )}
@@ -142,7 +143,7 @@ function HeaderAddButton() {
   const router = useRouter();
   return (
     <TouchableOpacity onPress={() => router.push('/add-event')} style={{ marginRight: scale(15) }}>
-      <Ionicons name="add-circle" size={scale(28)} color="#FE465E" />
+      <Plus size={scale(28)} color="#FE465E" />
     </TouchableOpacity>
   );
 }
@@ -208,7 +209,7 @@ export default function EventsScreen() {
         const user = auth.currentUser;
         
         if (!user) {
-            Alert.alert('Error', 'Please log in to join events.');
+            showAlert('Error', 'Please log in to join events.');
             return;
         }
 
@@ -228,7 +229,7 @@ export default function EventsScreen() {
                 newJoinedEvents.delete(eventId);
                 setJoinedEvents(newJoinedEvents);
                 
-                Alert.alert('Success', 'You have left the event.');
+                showAlert('Success', 'You have left the event.');
             } else {
                 // Join event
                 await updateDoc(eventRef, {
@@ -239,11 +240,11 @@ export default function EventsScreen() {
                 newJoinedEvents.add(eventId);
                 setJoinedEvents(newJoinedEvents);
                 
-                Alert.alert('Success', 'You have successfully joined the event!');
+                showAlert('Success', 'You have successfully joined the event!');
             }
         } catch (error) {
             console.error('Error joining/leaving event:', error);
-            Alert.alert('Error', 'Failed to update event registration. Please try again.');
+            showAlert('Error', 'Failed to update event registration. Please try again.');
         } finally {
             setJoiningEvent(null);
         }
@@ -270,7 +271,7 @@ export default function EventsScreen() {
     }, [isAdmin, navigation]);
 
     const handleDelete = (event: Event) => {
-        Alert.alert(
+        showAlert(
             "Delete Event",
             `Are you sure you want to delete the event "${event.title}"? This cannot be undone.`,
             [
@@ -283,11 +284,11 @@ export default function EventsScreen() {
                             await deleteDoc(doc(db, "events", event.id));
                             // const imageRef = ref(storage, event.posterImageUrl);
                             // await deleteObject(imageRef);
-                            Alert.alert("Success", "The event has been deleted.");
+                            showAlert("Success", "The event has been deleted.");
                             fetchData();
                         } catch (error) {
                             console.error("Error deleting event:", error);
-                            Alert.alert("Error", "Could not delete the event.");
+                            showAlert("Error", "Could not delete the event.");
                         }
                     },
                 },
@@ -329,6 +330,10 @@ export default function EventsScreen() {
                     keyExtractor={item => item.id}
                     contentContainerStyle={styles.listContainer}
                     ListEmptyComponent={<Text style={styles.emptyText}>No events scheduled right now.</Text>}
+                    removeClippedSubviews={true}
+                    maxToRenderPerBatch={10}
+                    windowSize={10}
+                    initialNumToRender={6}
                 />
             )}
             
@@ -344,7 +349,7 @@ export default function EventsScreen() {
                         {/* Modal Header */}
                         <View style={styles.modalHeader}>
                             <TouchableOpacity onPress={closeDetailModal} style={styles.closeButton}>
-                                <Ionicons name="close" size={24} color={palette.darkText} />
+                                <X size={24} color={palette.darkText} />
                             </TouchableOpacity>
                             <Text style={styles.modalHeaderTitle}>Event Details</Text>
                             <View style={{ width: 36 }} />
@@ -357,7 +362,7 @@ export default function EventsScreen() {
                                 <Image source={{ uri: selectedEvent.posterImageUrl }} style={styles.modalPoster} />
                             ) : (
                                 <View style={styles.modalPlaceholderPoster}>
-                                    <Ionicons name="image-outline" size={60} color={palette.lightText} />
+                                    <ImageIcon size={60} color={palette.lightText} />
                                     <Text style={styles.placeholderText}>No poster available</Text>
                                 </View>
                             )}
@@ -368,7 +373,7 @@ export default function EventsScreen() {
                                 
                                 <View style={styles.detailRow}>
                                     <View style={styles.detailIcon}>
-                                        <Ionicons name="calendar" size={24} color={palette.primaryRed} />
+                                        <Calendar size={24} color={palette.primaryRed} />
                                     </View>
                                     <View style={styles.detailContent}>
                                         <Text style={styles.detailLabel}>Date & Time</Text>
@@ -388,7 +393,7 @@ export default function EventsScreen() {
 
                                 <View style={styles.detailRow}>
                                     <View style={styles.detailIcon}>
-                                        <Ionicons name="location" size={24} color={palette.primaryRed} />
+                                        <MapPin size={24} color={palette.primaryRed} />
                                     </View>
                                     <View style={styles.detailContent}>
                                         <Text style={styles.detailLabel}>Location</Text>
@@ -399,7 +404,7 @@ export default function EventsScreen() {
                                 {selectedEvent.description && (
                                     <View style={styles.detailRow}>
                                         <View style={styles.detailIcon}>
-                                            <Ionicons name="document-text" size={24} color={palette.primaryRed} />
+                                            <FileText size={24} color={palette.primaryRed} />
                                         </View>
                                         <View style={styles.detailContent}>
                                             <Text style={styles.detailLabel}>Description</Text>
@@ -411,7 +416,7 @@ export default function EventsScreen() {
                                 {selectedEvent.organizer && (
                                     <View style={styles.detailRow}>
                                         <View style={styles.detailIcon}>
-                                            <Ionicons name="person" size={24} color={palette.primaryRed} />
+                                            <User size={24} color={palette.primaryRed} />
                                         </View>
                                         <View style={styles.detailContent}>
                                             <Text style={styles.detailLabel}>Organizer</Text>
@@ -423,7 +428,7 @@ export default function EventsScreen() {
                                 {selectedEvent.contactNumber && (
                                     <View style={styles.detailRow}>
                                         <View style={styles.detailIcon}>
-                                            <Ionicons name="call" size={24} color={palette.primaryRed} />
+                                            <Phone size={24} color={palette.primaryRed} />
                                         </View>
                                         <View style={styles.detailContent}>
                                             <Text style={styles.detailLabel}>Contact</Text>
@@ -449,11 +454,11 @@ export default function EventsScreen() {
                                                 <ActivityIndicator size="small" color="white" />
                                             ) : (
                                                 <>
-                                                    <Ionicons 
-                                                        name={joinedEvents.has(selectedEvent.id) ? "remove-circle" : "add-circle"} 
-                                                        size={24} 
-                                                        color="white" 
-                                                    />
+                                                    {joinedEvents.has(selectedEvent.id) ? (
+                                                        <MinusCircle size={24} color="white" />
+                                                    ) : (
+                                                        <Plus size={24} color="white" />
+                                                    )}
                                                     <Text style={styles.joinButtonText}>
                                                         {joinedEvents.has(selectedEvent.id) ? 'Leave Event' : 'Join Event'}
                                                     </Text>

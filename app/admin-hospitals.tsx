@@ -1,10 +1,11 @@
-import { Ionicons } from '@expo/vector-icons';
+import { Building2, CheckCircle, Phone, MapPin, FileText, ChevronLeft, Plus, X, RefreshCw, XCircle, Trash2 } from 'lucide-react-native';
 import { Stack, useFocusEffect, useRouter } from 'expo-router';
 import { getAuth } from 'firebase/auth';
 import { collection, deleteDoc, doc, getDocs, query, serverTimestamp, setDoc, updateDoc, where } from 'firebase/firestore';
 import React, { useCallback, useState } from 'react';
-import { ActivityIndicator, Alert, Dimensions, FlatList, Modal, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Dimensions, FlatList, Modal, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { db } from '../firebase';
+import { showAlert } from '../utils/alert';
 import { HospitalUser } from '../types/env';
 
 const { width: screenWidth } = Dimensions.get('window');
@@ -58,7 +59,7 @@ export default function AdminHospitalsScreen() {
       setHospitals(hospitalsData);
     } catch (error) {
       console.error('Error fetching hospitals:', error);
-      Alert.alert('Error', 'Failed to fetch hospitals');
+      showAlert('Error', 'Failed to fetch hospitals');
     } finally {
       setIsLoading(false);
     }
@@ -88,7 +89,7 @@ export default function AdminHospitalsScreen() {
 
   const handleCreateHospital = async () => {
     if (!hospitalName || !email || !contactNumber || !password) {
-      Alert.alert('Error', 'Please fill all required fields');
+      showAlert('Error', 'Please fill all required fields');
       return;
     }
 
@@ -126,7 +127,7 @@ export default function AdminHospitalsScreen() {
         createdBy: currentUser?.uid,
       });
 
-      Alert.alert(
+      showAlert(
         'Success',
         `Hospital account created!\n\nEmail: ${email}\nPassword: ${password}\n\nPlease share these credentials with the hospital.`,
         [
@@ -145,7 +146,7 @@ export default function AdminHospitalsScreen() {
       fetchHospitals();
     } catch (error: any) {
       console.error('Error creating hospital:', error);
-      Alert.alert('Error', error.message || 'Failed to create hospital account');
+      showAlert('Error', error.message || 'Failed to create hospital account');
     } finally {
       setIsSubmitting(false);
     }
@@ -157,16 +158,16 @@ export default function AdminHospitalsScreen() {
       await updateDoc(hospitalRef, {
         verified: !hospital.verified,
       });
-      Alert.alert('Success', `Hospital ${hospital.verified ? 'deactivated' : 'activated'} successfully`);
+      showAlert('Success', `Hospital ${hospital.verified ? 'deactivated' : 'activated'} successfully`);
       fetchHospitals();
     } catch (error) {
       console.error('Error updating hospital:', error);
-      Alert.alert('Error', 'Failed to update hospital status');
+      showAlert('Error', 'Failed to update hospital status');
     }
   };
 
   const handleDeleteHospital = async (hospital: HospitalUser) => {
-    Alert.alert(
+    showAlert(
       'Delete Hospital',
       `Are you sure you want to delete ${hospital.hospitalName}? This will also delete all their blood requests.`,
       [
@@ -190,11 +191,11 @@ export default function AdminHospitalsScreen() {
               );
               await Promise.all(deletePromises);
 
-              Alert.alert('Success', 'Hospital deleted successfully');
+              showAlert('Success', 'Hospital deleted successfully');
               fetchHospitals();
             } catch (error) {
               console.error('Error deleting hospital:', error);
-              Alert.alert('Error', 'Failed to delete hospital');
+              showAlert('Error', 'Failed to delete hospital');
             }
           },
         },
@@ -206,13 +207,13 @@ export default function AdminHospitalsScreen() {
     <View style={styles.hospitalCard}>
       <View style={styles.hospitalHeader}>
         <View style={styles.hospitalIconContainer}>
-          <Ionicons name="business" size={24} color={palette.primaryRed} />
+          <Building2 size={24} color={palette.primaryRed} />
         </View>
         <View style={styles.hospitalInfo}>
           <View style={styles.hospitalNameRow}>
             <Text style={styles.hospitalName}>{item.hospitalName}</Text>
             {item.verified && (
-              <Ionicons name="checkmark-circle" size={18} color={palette.success} />
+              <CheckCircle size={18} color={palette.success} />
             )}
           </View>
           <Text style={styles.hospitalEmail}>{item.email}</Text>
@@ -221,18 +222,18 @@ export default function AdminHospitalsScreen() {
 
       <View style={styles.hospitalDetails}>
         <View style={styles.detailRow}>
-          <Ionicons name="call-outline" size={16} color={palette.lightText} />
+          <Phone size={16} color={palette.lightText} />
           <Text style={styles.detailText}>{item.contactNumber}</Text>
         </View>
         {item.address && (
           <View style={styles.detailRow}>
-            <Ionicons name="location-outline" size={16} color={palette.lightText} />
+            <MapPin size={16} color={palette.lightText} />
             <Text style={styles.detailText}>{item.address}</Text>
           </View>
         )}
         {item.licenseNumber && (
           <View style={styles.detailRow}>
-            <Ionicons name="document-text-outline" size={16} color={palette.lightText} />
+            <FileText size={16} color={palette.lightText} />
             <Text style={styles.detailText}>License: {item.licenseNumber}</Text>
           </View>
         )}
@@ -243,11 +244,17 @@ export default function AdminHospitalsScreen() {
           style={[styles.actionButton, item.verified ? styles.deactivateButton : styles.activateButton]}
           onPress={() => handleToggleVerification(item)}
         >
-          <Ionicons
-            name={item.verified ? 'close-circle-outline' : 'checkmark-circle-outline'}
-            size={18}
-            color={item.verified ? palette.warning : palette.success}
-          />
+          {item.verified ? (
+            <XCircle
+              size={18}
+              color={palette.warning}
+            />
+          ) : (
+            <CheckCircle
+              size={18}
+              color={palette.success}
+            />
+          )}
           <Text style={[styles.actionButtonText, { color: item.verified ? palette.warning : palette.success }]}>
             {item.verified ? 'Deactivate' : 'Activate'}
           </Text>
@@ -257,7 +264,7 @@ export default function AdminHospitalsScreen() {
           style={[styles.actionButton, styles.deleteButton]}
           onPress={() => handleDeleteHospital(item)}
         >
-          <Ionicons name="trash-outline" size={18} color="#DC3545" />
+          <Trash2 size={18} color="#DC3545" />
           <Text style={[styles.actionButtonText, { color: '#DC3545' }]}>Delete</Text>
         </TouchableOpacity>
       </View>
@@ -271,11 +278,11 @@ export default function AdminHospitalsScreen() {
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <Ionicons name="chevron-back" size={24} color={palette.darkText} />
+            <ChevronLeft size={22} color={palette.darkText} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Manage Hospitals</Text>
           <TouchableOpacity onPress={() => setShowAddModal(true)} style={styles.addButton}>
-            <Ionicons name="add" size={24} color={palette.white} />
+            <Plus size={22} color={palette.white} />
           </TouchableOpacity>
         </View>
 
@@ -293,7 +300,7 @@ export default function AdminHospitalsScreen() {
             contentContainerStyle={styles.listContainer}
             ListEmptyComponent={
               <View style={styles.emptyContainer}>
-                <Ionicons name="business-outline" size={60} color={palette.lightText} />
+                <Building2 size={60} color={palette.lightText} />
                 <Text style={styles.emptyText}>No hospitals registered</Text>
                 <Text style={styles.emptySubtext}>Tap + to add a new hospital</Text>
               </View>
@@ -308,7 +315,7 @@ export default function AdminHospitalsScreen() {
               <View style={styles.modalHeader}>
                 <Text style={styles.modalTitle}>Add New Hospital</Text>
                 <TouchableOpacity onPress={() => { setShowAddModal(false); resetForm(); }}>
-                  <Ionicons name="close" size={24} color={palette.darkText} />
+                  <X size={24} color={palette.darkText} />
                 </TouchableOpacity>
               </View>
 
@@ -371,7 +378,7 @@ export default function AdminHospitalsScreen() {
                     style={styles.generateButton}
                     onPress={generateRandomPassword}
                   >
-                    <Ionicons name="refresh" size={20} color={palette.white} />
+                    <RefreshCw size={20} color={palette.white} />
                   </TouchableOpacity>
                 </View>
                 <Text style={styles.helperText}>
@@ -407,29 +414,29 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: scale(20),
-    paddingVertical: scale(15),
+    paddingHorizontal: scale(15),
+    paddingVertical: scale(12),
     backgroundColor: palette.white,
     borderBottomWidth: 1,
     borderBottomColor: palette.borderLight,
   },
   backButton: {
-    width: scale(40),
-    height: scale(40),
-    borderRadius: scale(20),
+    width: scale(34),
+    height: scale(34),
+    borderRadius: scale(17),
     backgroundColor: palette.pageBg,
     justifyContent: 'center',
     alignItems: 'center',
   },
   headerTitle: {
-    fontSize: scale(18),
-    fontWeight: 'bold',
+    fontSize: scale(16),
+    fontWeight: '600',
     color: palette.darkText,
   },
   addButton: {
-    width: scale(40),
-    height: scale(40),
-    borderRadius: scale(20),
+    width: scale(34),
+    height: scale(34),
+    borderRadius: scale(17),
     backgroundColor: palette.primaryRed,
     justifyContent: 'center',
     alignItems: 'center',
@@ -634,3 +641,4 @@ const styles = StyleSheet.create({
     color: palette.white,
   },
 });
+

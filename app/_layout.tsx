@@ -1,6 +1,7 @@
 import * as Device from "expo-device";
 import * as Notifications from "expo-notifications";
 import { Stack, useRouter, useSegments } from "expo-router";
+import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 import React, { useEffect, useRef, useState } from "react";
@@ -18,13 +19,19 @@ import {
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import "../firebase"; // Ensure Firebase is initialized before usage
 
-import { FontAwesome, FontAwesome5, Ionicons } from "@expo/vector-icons";
+import { Bell, ChevronLeft, Menu } from "lucide-react-native";
 import { runReminderScheduler } from "../utils/reminderScheduler";
 import DesktopWarning from "./_components/DesktopWarning";
 import InstallPWA from "./_components/InstallPWA";
 import WebProvider from "./_components/WebProvider";
 import MenuContext, { useMenu } from "./context/MenuContext";
 import MenuBar from "./MenuBar";
+
+// Prevent splash screen from auto-hiding until fonts are loaded
+SplashScreen.preventAutoHideAsync().catch(() => {
+  // On web or if there's an error, this is expected
+  console.log("SplashScreen.preventAutoHideAsync not available");
+});
 
 const { width } = Dimensions.get("window");
 
@@ -81,7 +88,7 @@ function MenuButton() {
   const { toggleMenu } = useMenu();
   return (
     <TouchableOpacity onPress={toggleMenu} style={{ marginLeft: 15 }}>
-      <FontAwesome5 name="bars" size={22} color="#333333" />
+      <Menu size={22} color="#333333" />
     </TouchableOpacity>
   );
 }
@@ -93,7 +100,7 @@ function BellButton() {
       onPress={() => router.push("/notifications")}
       style={{ marginRight: 15 }}
     >
-      <FontAwesome name="bell" size={22} color="#333333" />
+      <Bell size={22} color="#333333" />
     </TouchableOpacity>
   );
 }
@@ -105,7 +112,26 @@ function AdminBackButton() {
       onPress={() => router.push("/admin-dashboard")}
       style={{ marginLeft: 15 }}
     >
-      <Ionicons name="chevron-back" size={28} color="#333" />
+      <ChevronLeft size={28} color="#333" />
+    </TouchableOpacity>
+  );
+}
+
+function BackButton() {
+  const router = useRouter();
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/dashboard');
+    }
+  };
+  return (
+    <TouchableOpacity
+      onPress={handleBack}
+      style={{ marginLeft: 15 }}
+    >
+      <ChevronLeft size={28} color="#333" />
     </TouchableOpacity>
   );
 }
@@ -116,6 +142,7 @@ function AppStack() {
       screenOptions={{
         animation: "none",
         contentStyle: { backgroundColor: "#F0F2F5" },
+        headerLeft: () => <BackButton />,
       }}
     >
       <Stack.Screen name="index" options={{ headerShown: false }} />
@@ -125,6 +152,7 @@ function AppStack() {
           title: "PU NSS CONNECT",
           headerTitleAlign: "center",
           headerBackVisible: false,
+          headerLeft: () => null,
           headerTitleStyle: {
             fontSize: 18,
             color: "#de0101ff",
@@ -138,6 +166,7 @@ function AppStack() {
           title: "PU NSS CONNECT",
           headerTitleAlign: "center",
           headerBackVisible: false,
+          headerLeft: () => null,
           headerTitleStyle: {
             fontSize: 18,
             color: "#de0101ff",
@@ -385,6 +414,14 @@ function RootLayoutContent() {
   const [userRole, setUserRole] = useState<string | null>(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
+  // Hide splash screen on mount (no font loading needed for SVG icons)
+  useEffect(() => {
+    SplashScreen.hideAsync().catch(() => {
+      // On web or if there's an error, this is expected
+      console.log("SplashScreen.hideAsync not available");
+    });
+  }, []);
+
   // Set up reminder scheduler - runs every 10 minutes
   useEffect(() => {
     // Run immediately on app start
@@ -431,11 +468,14 @@ function RootLayoutContent() {
             // Check if we can actually import these modules
             const { doc, getDoc } = await import("firebase/firestore");
             const { db } = await import("../firebase");
+            const { withNetworkRetry } = await import("../utils/networkStatus");
 
             if (!db) throw new Error("Firebase DB not initialized");
 
             const userDocRef = doc(db, "users", user.uid);
-            const userDoc = await getDoc(userDocRef);
+            
+            // Use network retry for getDoc to handle offline states
+            const userDoc = await withNetworkRetry(() => getDoc(userDocRef), 1, 500);
 
             const role = userDoc.exists() ? userDoc.data().role : "user";
             setUserRole(role);
@@ -497,8 +537,18 @@ function RootLayoutContent() {
               }
               // Don't redirect for other pages - let users navigate freely
             }
-          } catch (error) {
-            console.error("Error checking user role:", error);
+          } catch (error: any) {
+            // Handle offline errors more gracefully - don't log noisy errors
+            const isOfflineError =
+              error?.code === 'unavailable' ||
+              error?.message?.includes('offline') ||
+              error?.message?.includes('network') ||
+              error?.message?.includes('timeout');
+
+            if (!isOfflineError) {
+              console.error("Error checking user role:", error);
+            }
+            
             setUserRole("user");
             if (!inApp) {
               router.replace("/dashboard");

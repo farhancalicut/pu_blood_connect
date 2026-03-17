@@ -1,10 +1,11 @@
 import React,  { useCallback, useState, useEffect } from 'react';
-import { ActivityIndicator, Alert, FlatList, SafeAreaView, StyleSheet, Text, TouchableOpacity, View, Dimensions } from 'react-native';
+import { ActivityIndicator, FlatList, SafeAreaView, StyleSheet, Text, TouchableOpacity, View, Dimensions, Platform } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import { Edit2, Trash2 } from 'lucide-react-native';
 import { collection, deleteDoc, doc, getDocs, orderBy, query, where } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 import { db } from '../firebase';
+import { showAlert } from '../utils/alert';
 
 const { width: screenWidth } = Dimensions.get('window');
 const guidelineBaseWidth = 375;
@@ -34,10 +35,10 @@ const MyRequestCard = ({ item, onDelete }: { item: UserRequest, onDelete: () => 
             </View>
             <View style={styles.buttonContainer}>
                 <TouchableOpacity style={styles.actionButton} onPress={() => router.push({ pathname: '/request', params: { requestId: item.id } })}>
-                    <Ionicons name="pencil" size={scale(20)} color={palette.darkText} />
+                    <Edit2 size={scale(20)} color={palette.darkText} />
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.actionButton} onPress={onDelete}>
-                    <Ionicons name="trash" size={scale(20)} color={palette.primaryRed} />
+                    <Trash2 size={scale(20)} color={palette.primaryRed} />
                 </TouchableOpacity>
             </View>
         </View>
@@ -80,27 +81,38 @@ export default function MyRequestsScreen() {
     );
 
     const handleDelete = (requestId: string) => {
-        Alert.alert(
-            "Delete Request",
-            "Are you sure you want to permanently delete this request?",
-            [
-                { text: "Cancel", style: "cancel" },
-                {
-                    text: "Delete",
-                    style: "destructive",
-                    onPress: async () => {
-                        try {
-                            await deleteDoc(doc(db, "requests", requestId));
-                            Alert.alert("Success", "Your request has been deleted.");
-                            fetchUserRequests(); // Refresh the list
-                        } catch (error) {
-                            console.error("Error deleting request: ", error);
-                            Alert.alert("Error", "Could not delete the request.");
-                        }
+        if (Platform.OS === 'web') {
+            // Use web confirm dialog
+            const confirmed = window.confirm("Are you sure you want to permanently delete this request?");
+            if (confirmed) {
+                deleteRequest(requestId);
+            }
+        } else {
+            // Use native Alert
+            showAlert(
+                "Delete Request",
+                "Are you sure you want to permanently delete this request?",
+                [
+                    { text: "Cancel", style: "cancel" },
+                    {
+                        text: "Delete",
+                        style: "destructive",
+                        onPress: () => deleteRequest(requestId),
                     },
-                },
-            ]
-        );
+                ]
+            );
+        }
+    };
+
+    const deleteRequest = async (requestId: string) => {
+        try {
+            await deleteDoc(doc(db, "requests", requestId));
+            showAlert("Success", "Your request has been deleted.");
+            fetchUserRequests(); // Refresh the list
+        } catch (error) {
+            console.error("Error deleting request: ", error);
+            showAlert("Error", "Could not delete the request.");
+        }
     };
     
     return (
